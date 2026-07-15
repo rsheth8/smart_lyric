@@ -1,0 +1,15 @@
+{
+  "name": "smart_lyric",
+  "version": "0.1.0",
+  "description": "Auto-detecting, projector-ready lyric-follow / karaoke display.",
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "node server.mjs",
+    "start": "electron .",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0"
+  }
+}

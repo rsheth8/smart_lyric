@@ -1,0 +1,361 @@
+<title>smart_lyric — projector mockup</title>
+
+<style>
+  :root{
+    --ease: cubic-bezier(.22,.61,.36,1);
+    --ink: #f7f5ef;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    height:100vh; overflow:hidden; color:var(--ink);
+    background:#05060a; font-family:-apple-system,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+
+  /* ---------- stage ---------- */
+  #stage{ position:relative; height:100vh; width:100vw; overflow:hidden; }
+  .bg{ position:absolute; inset:0; z-index:0; transition:opacity 1.2s ease; }
+  .vignette{ position:absolute; inset:0; z-index:1; pointer-events:none;
+    background:radial-gradient(120% 90% at 50% 45%, transparent 40%, rgba(0,0,0,.55) 100%); }
+
+  /* ---------- lyrics ---------- */
+  #viewport{ position:absolute; inset:0; z-index:2; display:flex; align-items:center;
+    justify-content:center; overflow:hidden; }
+  #lyrics{ width:min(1100px,86vw); text-align:center; will-change:transform;
+    transition:transform .6s var(--ease); }
+  .line{ display:block; margin:.55em 0; line-height:1.15; opacity:.22;
+    transition:opacity .5s ease, filter .5s ease, transform .55s var(--ease);
+    filter:blur(.4px); transform-origin:center; }
+  .line.active{ opacity:1; filter:none; }
+  .line.past{ opacity:.14; }
+  .word{ display:inline-block; margin:0 .16em; transition:
+      color .22s ease, opacity .22s ease, transform .28s var(--ease), text-shadow .3s ease;
+    color:var(--dim); }
+  .line.active .word{ color:var(--upcoming); }
+  .line.active .word.sung{ color:var(--sung); }
+  .line.active .word.current{ color:var(--current); transform:translateY(-.05em) scale(1.04); }
+
+  /* ---------- now playing ---------- */
+  #np{ position:absolute; left:2.4vw; bottom:2.4vw; z-index:3; display:flex; gap:14px;
+    align-items:center; opacity:.9; transition:opacity .5s ease; }
+  #cover{ width:56px; height:56px; border-radius:8px; flex:none; overflow:hidden;
+    box-shadow:0 6px 24px rgba(0,0,0,.5); }
+  #np .meta b{ display:block; font-size:15px; font-weight:600; letter-spacing:.2px; }
+  #np .meta span{ display:block; font-size:13px; opacity:.6; margin-top:2px; }
+
+  /* ---------- neon audio bars ---------- */
+  #bars{ position:absolute; left:0; right:0; bottom:0; z-index:2; height:14vh;
+    display:none; align-items:flex-end; justify-content:center; gap:4px; padding:0 4vw; opacity:.85; }
+  #bars .bar{ flex:1; max-width:14px; border-radius:6px 6px 0 0; height:6%; }
+
+  /* ---------- controls ---------- */
+  #ui{ position:absolute; top:0; left:0; right:0; z-index:5; display:flex; gap:8px;
+    align-items:center; justify-content:center; padding:18px; transition:opacity .4s ease; }
+  #ui.hide{ opacity:0; pointer-events:none; }
+  .seg{ display:flex; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+    border-radius:999px; padding:4px; backdrop-filter:blur(12px); }
+  .seg button{ font:inherit; font-size:13px; font-weight:500; letter-spacing:.3px;
+    color:rgba(255,255,255,.62); background:transparent; border:0; padding:8px 18px;
+    border-radius:999px; cursor:pointer; transition:all .2s ease; }
+  .seg button:hover{ color:#fff; }
+  .seg button[aria-pressed="true"]{ background:#fff; color:#111; }
+  .seg button:focus-visible{ outline:2px solid #7aa2ff; outline-offset:2px; }
+  .fontpick{ display:flex; align-items:center; gap:9px; background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:7px 8px 7px 15px; backdrop-filter:blur(12px); }
+  .fontpick span{ font-size:12px; color:rgba(255,255,255,.5); letter-spacing:.4px; }
+  .fontpick select{ font:inherit; font-size:13px; font-weight:500; color:#fff; background:transparent;
+    border:0; border-radius:999px; padding:2px 6px; cursor:pointer; }
+  .fontpick select:focus-visible{ outline:2px solid #7aa2ff; outline-offset:2px; }
+  .fontpick option{ color:#111; }
+  #hint{ position:absolute; top:74px; left:0; right:0; z-index:5; text-align:center;
+    font-size:12.5px; letter-spacing:.4px; color:rgba(255,255,255,.4);
+    transition:opacity .4s ease; }
+  #hint.hide{ opacity:0; }
+
+  @media (prefers-reduced-motion: reduce){
+    .line,.word,#lyrics{ transition-duration:.01ms !important; }
+  }
+
+  /* =====================================================================
+     STYLE A — CINEMATIC  (Apple-Music-like, album-art glow)
+  ===================================================================== */
+  #stage[data-style="cinematic"]{ --dim:rgba(247,245,239,.28); --upcoming:rgba(247,245,239,.42);
+    --sung:#f7f5ef; --current:#ffe9c2; }
+  #stage[data-style="cinematic"] #lyrics{ font-family:"SF Pro Display",-apple-system,system-ui,sans-serif; }
+  #stage[data-style="cinematic"] .line{ font-size:clamp(30px,5.4vw,74px); font-weight:800;
+    letter-spacing:-.02em; }
+  #stage[data-style="cinematic"] .line.active .word.current{ text-shadow:0 0 34px rgba(255,214,150,.5); }
+
+  /* =====================================================================
+     STYLE B — NEON  (party / karaoke energy)
+  ===================================================================== */
+  #stage[data-style="neon"]{ --dim:rgba(255,255,255,.24); --upcoming:rgba(210,235,255,.5);
+    --sung:#39f5c8; --current:#ff4fd8; }
+  #stage[data-style="neon"] #lyrics{ font-family:"Futura","Avenir Next","Century Gothic",system-ui,sans-serif; }
+  #stage[data-style="neon"] .line{ font-size:clamp(28px,5vw,66px); font-weight:700;
+    text-transform:uppercase; letter-spacing:.02em; }
+  #stage[data-style="neon"] .line.active .word.sung{ text-shadow:0 0 20px rgba(57,245,200,.6); }
+  #stage[data-style="neon"] .line.active .word.current{
+    text-shadow:0 0 12px #ff4fd8,0 0 40px rgba(255,79,216,.7); transform:translateY(-.06em) scale(1.08); }
+  #stage[data-style="neon"] #bars{ display:flex; }
+  #stage[data-style="neon"] #np{ opacity:.55; }
+
+  /* =====================================================================
+     STYLE C — MINIMAL  (typographic, gallery-calm)
+  ===================================================================== */
+  #stage[data-style="minimal"]{ --dim:rgba(233,230,222,.16); --upcoming:rgba(233,230,222,.34);
+    --sung:rgba(233,230,222,.72); --current:#e0a94f; }
+  #stage[data-style="minimal"] #lyrics{ font-family:"Didot","Bodoni 72","Baskerville","Hoefler Text",Georgia,serif; }
+  #stage[data-style="minimal"] .line{ font-size:clamp(26px,4.4vw,58px); font-weight:500;
+    letter-spacing:.005em; }
+  #stage[data-style="minimal"] .line.active .word.current{ font-style:italic; }
+  #stage[data-style="minimal"] #np .meta b{ font-family:"Didot",Georgia,serif; }
+
+  /* =====================================================================
+     STYLE D — REFINED  (the blend: cinematic album-glow + minimal serif calm)
+  ===================================================================== */
+  #stage[data-style="refined"]{ --dim:rgba(240,236,226,.17); --upcoming:rgba(240,236,226,.4);
+    --sung:rgba(247,244,236,.84); --current:#ecc888; }
+  #stage[data-style="refined"] #lyrics{ font-family:"Didot","Bodoni 72","Baskerville","Hoefler Text",Georgia,serif; }
+  #stage[data-style="refined"] .line{ font-size:clamp(30px,5vw,70px); font-weight:500;
+    letter-spacing:.004em; line-height:1.2; }
+  #stage[data-style="refined"] .line.active .word.current{
+    text-shadow:0 0 30px rgba(236,200,136,.42); transform:translateY(-.04em) scale(1.035); }
+  #stage[data-style="refined"] #np .meta b{ font-family:"Didot",Georgia,serif; letter-spacing:.3px; }
+</style>
+
+<h2 class="sr-only">A mockup of a full-screen lyric display with three visual styles — cinematic, neon, and minimal — showing word-by-word karaoke highlighting.</h2>
+
+<div id="stage" data-style="cinematic">
+  <canvas class="bg" id="bg"></canvas>
+  <div class="vignette"></div>
+
+  <div id="viewport"><div id="lyrics" aria-live="off"></div></div>
+
+  <div id="bars" aria-hidden="true"></div>
+
+  <div id="np">
+    <canvas id="cover" width="56" height="56"></canvas>
+    <div class="meta"><b>Slow Light</b><span>The Vela Sessions · Analog Hours</span></div>
+  </div>
+
+  <div id="hint">demo playing · original placeholder lyrics · press <b>F</b> for fullscreen</div>
+  <div id="ui">
+    <div class="seg" role="group" aria-label="Visual style">
+      <button data-set="cinematic" aria-pressed="true">Cinematic</button>
+      <button data-set="refined" aria-pressed="false">Refined</button>
+      <button data-set="minimal" aria-pressed="false">Minimal</button>
+      <button data-set="neon" aria-pressed="false">Neon</button>
+    </div>
+    <label class="fontpick"><span>Font</span>
+      <select id="font" aria-label="Lyric font">
+        <optgroup label="Humanist sans (warm, legible)">
+          <option value="'Optima','Optima Nova',Candara,'Gill Sans','Segoe UI',sans-serif">Optima</option>
+          <option value="'Avenir Next',Avenir,'Segoe UI',system-ui,sans-serif">Avenir Next</option>
+          <option value="'Gill Sans','Gill Sans MT',Calibri,sans-serif">Gill Sans</option>
+        </optgroup>
+        <optgroup label="Modern sans (clean)">
+          <option value="'SF Pro Display',-apple-system,system-ui,sans-serif">SF Pro Display</option>
+          <option value="'Helvetica Neue',Helvetica,Arial,sans-serif">Helvetica Neue</option>
+        </optgroup>
+        <optgroup label="Serif (classic, softer than Didot)">
+          <option value="Baskerville,'Baskerville Old Face',Georgia,serif">Baskerville</option>
+          <option value="Palatino,'Palatino Linotype','Book Antiqua',Georgia,serif">Palatino</option>
+          <option value="Cochin,'Hoefler Text',Georgia,serif">Cochin</option>
+        </optgroup>
+        <option value="" selected>Auto (per-style default)</option>
+      </select>
+    </label>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const stage = document.getElementById('stage');
+  const lyricsEl = document.getElementById('lyrics');
+
+  // Original placeholder lyrics (written for this demo — not a real song).
+  const LINES = [
+    "Drop the needle, let the evening start",
+    "Dust and starlight spinning in the dark",
+    "Every little crackle is a heartbeat now",
+    "Hold this moment, don't you let it go",
+    "We are golden in the speaker glow",
+    "Turn it slower till the whole room glows",
+    "Every record is a second life",
+    "So we sing it back into the night"
+  ];
+
+  // Build a word-level timeline. Duration scales with word length; small gap per line.
+  const WPS = 3.1;                 // words-per-second feel
+  const LINE_GAP = 0.55;           // pause between lines (s)
+  let t = 0;
+  const timeline = LINES.map(text=>{
+    const words = text.split(' ').map(w=>{
+      const dur = Math.max(.26, .12 + w.replace(/[^a-z]/gi,'').length * .052) / (WPS/3.1);
+      const word = { w, start:t, end:t+dur };
+      t += dur;
+      return word;
+    });
+    const line = { words, start:words[0].start, end:t };
+    t += LINE_GAP;
+    return line;
+  });
+  const TOTAL = t + 1.2;
+
+  // Render DOM once.
+  const lineEls = timeline.map(line=>{
+    const el = document.createElement('div');
+    el.className = 'line';
+    line.words.forEach(word=>{
+      const s = document.createElement('span');
+      s.className = 'word'; s.textContent = word.w;
+      el.appendChild(s);
+      word.el = s;
+    });
+    lyricsEl.appendChild(el);
+    line.el = el;
+    return el;
+  });
+
+  let activeLine = -1;
+  function centerOn(idx){
+    const el = lineEls[idx];
+    const y = window.innerHeight/2 - (el.offsetTop + el.offsetHeight/2);
+    lyricsEl.style.transform = `translateY(${y}px)`;
+  }
+
+  function frame(now){
+    const tt = (now/1000) % TOTAL;
+    // find current line
+    let li = 0;
+    for(let i=0;i<timeline.length;i++){ if(tt >= timeline[i].start) li = i; else break; }
+    if(li !== activeLine){
+      lineEls.forEach((el,i)=>{
+        el.classList.toggle('active', i===li);
+        el.classList.toggle('past', i<li);
+      });
+      centerOn(li);
+      activeLine = li;
+    }
+    // word states within active line
+    const line = timeline[li];
+    for(const word of line.words){
+      const c = word.el.classList;
+      if(tt >= word.end){ c.add('sung'); c.remove('current'); }
+      else if(tt >= word.start){ c.add('current'); c.remove('sung'); }
+      else { c.remove('current','sung'); }
+    }
+    drawBg(now/1000, li/timeline.length);
+    drawBars(now/1000);
+    raf = requestAnimationFrame(frame);
+  }
+
+  /* ---------- fake album cover (gradient block, seeds the palette) ---------- */
+  (function paintCover(){
+    const c = document.getElementById('cover').getContext('2d');
+    const g = c.createLinearGradient(0,0,56,56);
+    g.addColorStop(0,'#3a2b6b'); g.addColorStop(.5,'#8a3d63'); g.addColorStop(1,'#e0913f');
+    c.fillStyle=g; c.fillRect(0,0,56,56);
+    c.fillStyle='rgba(255,255,255,.9)'; c.beginPath(); c.arc(28,28,7,0,7); c.fill();
+    c.fillStyle='#1a1030'; c.beginPath(); c.arc(28,28,2.2,0,7); c.fill();
+  })();
+
+  /* ---------- ambient background (Canvas, palette per style) ---------- */
+  const bg = document.getElementById('bg');
+  const bx = bg.getContext('2d');
+  function sizeCanvas(){
+    const dpr = Math.min(devicePixelRatio||1, 2);
+    bg.width = innerWidth*dpr; bg.height = innerHeight*dpr; bx.setTransform(dpr,0,0,dpr,0,0);
+    if(activeLine>=0) centerOn(activeLine);
+  }
+  window.addEventListener('resize', sizeCanvas);
+
+  const PALETTES = {
+    refined:   [[42,38,74],[92,52,78],[150,96,58]],
+    cinematic: [[58,43,107],[138,61,99],[224,145,63]],
+    neon:      [[255,79,216],[57,245,200],[80,120,255]],
+    minimal:   [[20,20,26],[28,26,34],[16,16,20]]
+  };
+  const BG_SPEED = { refined:.5, cinematic:1, neon:1, minimal:.7 };
+  const BG_ALPHA = { refined:.34, cinematic:.5, minimal:.5 };
+  function amp(time){ // fake audio envelope 0..1
+    return .5 + .5*Math.sin(time*2.1) * (.6 + .4*Math.sin(time*.7));
+  }
+  function drawBg(time, prog){
+    const style = stage.dataset.style;
+    const W=innerWidth, H=innerHeight, pal=PALETTES[style];
+    const a = amp(time);
+    const st = time * (BG_SPEED[style]||1);
+    bx.clearRect(0,0,W,H);
+    bx.fillStyle = style==='minimal' ? '#08080c' : '#06060c';
+    bx.fillRect(0,0,W,H);
+    const blobs = style==='minimal' ? 2 : 3;
+    for(let i=0;i<blobs;i++){
+      const c = pal[i%pal.length];
+      const ph = st*(.12+i*.05) + i*2.1 + prog*3;
+      const x = W*(.5 + .32*Math.sin(ph));
+      const y = H*(.5 + .3*Math.cos(ph*.8+i));
+      const r = Math.min(W,H)*(.55 + .12*Math.sin(st*.5+i)) * (style==='neon'? (.9+a*.35):1);
+      const g = bx.createRadialGradient(x,y,0,x,y,r);
+      const alpha = style==='neon' ? .42+a*.12 : (BG_ALPHA[style]||.4);
+      g.addColorStop(0,`rgba(${c[0]},${c[1]},${c[2]},${alpha})`);
+      g.addColorStop(1,`rgba(${c[0]},${c[1]},${c[2]},0)`);
+      bx.fillStyle=g; bx.fillRect(0,0,W,H);
+    }
+  }
+
+  /* ---------- neon bars ---------- */
+  const barsWrap = document.getElementById('bars');
+  const BAR_N = 56, barEls=[];
+  for(let i=0;i<BAR_N;i++){ const b=document.createElement('div'); b.className='bar';
+    b.style.background = i%2 ? 'linear-gradient(#39f5c8,#1fa5ff)' : 'linear-gradient(#ff4fd8,#ff7a3d)';
+    barsWrap.appendChild(b); barEls.push(b); }
+  function drawBars(time){
+    if(stage.dataset.style!=='neon') return;
+    const a = amp(time);
+    for(let i=0;i<BAR_N;i++){
+      const d = Math.abs(i - BAR_N/2)/(BAR_N/2);
+      const h = 8 + (1-d)*70*a * (0.6+0.4*Math.abs(Math.sin(time*4 + i*.5)));
+      barEls[i].style.height = h.toFixed(1)+'%';
+    }
+  }
+
+  /* ---------- style switching ---------- */
+  document.querySelectorAll('.seg button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      stage.dataset.style = btn.dataset.set;
+      document.querySelectorAll('.seg button').forEach(b=>
+        b.setAttribute('aria-pressed', String(b===btn)));
+    });
+  });
+
+  /* ---------- font audition (inline override wins over per-style font) ---------- */
+  document.getElementById('font').addEventListener('change', e=>{
+    lyricsEl.style.fontFamily = e.target.value;
+    if(activeLine>=0) centerOn(activeLine);
+  });
+
+  /* ---------- fullscreen + auto-hide UI ---------- */
+  addEventListener('keydown', e=>{
+    if(e.key.toLowerCase()==='f'){
+      if(!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+      else document.exitFullscreen?.();
+    }
+    if(['1','2','3','4'].includes(e.key)){
+      document.querySelectorAll('.seg button')[+e.key-1].click();
+    }
+  });
+  const ui=document.getElementById('ui'), hint=document.getElementById('hint');
+  let idle; function poke(){ ui.classList.remove('hide'); hint.classList.remove('hide');
+    clearTimeout(idle); idle=setTimeout(()=>{ui.classList.add('hide'); hint.classList.add('hide');},3200); }
+  addEventListener('mousemove',poke); poke();
+
+  lyricsEl.style.fontFamily = document.getElementById('font').value;
+  sizeCanvas();
+  let raf = requestAnimationFrame(frame);
+})();
+</script>

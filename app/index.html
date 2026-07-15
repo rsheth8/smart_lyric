@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>smart_lyric</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="stage" data-mode="setup">
+    <canvas class="bg" id="bg"></canvas>
+    <div class="vignette"></div>
+
+    <!-- Lyric view (playing) -->
+    <div id="viewport"><div id="lyrics" aria-live="off"></div></div>
+
+    <!-- Setup screen (idle) -->
+    <div id="setup">
+      <div class="card">
+        <div class="brand">
+          <div class="mark" aria-hidden="true">♪</div>
+          <h1>smart_lyric</h1>
+          <p class="tagline">Follow along with any song — lyrics, synced and highlighted.</p>
+        </div>
+
+        <form id="search" autocomplete="off">
+          <input id="in-track" type="text" placeholder="Song title" aria-label="Song title" />
+          <input id="in-artist" type="text" placeholder="Artist (optional)" aria-label="Artist" />
+          <button id="btn-load" type="submit">Load lyrics</button>
+        </form>
+
+        <div id="setup-status" role="status"></div>
+
+        <div class="alt">
+          <button id="btn-audio" class="linkish" type="button">Sync to an audio file</button>
+          <span class="sep">·</span>
+          <button id="btn-listen" class="linkish" type="button">Listen to a record</button>
+        </div>
+      </div>
+      <div class="hint">Press F for fullscreen — the projector view</div>
+    </div>
+
+    <!-- Now-playing bar (playing) -->
+    <div id="nowbar">
+      <div id="cover" aria-hidden="true"></div>
+      <div class="meta">
+        <b id="np-title">—</b>
+        <span id="np-artist"></span>
+      </div>
+      <div class="spacer"></div>
+      <button id="btn-play" type="button">Play</button>
+      <button id="btn-change" class="ghost" type="button">Change song</button>
+    </div>
+
+    <audio id="audio" preload="auto"></audio>
+    <input id="file" type="file" accept="audio/*" hidden />
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
