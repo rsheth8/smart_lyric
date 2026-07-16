@@ -64,4 +64,4 @@ createServer(async (req, res) => {
   } catch {
     res.writeHead(404, { 'Content-Type': 'text/plain' }).end('Not found');
   }
-}).listen(PORT, () => console.log(`smart_lyric dev server → http://localhost:${PORT}`));
+}).listen(PORT, () => console.log(`Bar4Bar dev server → http://localhost:${PORT}`));

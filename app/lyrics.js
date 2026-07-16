@@ -4,6 +4,8 @@ export {
   fetchFromLRCLIB,
   fetchFromLocal,
   normalizeTitle,
+  cleanTrackTitle,
+  primaryArtist,
   titleScore,
   pickBestMatch,
 } from './providers/lyrics/index.js';

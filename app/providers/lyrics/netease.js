@@ -1,13 +1,33 @@
+import { parseYRC } from '../formats/yrc.js';
+
 // Word-level lyrics via NetEase (returns karaoke "yrc" when available).
 //
 // NetEase sends no CORS header, so the browser can't call it directly. We go
 // through a same-origin proxy (/api/lyrics — served by the dev server locally
 // and by a Vercel function in prod), or the Electron main process via the
-// smartLyric bridge (file:// has no proxy). Both return { yrc, lrc, meta }.
+// bar4bar bridge (file:// has no proxy). Both return { yrc, lrc, meta }.
+
+const BRIDGE_TIMEOUT_MS = 9000;
+
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('lyrics bridge timeout')), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      }
+    );
+  });
+}
 
 async function fetchViaBridgeOrProxy(query) {
-  if (typeof window !== 'undefined' && window.smartLyric?.wordLyrics) {
-    return window.smartLyric.wordLyrics(query);
+  if (typeof window !== 'undefined' && window.bar4bar?.wordLyrics) {
+    return withTimeout(window.bar4bar.wordLyrics(query), BRIDGE_TIMEOUT_MS);
   }
   const params = new URLSearchParams();
   if (query.artist) params.set('artist', query.artist);
@@ -19,9 +39,8 @@ async function fetchViaBridgeOrProxy(query) {
 
 /**
  * @returns {Promise<{ text: string, format: 'yrc'|'lrc', meta: object, source: string }|null>}
- *   Prefers word-level `yrc`; only returns line-level `lrc` if that's all NetEase
- *   has (LRCLIB is generally a better line-level source, so we let the chain fall
- *   through to it instead of returning NetEase line-level here).
+ *   Prefers word-level `yrc`; only returns when it actually parses to timed lines
+ *   so we don't block LRCLIB with unusable NetEase payloads.
  */
 export async function fetchFromNetease(query) {
   let data;
@@ -33,7 +52,10 @@ export async function fetchFromNetease(query) {
   if (!data) return null;
 
   if (data.yrc && data.yrc.trim()) {
-    return { text: data.yrc, format: 'yrc', meta: data.meta || {}, source: 'netease' };
+    const { lines } = parseYRC(data.yrc);
+    if (lines.length) {
+      return { text: data.yrc, format: 'yrc', meta: data.meta || {}, source: 'netease' };
+    }
   }
-  return null; // no word-level timing → let LRCLIB handle line-level
+  return null; // no usable word-level timing → let LRCLIB handle line-level
 }

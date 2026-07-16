@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>smart_lyric</title>
+  <title>Bar4Bar</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
   <script src="config.js"></script>
   <script src="https://js-cdn.music.apple.com/musickit/v3/musickit.js"></script>
@@ -19,10 +20,10 @@
       <div class="setup-panel">
         <header class="setup-header">
           <div class="brand">
-            <div class="mark" aria-hidden="true">♪</div>
+            <div class="mark" aria-hidden="true">B<span>4</span>B</div>
             <div>
-              <h1>smart_lyric</h1>
-              <p class="tagline">Search a song, pick a recommendation, or sync playback.</p>
+              <h1>Bar<span class="brand-four">4</span>Bar</h1>
+              <p class="tagline">Every bar. Every word. In sync.</p>
             </div>
           </div>
           <button id="btn-projector" class="chip ghost" type="button" title="Projector / OBS">Projector</button>
@@ -48,6 +49,8 @@
             <p id="busy-detail">Please wait</p>
           </div>
         </div>
+
+        <div class="or-divider"><span>or follow what’s playing</span></div>
 
         <section class="sync-strip" aria-label="Sync sources">
           <button id="btn-spotify" class="sync-btn spotify" type="button">
@@ -105,7 +108,7 @@
           </div>
         </section>
       </div>
-      <div class="hint">Press F for fullscreen · Space to play/pause</div>
+      <div class="hint">F fullscreen · Space play/pause · [ ] \ nudge sync</div>
     </div>
 
     <div id="nowbar">

@@ -4,7 +4,7 @@ import { registerMedium } from './index.js';
 export const vinylMedium = {
   id: 'vinyl',
   label: 'Listen to a record',
-  canUse: () => !!(typeof window !== 'undefined' && window.smartLyric?.identify),
+  canUse: () => !!(typeof window !== 'undefined' && window.bar4bar?.identify),
   _detector: null,
   _mic: null,
 
@@ -14,7 +14,7 @@ export const vinylMedium = {
 
     this._detector = new VinylDetector({
       identify: async (wav) => {
-        const r = await window.smartLyric.identify(wav);
+        const r = await window.bar4bar.identify(wav);
         if (r?.error) {
           onStatus('error', `Fingerprint error: ${r.error}`);
           return null;

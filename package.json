@@ -1,7 +1,7 @@
 {
-  "name": "smart_lyric",
+  "name": "bar4bar",
   "version": "0.1.0",
-  "description": "Auto-detecting, projector-ready lyric-follow / karaoke display.",
+  "description": "Word-by-word lyrics that follow every bar, in sync.",
   "type": "module",
   "main": "electron/main.js",
   "engines": {

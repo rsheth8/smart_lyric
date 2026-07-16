@@ -1,6 +1,6 @@
-# smart_lyric — Handoff
+# Bar4Bar — Handoff
 
-Last updated: 2026-07-15
+Last updated: 2026-07-16
 
 Projector-ready lyric-follow / karaoke display. Clock-driven highlighting (display never reads audio directly). Multi-medium inputs, multi-format lyrics, Spotify follow, OBS/projector outputs.
 
@@ -80,7 +80,7 @@ app/
 electron/
   main.js                Window + projector + Spotify auth popup (sync intercept)
   fingerprint.cjs        fpcalc + AcoustID + offset alignment
-  preload.cjs            smartLyric bridge (identify, spotifyLogin, projector…)
+  preload.cjs            bar4bar bridge (identify, spotifyLogin, projector…)
 api/
   config.js              Vercel /config.js → injects public env (client id, redirect)
 ```

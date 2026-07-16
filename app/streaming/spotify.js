@@ -165,8 +165,8 @@ export async function beginSpotifyLogin() {
   if (!clientId) throw new Error('SPOTIFY_CLIENT_ID missing. Add it to .env and restart.');
 
   // Electron: main-process auth popup (reliable)
-  if (window.smartLyric?.spotifyLogin) {
-    const result = await window.smartLyric.spotifyLogin();
+  if (window.bar4bar?.spotifyLogin) {
+    const result = await window.bar4bar.spotifyLogin();
     if (result?.error) throw new Error(result.error);
     if (!result?.access_token) throw new Error('Spotify login cancelled.');
     saveToken('spotify', {
@@ -308,10 +308,49 @@ async function playerApi(path, { method = 'GET', body } = {}) {
 /** Find a track on Spotify. Returns { uri, id, name, artist, album, artwork, duration } or null. */
 export async function searchSpotifyTrack({ artist, track }) {
   if (!track) return null;
-  const q = [track, artist ? `artist:${artist}` : ''].filter(Boolean).join(' ');
-  const data = await playerApi(`/search?type=track&limit=5&q=${encodeURIComponent(q)}`);
-  const t = data?.tracks?.items?.[0];
-  if (!t) return null;
+
+  // Primary artist only — "A, B" / feat. credits break Spotify's artist: filter.
+  const primary = (artist || '')
+    .split(',')[0]
+    .replace(/\s+(feat\.?|ft\.?|featuring)\s+.+$/i, '')
+    .trim();
+
+  // Field filters first (precise), then a plain text fallback.
+  const queries = [];
+  if (primary) queries.push(`track:${track} artist:${primary}`);
+  queries.push([track, primary].filter(Boolean).join(' '));
+
+  let items = [];
+  for (const q of queries) {
+    const data = await playerApi(`/search?type=track&limit=10&q=${encodeURIComponent(q)}`);
+    items = data?.tracks?.items || [];
+    if (items.length) break;
+  }
+  if (!items.length) return null;
+
+  const wantTrack = track.toLowerCase();
+  const wantArtist = primary.toLowerCase();
+  const scored = items.map((t) => {
+    const name = (t.name || '').toLowerCase();
+    const artists = (t.artists || []).map((a) => (a.name || '').toLowerCase());
+    let score = 0;
+    if (name === wantTrack) score += 3;
+    else if (name.includes(wantTrack) || wantTrack.includes(name)) score += 2;
+    else {
+      const qw = new Set(wantTrack.split(/\s+/).filter(Boolean));
+      const overlap = name.split(/\s+/).filter((w) => qw.has(w)).length;
+      score += overlap / Math.max(qw.size, 1);
+    }
+    if (wantArtist && artists.some((a) => a.includes(wantArtist) || wantArtist.includes(a))) {
+      score += 2;
+    }
+    // Prefer originals over live/karaoke noise when scores are close.
+    if (/\b(live|karaoke|tribute|cover)\b/i.test(t.name || '')) score -= 1;
+    return { t, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  const t = scored[0].t;
+
   return {
     uri: t.uri,
     id: t.id,

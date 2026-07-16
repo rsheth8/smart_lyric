@@ -1,4 +1,6 @@
-# smart_lyric
+# Bar4Bar
+
+Every bar. Every word. In sync.
 
 A projector-ready, auto-detecting lyric-follow / karaoke display. Point a mic at
 your record player, sync to a local file, connect Spotify or Apple Music, or search

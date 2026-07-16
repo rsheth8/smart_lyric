@@ -11,7 +11,7 @@ let currentTrack = null;
 export function getAppleMusicConfig() {
   return {
     developerToken: window.__SL_CONFIG__?.appleMusicDeveloperToken || '',
-    appName: 'smart_lyric',
+    appName: 'Bar4Bar',
     appBuild: '0.1.0',
   };
 }

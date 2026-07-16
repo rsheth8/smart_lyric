@@ -1,6 +1,6 @@
 // BroadcastChannel bridge: main window publishes display state for overlay/OBS.
 
-const CHANNEL = 'smart_lyric';
+const CHANNEL = 'bar4bar';
 
 export function createSyncPublisher({ display, getMeta, getClock }) {
   const bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(CHANNEL) : null;

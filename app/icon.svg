@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 64 64" role="img" aria-label="B4B">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#52e5ff" stop-opacity=".24"/>
+      <stop offset="100%" stop-color="#070c16" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="#070c16"/>
+  <rect width="64" height="64" rx="16" fill="url(#glow)"/>
+  <rect x="1.5" y="1.5" width="61" height="61" rx="14.5" fill="none"
+        stroke="#52e5ff" stroke-opacity=".48" stroke-width="1.5"/>
+  <g text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, system-ui, sans-serif"
+     font-size="20" font-weight="700">
+    <text x="21" y="38" fill="#b8f5ff">B</text>
+    <text x="32" y="38" fill="#ff715b">4</text>
+    <text x="43" y="38" fill="#b8f5ff">B</text>
+  </g>
+</svg>

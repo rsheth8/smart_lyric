@@ -1,6 +1,6 @@
 // OAuth token storage for streaming services.
 
-const PREFIX = 'smart_lyric_';
+const PREFIX = 'bar4bar_';
 
 export function saveToken(service, token) {
   try {

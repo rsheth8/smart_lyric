@@ -41,9 +41,10 @@ export class Display {
     // because the right value depends on the user's speakers/device/stream path.
     this.syncOffset = loadSyncOffset();
     // Album-art-derived palette (RGB triplets). Sensible default until we have art.
-    this.palette = [[58, 43, 107], [138, 61, 99], [224, 145, 63]];
+    this.palette = [[82, 229, 255], [255, 113, 91], [18, 59, 83]];
     this._onResize = () => this._resize();
     window.addEventListener('resize', this._onResize);
+    this._resize();
   }
 
   setClock(clock) {
@@ -176,7 +177,7 @@ export class Display {
     const st = time * 0.55; // calm drift
     const bx = this.bx;
     bx.clearRect(0, 0, W, H);
-    bx.fillStyle = '#06060c';
+    bx.fillStyle = '#070c16';
     bx.fillRect(0, 0, W, H);
     for (let i = 0; i < this.palette.length; i++) {
       const c = this.palette[i];

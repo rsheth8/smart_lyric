@@ -23,6 +23,7 @@ export const appleMusicMedium = {
       const clock = getStreamingClock();
       if (clock) session.setClock(clock);
     }
+    return this._connected;
   },
 
   stop() {

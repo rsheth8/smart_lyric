@@ -65,7 +65,7 @@ async function identifyWav(arrayBuffer) {
   const key = process.env.ACOUSTID_API_KEY;
   if (!key) throw new Error('ACOUSTID_API_KEY is not set — get a free key at acoustid.org/new-application');
 
-  const tmp = path.join(os.tmpdir(), `smartlyric-${crypto.randomUUID()}.wav`);
+  const tmp = path.join(os.tmpdir(), `bar4bar-${crypto.randomUUID()}.wav`);
   await writeFile(tmp, Buffer.from(arrayBuffer));
   try {
     const { fingerprint, duration } = await fpcalc(tmp);

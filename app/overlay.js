@@ -12,7 +12,7 @@ let lastTimelineKey = '';
 
 createSyncSubscriber((state) => {
   if (state.meta?.track) {
-    document.title = `${state.meta.track} — smart_lyric overlay`;
+    document.title = `${state.meta.track} — Bar4Bar overlay`;
   }
   if (state.palette?.length) display.setPalette(state.palette);
 

@@ -15,6 +15,28 @@ export function normalizeTitle(s) {
     .replace(/\bout\b/gi, 'about');
 }
 
+/** Strip Spotify/iTunes noise so "Song (feat. X) - Remastered" still matches LRCLIB. */
+export function cleanTrackTitle(s) {
+  return normalizeTitle(s || '')
+    .replace(
+      /\s*[(\[][^)\]]*(remaster|remix|live|bonus|deluxe|edit|version|mono|stereo|feat\.?|ft\.?|featuring)[^)\]]*[)\]]/gi,
+      ''
+    )
+    .replace(/\s*-\s*(remastered.*|remix.*|live.*|bonus.*|mono|stereo)\s*$/i, '')
+    .replace(/\s+(feat\.?|ft\.?|featuring)\s+.+$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** First credited artist only — "A, B" / "A feat. B" breaks artist filters. */
+export function primaryArtist(s) {
+  if (!s) return '';
+  return s
+    .split(',')[0]
+    .replace(/\s+(feat\.?|ft\.?|featuring)\s+.+$/i, '')
+    .trim();
+}
+
 function canonicalTitle(s) {
   return normalizeTitle(s)
     .toLowerCase()
@@ -39,15 +61,19 @@ export function pickBestMatch(list, { artist, track }, minScore = 0.5) {
   let hits = (list || []).filter((x) => x.syncedLyrics);
   if (!hits.length) return null;
 
-  if (artist) {
-    const a = artist.toLowerCase();
-    const byArtist = hits.filter((x) => (x.artistName || '').toLowerCase().includes(a));
+  const primary = primaryArtist(artist).toLowerCase();
+  if (primary) {
+    const byArtist = hits.filter((x) => {
+      const name = (x.artistName || '').toLowerCase();
+      return name.includes(primary) || primary.includes(name.split(',')[0].trim());
+    });
     if (byArtist.length) hits = byArtist;
   }
 
-  hits.sort((x, y) => titleScore(track, y.trackName) - titleScore(track, x.trackName));
+  const want = cleanTrackTitle(track) || track;
+  hits.sort((x, y) => titleScore(want, y.trackName) - titleScore(want, x.trackName));
   const best = hits[0];
-  return titleScore(track, best.trackName) >= minScore ? best : null;
+  return titleScore(want, best.trackName) >= minScore ? best : null;
 }
 
 function toResult(hit) {
@@ -73,20 +99,22 @@ async function fetchSearch(params) {
 }
 
 export async function search({ artist, track }) {
-  const ctx = { artist, track };
-  const variants = [...new Set([track, normalizeTitle(track)].filter(Boolean))];
+  const cleaned = cleanTrackTitle(track) || track;
+  const primary = primaryArtist(artist);
+  const ctx = { artist: primary || artist, track: cleaned };
+  const variants = [...new Set([cleaned, track, normalizeTitle(track)].filter(Boolean))];
 
   for (const name of variants) {
     const params = new URLSearchParams({ track_name: name });
-    if (artist) params.set('artist_name', artist);
+    if (primary) params.set('artist_name', primary);
     const list = await fetchSearch(params);
     const hit = pickBestMatch(list, ctx);
     if (hit) return toResult(hit);
   }
 
-  const firstWord = track.trim().split(/\s+/)[0];
-  if (firstWord && artist && firstWord.length >= 3) {
-    const params = new URLSearchParams({ track_name: firstWord, artist_name: artist });
+  const firstWord = cleaned.trim().split(/\s+/)[0];
+  if (firstWord && primary && firstWord.length >= 3) {
+    const params = new URLSearchParams({ track_name: firstWord, artist_name: primary });
     const list = await fetchSearch(params);
     const hit = pickBestMatch(list, ctx);
     if (hit) return toResult(hit);
@@ -96,8 +124,10 @@ export async function search({ artist, track }) {
 }
 
 export async function fetchFromLRCLIB({ artist, track, album, duration }) {
-  const params = new URLSearchParams({ track_name: track });
-  if (artist) params.set('artist_name', artist);
+  const cleaned = cleanTrackTitle(track) || track;
+  const primary = primaryArtist(artist);
+  const params = new URLSearchParams({ track_name: cleaned });
+  if (primary) params.set('artist_name', primary);
   if (album) params.set('album_name', album);
   if (duration) params.set('duration', String(Math.round(duration)));
 
@@ -110,5 +140,5 @@ export async function fetchFromLRCLIB({ artist, track, album, duration }) {
   } catch {
     /* fall through */
   }
-  return search({ artist, track });
+  return search({ artist: primary || artist, track: cleaned });
 }

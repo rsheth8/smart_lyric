@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('smartLyric', {
+contextBridge.exposeInMainWorld('bar4bar', {
   toggleFullscreen: () => ipcRenderer.invoke('toggle-fullscreen'),
   identify: (wavArrayBuffer) => ipcRenderer.invoke('identify', wavArrayBuffer),
   getDisplays: () => ipcRenderer.invoke('get-displays'),

@@ -133,12 +133,29 @@ function enterSetup() {
 
 function enterPlaying() {
   stage.dataset.mode = 'playing';
+  updateTransport();
+  updatePlayBtn();
   poke();
 }
 
 function stopActiveMedium() {
   if (activeMedium?.stop) activeMedium.stop();
   activeMedium = null;
+}
+
+// Drop everything tied to the *current* song so the next selection starts clean.
+// Without this, an attached audio/lyrics file (or a stale <audio> src) leaks into
+// later searches — and even into Spotify/vinyl follow, since session.load still
+// forwards the old lyricsFile. Call this whenever the user picks a new source.
+function resetSongState() {
+  haveAudio = false;
+  pendingAudioFile = null;
+  pendingLyricsFile = null;
+  session.setAudioFile(null, null);
+  session.setLyricsFile(null);
+  if (!audio.paused) audio.pause();
+  audio.removeAttribute('src');
+  audio.load();
 }
 
 function loadToken(service) {
@@ -197,7 +214,7 @@ async function loadSong({ artist, track, duration }) {
 // Find the selected song on Spotify, start it playing there, load its lyrics,
 // and follow playback (also handles skips via the follow-poll).
 async function startSpotifySong({ artist, track }) {
-  showBusy('Starting on Spotify', 'Finding the track and starting playback…');
+  showBusy('Starting on Spotify', 'Finding the track and loading lyrics…');
   setStatus('loading', `Finding “${track}” on Spotify…`);
   $('btn-load').disabled = true;
   try {
@@ -207,23 +224,31 @@ async function startSpotifySong({ artist, track }) {
       return;
     }
 
-    // Try to start playback on the user's Spotify device.
-    try {
-      await playSpotifyTrack({ uri: found.uri, positionMs: 0 });
-    } catch (playErr) {
-      // No device / not Premium — still show the lyrics on the local demo clock.
-      await showLyricsWithoutPlayback(found, playErr.message);
+    setStatus('loading', `Loading lyrics for “${found.name}”…`);
+    // Lyrics + playback in parallel — don't serialize NetEase behind Spotify play
+    // (that was the "song starts, lyrics never show" feel).
+    let playErr = null;
+    const [ok] = await Promise.all([
+      prepareSong({
+        artist: found.artist,
+        track: found.name,
+        album: found.album,
+        duration: found.duration,
+      }),
+      playSpotifyTrack({ uri: found.uri, positionMs: 0 }).catch((err) => {
+        playErr = err;
+      }),
+    ]);
+
+    if (playErr) {
+      // No device / not Premium — still show lyrics on the local demo clock if we have them.
+      if (ok) await showLyricsWithoutPlayback(found, playErr.message, { alreadyPrepared: true });
+      else setStatus('error', playErr.message || 'Couldn’t start Spotify playback.');
       return;
     }
-    primeTrack({ artist: found.artist, name: found.name });
+    if (!ok) return; // prepareSong set its own "no lyrics" error (song may still be playing)
 
-    const ok = await prepareSong({
-      artist: found.artist,
-      track: found.name,
-      album: found.album,
-      duration: found.duration,
-    });
-    if (!ok) return; // prepareSong set its own "no lyrics" error
+    primeTrack({ artist: found.artist, name: found.name });
 
     activeMedium = getMedium('spotify');
     await activeMedium.start({
@@ -254,7 +279,7 @@ async function startSpotifySong({ artist, track }) {
     updatePlayBtn();
   } catch (err) {
     setStatus('error', err.message || 'Couldn’t start playback on Spotify.');
-    console.error('[smart_lyric] Spotify play failed', err);
+    console.error('[Bar4Bar] Spotify play failed', err);
   } finally {
     hideBusy();
     $('btn-load').disabled = false;
@@ -262,14 +287,16 @@ async function startSpotifySong({ artist, track }) {
 }
 
 // Fallback when Spotify can't start playback: display lyrics on the demo clock.
-async function showLyricsWithoutPlayback(found, reason) {
-  const ok = await prepareSong({
-    artist: found.artist,
-    track: found.name,
-    album: found.album,
-    duration: found.duration,
-  });
-  if (!ok) return;
+async function showLyricsWithoutPlayback(found, reason, { alreadyPrepared = false } = {}) {
+  if (!alreadyPrepared) {
+    const ok = await prepareSong({
+      artist: found.artist,
+      track: found.name,
+      album: found.album,
+      duration: found.duration,
+    });
+    if (!ok) return;
+  }
   activeMedium = null;
   enterPlaying();
   updateTransport();
@@ -409,7 +436,6 @@ async function refreshSpotifyPanel() {
     btn.classList.add('connected');
     $('spotify-label').textContent = 'Spotify connected';
     $('spotify-hint').textContent = 'Tap to follow playback';
-    panel.hidden = false;
     const [recent, now] = await Promise.all([
       fetchSpotifyRecentlyPlayed(token.access_token),
       fetchSpotifyNowPlaying(token.access_token),
@@ -419,7 +445,14 @@ async function refreshSpotifyPanel() {
     for (const r of recent) {
       if (!forGrid.some((x) => x.track === r.track && x.artist === r.artist)) forGrid.push(r);
     }
-    renderRecGrid($('spotify-recs'), forGrid, 'No recent tracks yet — play something on Spotify.');
+    // Only reveal the panel when there's something to show — an empty header +
+    // "Follow now playing" chip with no cards just leaves a void in the menu.
+    if (forGrid.length) {
+      renderRecGrid($('spotify-recs'), forGrid, '');
+      panel.hidden = false;
+    } else {
+      panel.hidden = true;
+    }
   } else {
     btn.classList.remove('connected');
     $('spotify-label').textContent = 'Connect Spotify';
@@ -534,8 +567,8 @@ audio.addEventListener('play', updatePlayBtn);
 audio.addEventListener('pause', updatePlayBtn);
 
 $('btn-change').addEventListener('click', () => {
-  stopActiveMedium();
   enterSetup();
+  resetSongState();
   setStatus('', '');
 });
 
@@ -553,6 +586,9 @@ async function toggleListen() {
     setStatus('error', 'Auto-detect needs the desktop app (run: npm start). It uses the mic + fingerprinting.');
     return;
   }
+  // Vinyl identifies the song from the mic — clear attached files so old lyrics
+  // don't override what the fingerprint detects.
+  resetSongState();
 
   let mic;
   try {
@@ -597,13 +633,16 @@ $('btn-spotify-follow')?.addEventListener('click', () => connectStreaming('spoti
 
 async function connectStreaming(id) {
   stopActiveMedium();
+  // Streaming follow drives identity from the service — drop any attached local
+  // audio/lyrics files so they don't leak into the followed track's lyrics.
+  resetSongState();
   const medium = getMedium(id);
 
   // Always refresh config from Electron / config.js before Spotify (Electron
   // injects env after load; stale empty __SL_CONFIG__ was a silent no-op).
-  if (window.smartLyric?.getConfig) {
+  if (window.bar4bar?.getConfig) {
     try {
-      window.__SL_CONFIG__ = await window.smartLyric.getConfig();
+      window.__SL_CONFIG__ = await window.bar4bar.getConfig();
     } catch {
       /* keep existing */
     }
@@ -620,8 +659,8 @@ async function connectStreaming(id) {
     }
     try {
       if (!loadToken('spotify')) {
-        showBusy('Connecting to Spotify', 'A login window should appear — sign in and allow access.');
-        setStatus('loading', 'Opening Spotify login…');
+        showBusy('Connecting to Spotify', 'Sign in on the browser tab that just opened, then come back here.');
+        setStatus('loading', 'Opening Spotify login in your browser…');
         const loggedIn = await beginSpotifyLogin();
         if (!loggedIn) {
           // Browser redirect — leave busy up briefly; page will unload.
@@ -631,13 +670,14 @@ async function connectStreaming(id) {
         setStatus('ok', 'Spotify connected.');
         await refreshSpotifyPanel();
       } else {
-        showBusy('Following Spotify', 'Looking up what’s playing…');
+        // Already connected: follow in the background. No modal — the setup
+        // screen stays usable so the user can also just pick a song here.
         setStatus('loading', 'Following Spotify playback…');
       }
     } catch (err) {
       hideBusy();
       setStatus('error', err.message || 'Spotify login failed.');
-      console.error('[smart_lyric] Spotify connect failed', err);
+      console.error('[Bar4Bar] Spotify connect failed', err);
       return;
     }
   } else if (!cfg.appleMusicDeveloperToken && !medium?.canUse()) {
@@ -652,11 +692,13 @@ async function connectStreaming(id) {
   }
 
   activeMedium = medium;
-  enterPlaying();
-  $('np-title').textContent = id === 'spotify' ? 'Following Spotify…' : 'Connecting…';
-  $('np-artist').textContent = 'Play a track on Spotify (any device)';
+  // Stay on the setup screen while waiting for playback. Jumping to the lyric
+  // view now would hide search + recommendations and strand the user on an empty
+  // "Following…" screen with no way to start a song. The follow-poll runs in the
+  // background; the first detected track flips us to the playing view (below).
+  hideBusy();
   try {
-    const ok = await medium.start({
+    const connected = await medium.start({
       session,
       onError: (msg) => {
         hideBusy();
@@ -682,24 +724,22 @@ async function connectStreaming(id) {
         return loaded;
       },
     });
-    updateTransport();
-    if (id === 'spotify' && ok === false) {
-      hideBusy();
-      setStatus('error', 'Could not start Spotify follow. Try Connect Spotify again.');
-      enterSetup();
+    if (connected === false) {
+      setStatus('error', `Could not start ${medium.label} follow. Try connecting again.`);
+      stopActiveMedium();
       return;
     }
     setStatus(
       'ok',
       id === 'spotify'
-        ? 'Connected. Play a song on Spotify — lyrics will load automatically.'
-        : ''
+        ? 'Following Spotify — play a song on any device, or pick one below.'
+        : 'Following — start playback, or pick a song below.'
     );
   } catch (err) {
     hideBusy();
     setStatus('error', err.message || 'Failed to start streaming.');
     console.error(err);
-    enterSetup();
+    stopActiveMedium();
     return;
   }
   hideBusy();
@@ -718,14 +758,14 @@ async function bootAuth() {
 
 // --------------------------- projector -----------------------------------
 $('btn-projector')?.addEventListener('click', async () => {
-  if (!window.smartLyric?.openProjector) {
+  if (!window.bar4bar?.openProjector) {
     window.open('overlay.html', '_blank', 'noopener');
     setStatus('ok', 'Overlay opened — use OBS Browser Source on overlay.html for streaming.');
     return;
   }
-  const displays = await window.smartLyric.getDisplays();
+  const displays = await window.bar4bar.getDisplays();
   const external = displays.find((d) => !d.primary) || displays[0];
-  await window.smartLyric.openProjector(external?.id);
+  await window.bar4bar.openProjector(external?.id);
   setStatus('ok', `Projector opened on ${external?.label || 'display'}.`);
 });
 
@@ -752,7 +792,7 @@ function showSyncToast(offset) {
 // -------------------- fullscreen + auto-hiding bar -------------------------
 addEventListener('keydown', (e) => {
   if (e.key.toLowerCase() === 'f') {
-    if (window.smartLyric?.toggleFullscreen) window.smartLyric.toggleFullscreen();
+    if (window.bar4bar?.toggleFullscreen) window.bar4bar.toggleFullscreen();
     else if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
     else document.exitFullscreen?.();
   }
@@ -777,8 +817,8 @@ function poke() {
 addEventListener('mousemove', poke);
 
 async function bootSetup() {
-  if (window.smartLyric?.getConfig) {
-    window.__SL_CONFIG__ = await window.smartLyric.getConfig();
+  if (window.bar4bar?.getConfig) {
+    window.__SL_CONFIG__ = await window.bar4bar.getConfig();
   }
   const apple = !!window.__SL_CONFIG__?.appleMusicDeveloperToken;
   if ($('btn-apple')) $('btn-apple').hidden = !apple;
