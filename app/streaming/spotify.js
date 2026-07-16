@@ -14,12 +14,14 @@ import {
 
 let streamingClock = null;
 let onTrackChange = null;
+let onStateChange = null;
 let currentTrack = null;
 let pollTimer = null;
 let lastTrackKey = '';
 let positionSec = 0;
 let playing = false;
 let startedAt = 0;
+let firstPollTimer = null;
 
 export function getSpotifyConfig() {
   return {
@@ -39,10 +41,7 @@ export function getCurrentTrack() {
 function ensureClock() {
   if (!streamingClock) {
     streamingClock = new StreamingClock({
-      getPosition: () => {
-        if (!playing) return positionSec;
-        return positionSec + (performance.now() / 1000 - startedAt);
-      },
+      getPosition: () => rawPosition() + SPOTIFY_LEAD_SEC,
       isPlaying: () => playing,
     });
   }
@@ -119,20 +118,29 @@ async function pollOnce() {
     const data = await fetchCurrentlyPlaying(token.access_token);
     const rttSec = (performance.now() - reqStart) / 1000;
     applyPlayerState(data, rttSec);
+    onStateChange?.({ playing, position: rawPosition(), track: currentTrack });
   } catch (e) {
     if (e.message === 'unauthorized') clearToken('spotify');
   }
 }
 
-function startPolling() {
+function startPolling(firstDelayMs = 0) {
   stopPolling();
-  pollOnce();
-  pollTimer = setInterval(pollOnce, 1500);
+  const begin = () => {
+    pollOnce();
+    pollTimer = setInterval(pollOnce, 1500);
+  };
+  // When we just started a track ourselves, Spotify's currently-playing can lag
+  // for a moment; delaying the first poll avoids a flash of the previous song.
+  if (firstDelayMs > 0) firstPollTimer = setTimeout(begin, firstDelayMs);
+  else begin();
 }
 
 function stopPolling() {
   if (pollTimer) clearInterval(pollTimer);
+  if (firstPollTimer) clearTimeout(firstPollTimer);
   pollTimer = null;
+  firstPollTimer = null;
 }
 
 /** Redirect URI for browser OAuth — must be allowlisted in Spotify Dashboard. */
@@ -221,8 +229,9 @@ export async function completeSpotifyLoginFromUrl() {
   return true;
 }
 
-export async function connectSpotify({ onTrack, onError, onStatus }) {
+export async function connectSpotify({ onTrack, onError, onStatus, onState, firstPollDelayMs = 0 }) {
   onTrackChange = onTrack;
+  onStateChange = onState || null;
   const { clientId } = getSpotifyConfig();
   if (!clientId) {
     onError?.('Spotify Client ID not configured. Set SPOTIFY_CLIENT_ID in .env and restart.');
@@ -236,11 +245,13 @@ export async function connectSpotify({ onTrack, onError, onStatus }) {
   }
 
   ensureClock();
-  startPolling();
+  startPolling(firstPollDelayMs);
   onStatus?.('Following Spotify playback on any device…');
   return true;
 }
 
+// Stop following (e.g. on song change / back to setup) but KEEP the auth token —
+// otherwise picking another song would silently log the user out.
 export function disconnectSpotify() {
   stopPolling();
   streamingClock = null;
@@ -248,7 +259,143 @@ export function disconnectSpotify() {
   lastTrackKey = '';
   playing = false;
   positionSec = 0;
+  onStateChange = null;
+}
+
+/** Full logout — drops the stored token. */
+export function logoutSpotify() {
+  disconnectSpotify();
   clearToken('spotify');
+}
+
+// --------------------------- playback control ----------------------------
+// Spotify's currently-playing progress trails the device's actual audio output
+// by a device-dependent buffer; nudge the clock forward so lyrics land on time.
+// (The user can still fine-tune with the on-screen sync dial on top of this.)
+const SPOTIFY_LEAD_SEC = 0.2;
+
+function rawPosition() {
+  return playing ? positionSec + (performance.now() / 1000 - startedAt) : positionSec;
+}
+
+/** Authenticated Spotify Web API call with friendly errors. Returns parsed JSON or null. */
+async function playerApi(path, { method = 'GET', body } = {}) {
+  const token = await ensureFreshToken();
+  if (!token) throw new Error('Spotify isn’t connected. Connect Spotify and try again.');
+  const res = await fetch(`https://api.spotify.com/v1${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token.access_token}`,
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 401) {
+    clearToken('spotify');
+    throw new Error('Spotify session expired. Connect Spotify again.');
+  }
+  if (res.status === 403) {
+    throw new Error('Spotify Premium is required to control playback from the app.');
+  }
+  if (res.status === 404) {
+    throw new Error('No active Spotify device. Open Spotify on your phone or computer, then try again.');
+  }
+  if (!res.ok && res.status !== 204) throw new Error(`Spotify error (${res.status}).`);
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+/** Find a track on Spotify. Returns { uri, id, name, artist, album, artwork, duration } or null. */
+export async function searchSpotifyTrack({ artist, track }) {
+  if (!track) return null;
+  const q = [track, artist ? `artist:${artist}` : ''].filter(Boolean).join(' ');
+  const data = await playerApi(`/search?type=track&limit=5&q=${encodeURIComponent(q)}`);
+  const t = data?.tracks?.items?.[0];
+  if (!t) return null;
+  return {
+    uri: t.uri,
+    id: t.id,
+    name: t.name,
+    artist: (t.artists || []).map((a) => a.name).join(', '),
+    album: t.album?.name,
+    artwork: t.album?.images?.[1]?.url || t.album?.images?.[0]?.url || '',
+    duration: t.duration_ms ? Math.round(t.duration_ms / 1000) : undefined,
+  };
+}
+
+/** Pick an active device (transferring to one if none is active). Returns its id. */
+async function ensureActiveDevice() {
+  const data = await playerApi('/me/player/devices');
+  const devices = data?.devices || [];
+  if (!devices.length) {
+    throw new Error('No Spotify device found. Open Spotify on your phone or computer, then try again.');
+  }
+  const active = devices.find((d) => d.is_active);
+  if (active) return active.id;
+  const target = devices[0];
+  await playerApi('/me/player', { method: 'PUT', body: { device_ids: [target.id], play: false } });
+  return target.id;
+}
+
+/** Start playing a track URI from the given position and anchor the clock immediately. */
+export async function playSpotifyTrack({ uri, positionMs = 0 } = {}) {
+  const deviceId = await ensureActiveDevice();
+  await playerApi(`/me/player/play?device_id=${deviceId}`, {
+    method: 'PUT',
+    body: { uris: [uri], position_ms: positionMs },
+  });
+  positionSec = positionMs / 1000;
+  startedAt = performance.now() / 1000;
+  playing = true;
+  ensureClock();
+  return deviceId;
+}
+
+export async function pausePlayback() {
+  positionSec = rawPosition(); // freeze at the current spot before pausing
+  playing = false;
+  await playerApi('/me/player/pause', { method: 'PUT' });
+}
+
+export async function resumePlayback() {
+  await playerApi('/me/player/play', { method: 'PUT' });
+  startedAt = performance.now() / 1000;
+  playing = true;
+}
+
+/** Toggle play/pause; returns the new playing state. */
+export async function togglePlayback() {
+  if (playing) await pausePlayback();
+  else await resumePlayback();
+  return playing;
+}
+
+export async function nextTrack() {
+  await playerApi('/me/player/next', { method: 'POST' });
+}
+
+export async function previousTrack() {
+  await playerApi('/me/player/previous', { method: 'POST' });
+}
+
+export async function seekTo(positionMs) {
+  const ms = Math.max(0, Math.round(positionMs));
+  await playerApi(`/me/player/seek?position_ms=${ms}`, { method: 'PUT' });
+  positionSec = ms / 1000;
+  startedAt = performance.now() / 1000;
+}
+
+export function isSpotifyPlaying() {
+  return playing;
+}
+
+/**
+ * Pre-seed the "current track" so the first follow-poll doesn't re-fire a lyrics
+ * reload for a song we just started ourselves.
+ */
+export function primeTrack(meta) {
+  currentTrack = meta;
+  lastTrackKey = `${meta.artist}::${meta.title || meta.name}`;
 }
 
 // Back-compat exports used by older UI wiring

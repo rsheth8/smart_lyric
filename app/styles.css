@@ -318,6 +318,12 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outl
 #nowbar button:active { transform: scale(.97); }
 #nowbar button.ghost { color: var(--ink); background: rgba(255,255,255,.1); }
 #nowbar button.ghost:hover { background: rgba(255,255,255,.16); filter: none; }
+#nowbar button.transport {
+  color: var(--ink); background: rgba(255,255,255,.1);
+  font-size: 15px; line-height: 1; padding: 9px 12px;
+}
+#nowbar button.transport:hover { background: rgba(255,255,255,.16); filter: none; }
+#nowbar button.transport[hidden] { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .line, .word, #lyrics, #setup, #viewport, #nowbar { transition-duration: .01ms !important; }

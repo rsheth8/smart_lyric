@@ -11,6 +11,14 @@ import { getMedium } from './mediums/index.js';
 import {
   beginSpotifyLogin,
   completeSpotifyLoginFromUrl,
+  searchSpotifyTrack,
+  playSpotifyTrack,
+  primeTrack,
+  togglePlayback as spotifyTogglePlayback,
+  nextTrack as spotifyNextTrack,
+  previousTrack as spotifyPreviousTrack,
+  isSpotifyPlaying,
+  getStreamingClock,
 } from './streaming/spotify.js';
 import { loadToken as loadAuthToken, isExpired } from './streaming/auth.js';
 import {
@@ -117,6 +125,7 @@ function enterSetup() {
   clearTimeout(idleTimer);
   $('nowbar').classList.remove('hide');
   stopActiveMedium();
+  updateTransport();
   if (!audio.paused) audio.pause();
   if (demoClock.isPlaying()) demoClock.pause();
   if (vinylClock.isPlaying()) vinylClock.pause();
@@ -157,6 +166,13 @@ async function loadSong({ artist, track, duration }) {
     $('in-track').focus();
     return;
   }
+  // Prefer an attached audio file; otherwise, if Spotify is connected, play the
+  // song on Spotify and follow it; otherwise fall back to the local demo clock.
+  if (!haveAudio && loadToken('spotify')) {
+    await startSpotifySong({ artist, track });
+    return;
+  }
+
   $('btn-load').disabled = true;
   const ok = await prepareSong({
     artist,
@@ -176,6 +192,92 @@ async function loadSong({ artist, track, duration }) {
     demoClock.start(0);
   }
   updatePlayBtn();
+}
+
+// Find the selected song on Spotify, start it playing there, load its lyrics,
+// and follow playback (also handles skips via the follow-poll).
+async function startSpotifySong({ artist, track }) {
+  showBusy('Starting on Spotify', 'Finding the track and starting playback…');
+  setStatus('loading', `Finding “${track}” on Spotify…`);
+  $('btn-load').disabled = true;
+  try {
+    const found = await searchSpotifyTrack({ artist, track });
+    if (!found) {
+      setStatus('error', `Couldn’t find “${track}” on Spotify. Try adding the artist.`);
+      return;
+    }
+
+    // Try to start playback on the user's Spotify device.
+    try {
+      await playSpotifyTrack({ uri: found.uri, positionMs: 0 });
+    } catch (playErr) {
+      // No device / not Premium — still show the lyrics on the local demo clock.
+      await showLyricsWithoutPlayback(found, playErr.message);
+      return;
+    }
+    primeTrack({ artist: found.artist, name: found.name });
+
+    const ok = await prepareSong({
+      artist: found.artist,
+      track: found.name,
+      album: found.album,
+      duration: found.duration,
+    });
+    if (!ok) return; // prepareSong set its own "no lyrics" error
+
+    activeMedium = getMedium('spotify');
+    await activeMedium.start({
+      session,
+      firstPollDelayMs: 1000, // let Spotify's currently-playing catch up to our track
+      onError: (msg) => setStatus('error', msg),
+      onStatus: (a, b) => (b != null ? setStatus(a || 'ok', b) : setStatus('ok', a)),
+      onState: () => updatePlayBtn(),
+      prepareSong: async (meta) => {
+        // Fired when the user skips to another track — reload lyrics for it.
+        const loaded = await prepareSong({
+          artist: meta.artist,
+          track: meta.title || meta.track,
+          album: meta.album,
+          duration: meta.duration,
+        });
+        if (loaded) enterPlaying();
+        return loaded;
+      },
+    });
+    const clock = getStreamingClock();
+    if (clock) session.setClock(clock);
+
+    enterPlaying();
+    updateTransport();
+    loadArtwork(found.artist, found.name);
+    setStatus('ok', 'Playing on Spotify — lyrics are following.');
+    updatePlayBtn();
+  } catch (err) {
+    setStatus('error', err.message || 'Couldn’t start playback on Spotify.');
+    console.error('[smart_lyric] Spotify play failed', err);
+  } finally {
+    hideBusy();
+    $('btn-load').disabled = false;
+  }
+}
+
+// Fallback when Spotify can't start playback: display lyrics on the demo clock.
+async function showLyricsWithoutPlayback(found, reason) {
+  const ok = await prepareSong({
+    artist: found.artist,
+    track: found.name,
+    album: found.album,
+    duration: found.duration,
+  });
+  if (!ok) return;
+  activeMedium = null;
+  enterPlaying();
+  updateTransport();
+  session.setClock(demoClock);
+  demoClock.start(0);
+  loadArtwork(found.artist, found.name);
+  updatePlayBtn();
+  setStatus('error', `${reason} Showing lyrics without playback — press Play to preview.`);
 }
 
 $('search').addEventListener('submit', (e) => {
@@ -373,10 +475,19 @@ $('file').addEventListener('change', async (e) => {
   $('in-track').focus();
 });
 
-// ------------------------------ play/pause -------------------------------
+// ------------------------------ transport --------------------------------
 $('btn-play').addEventListener('click', togglePlay);
+$('btn-prev')?.addEventListener('click', () => spotifySkip(spotifyPreviousTrack, 'Loading previous track…'));
+$('btn-next')?.addEventListener('click', () => spotifySkip(spotifyNextTrack, 'Loading next track…'));
+
 function togglePlay() {
   if (stage.dataset.mode !== 'playing' || activeMedium?.id === 'vinyl') return;
+  if (activeMedium?.id === 'spotify') {
+    spotifyTogglePlayback()
+      .then(updatePlayBtn)
+      .catch((e) => setStatus('error', e.message || 'Spotify control failed.'));
+    return;
+  }
   if (haveAudio) {
     audio.paused ? audio.play() : audio.pause();
   } else {
@@ -384,9 +495,36 @@ function togglePlay() {
     updatePlayBtn();
   }
 }
+
+// Skip to next/previous on Spotify; the follow-poll picks up the new track and
+// reloads its lyrics automatically.
+async function spotifySkip(fn, msg) {
+  if (activeMedium?.id !== 'spotify') return;
+  try {
+    setStatus('loading', msg);
+    await fn();
+  } catch (e) {
+    setStatus('error', e.message || 'Spotify control failed.');
+  }
+}
+
+// Show the prev/next buttons only when Spotify is the active, controllable medium.
+function updateTransport() {
+  const spotify = activeMedium?.id === 'spotify';
+  if ($('btn-prev')) $('btn-prev').hidden = !spotify;
+  if ($('btn-next')) $('btn-next').hidden = !spotify;
+}
+
 function updatePlayBtn() {
   const vinylActive = activeMedium?.id === 'vinyl';
-  const playing = vinylActive ? true : haveAudio ? !audio.paused : demoClock.isPlaying();
+  const spotifyActive = activeMedium?.id === 'spotify';
+  const playing = vinylActive
+    ? true
+    : spotifyActive
+      ? isSpotifyPlaying()
+      : haveAudio
+        ? !audio.paused
+        : demoClock.isPlaying();
   let label = playing ? 'Pause' : 'Play';
   if (vinylActive && activeMedium?.state === 'locked') label = 'Following';
   else if (vinylActive) label = 'Listening';
@@ -529,6 +667,7 @@ async function connectStreaming(id) {
         if (b != null) setStatus(a || 'ok', b);
         else setStatus('ok', a);
       },
+      onState: () => updatePlayBtn(),
       prepareSong: async (meta) => {
         const loaded = await prepareSong({
           artist: meta.artist,
@@ -543,6 +682,7 @@ async function connectStreaming(id) {
         return loaded;
       },
     });
+    updateTransport();
     if (id === 'spotify' && ok === false) {
       hideBusy();
       setStatus('error', 'Could not start Spotify follow. Try Connect Spotify again.');

@@ -7,7 +7,7 @@ export const spotifyMedium = {
   canUse: () => !!(typeof window !== 'undefined' && window.__SL_CONFIG__?.spotifyClientId),
   _connected: false,
 
-  async start({ session, onError, onStatus, prepareSong }) {
+  async start({ session, onError, onStatus, onState, prepareSong, firstPollDelayMs }) {
     this._connected = await connectSpotify({
       onTrack: (meta) =>
         prepareSong({
@@ -18,6 +18,8 @@ export const spotifyMedium = {
         }),
       onError,
       onStatus,
+      onState,
+      firstPollDelayMs,
     });
     if (this._connected) {
       const clock = getStreamingClock();
