@@ -8,6 +8,23 @@ export function centerTranslate(viewportH, lineTop, lineHeight) {
   return Math.round(viewportH / 2 - (lineTop + lineHeight / 2));
 }
 
+const SYNC_KEY = 'sl_sync_offset';
+function loadSyncOffset() {
+  try {
+    const v = parseFloat(localStorage.getItem(SYNC_KEY));
+    return Number.isFinite(v) ? v : 0;
+  } catch {
+    return 0;
+  }
+}
+function saveSyncOffset(v) {
+  try {
+    localStorage.setItem(SYNC_KEY, String(v));
+  } catch {
+    /* ignore */
+  }
+}
+
 export class Display {
   constructor({ stage, lyricsEl, bgCanvas }) {
     this.stage = stage;
@@ -19,6 +36,10 @@ export class Display {
     this.lineEls = [];
     this.activeLine = -1;
     this.raf = null;
+    // Manual fine-tune (seconds). Positive = lyrics lead (show earlier), which
+    // counters output/network lag so highlighting lands on the beat. Persisted
+    // because the right value depends on the user's speakers/device/stream path.
+    this.syncOffset = loadSyncOffset();
     // Album-art-derived palette (RGB triplets). Sensible default until we have art.
     this.palette = [[58, 43, 107], [138, 61, 99], [224, 145, 63]];
     this._onResize = () => this._resize();
@@ -31,6 +52,19 @@ export class Display {
 
   setPalette(colors) {
     if (colors && colors.length) this.palette = colors;
+  }
+
+  // Nudge the manual sync offset (seconds) and persist. Returns the new value.
+  nudgeSyncOffset(deltaSec) {
+    this.syncOffset = Math.round((this.syncOffset + deltaSec) * 1000) / 1000;
+    saveSyncOffset(this.syncOffset);
+    return this.syncOffset;
+  }
+
+  resetSyncOffset() {
+    this.syncOffset = 0;
+    saveSyncOffset(0);
+    return 0;
   }
 
   // Build DOM from a parsed timeline ({ lines: [{ start, end, words }] }).
@@ -94,7 +128,7 @@ export class Display {
       this._drawBg(rafTime / 1000, 0);
       return;
     }
-    const t = this.clock.now();
+    const t = this.clock.now() + this.syncOffset;
 
     // Which line are we on? -1 before the first line begins.
     let li = -1;

@@ -5,42 +5,109 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>smart_lyric</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="config.js"></script>
+  <script src="https://js-cdn.music.apple.com/musickit/v3/musickit.js"></script>
 </head>
 <body>
   <div id="stage" data-mode="setup">
     <canvas class="bg" id="bg"></canvas>
     <div class="vignette"></div>
 
-    <!-- Lyric view (playing) -->
     <div id="viewport"><div id="lyrics" aria-live="off"></div></div>
 
-    <!-- Setup screen (idle) -->
     <div id="setup">
-      <div class="card">
-        <div class="brand">
-          <div class="mark" aria-hidden="true">♪</div>
-          <h1>smart_lyric</h1>
-          <p class="tagline">Follow along with any song — lyrics, synced and highlighted.</p>
-        </div>
+      <div class="setup-panel">
+        <header class="setup-header">
+          <div class="brand">
+            <div class="mark" aria-hidden="true">♪</div>
+            <div>
+              <h1>smart_lyric</h1>
+              <p class="tagline">Search a song, pick a recommendation, or sync playback.</p>
+            </div>
+          </div>
+          <button id="btn-projector" class="chip ghost" type="button" title="Projector / OBS">Projector</button>
+        </header>
 
         <form id="search" autocomplete="off">
-          <input id="in-track" type="text" placeholder="Song title" aria-label="Song title" />
-          <input id="in-artist" type="text" placeholder="Artist (optional)" aria-label="Artist" />
-          <button id="btn-load" type="submit">Load lyrics</button>
+          <div class="search-row">
+            <div class="search-fields">
+              <input id="in-track" type="text" placeholder="Search songs…" aria-label="Song title" aria-autocomplete="list" aria-controls="suggestions" />
+              <input id="in-artist" type="text" placeholder="Artist (optional)" aria-label="Artist" />
+            </div>
+            <button id="btn-load" type="submit">Load</button>
+          </div>
+          <div id="suggestions" class="suggestions" hidden role="listbox" aria-label="Search suggestions"></div>
         </form>
 
         <div id="setup-status" role="status"></div>
 
-        <div class="alt">
-          <button id="btn-audio" class="linkish" type="button">Sync to an audio file</button>
-          <span class="sep">·</span>
-          <button id="btn-listen" class="linkish" type="button">Listen to a record</button>
+        <div id="busy" class="busy" hidden aria-live="assertive">
+          <div class="busy-card">
+            <div class="busy-spinner" aria-hidden="true"></div>
+            <b id="busy-title">Working…</b>
+            <p id="busy-detail">Please wait</p>
+          </div>
         </div>
+
+        <section class="sync-strip" aria-label="Sync sources">
+          <button id="btn-spotify" class="sync-btn spotify" type="button">
+            <span class="sync-icon" aria-hidden="true">◈</span>
+            <span class="sync-copy">
+              <b id="spotify-label">Connect Spotify</b>
+              <small id="spotify-hint">Follow what’s playing</small>
+            </span>
+          </button>
+          <button id="btn-listen" class="sync-btn" type="button">
+            <span class="sync-icon" aria-hidden="true">◎</span>
+            <span class="sync-copy">
+              <b>Vinyl / mic</b>
+              <small>Auto-detect a record</small>
+            </span>
+          </button>
+          <button id="btn-audio" class="sync-btn" type="button">
+            <span class="sync-icon" aria-hidden="true">▷</span>
+            <span class="sync-copy">
+              <b>Audio file</b>
+              <small>Sync to a local track</small>
+            </span>
+          </button>
+          <button id="btn-lyrics" class="sync-btn" type="button">
+            <span class="sync-icon" aria-hidden="true">¶</span>
+            <span class="sync-copy">
+              <b>Lyrics file</b>
+              <small>Import .lrc / .srt / .ass</small>
+            </span>
+          </button>
+          <button id="btn-apple" class="sync-btn" type="button" hidden>
+            <span class="sync-icon" aria-hidden="true">⌘</span>
+            <span class="sync-copy">
+              <b>Apple Music</b>
+              <small>Follow playback</small>
+            </span>
+          </button>
+        </section>
+
+        <section id="spotify-panel" class="recs-section" hidden>
+          <div class="recs-head">
+            <h2>From Spotify</h2>
+            <button id="btn-spotify-follow" class="chip" type="button">Follow now playing</button>
+          </div>
+          <div id="spotify-recs" class="recs-grid"></div>
+        </section>
+
+        <section class="recs-section">
+          <div class="recs-head">
+            <h2>Recommended</h2>
+            <span class="recs-sub">Top songs right now</span>
+          </div>
+          <div id="chart-recs" class="recs-grid">
+            <div class="recs-empty">Loading recommendations…</div>
+          </div>
+        </section>
       </div>
-      <div class="hint">Press F for fullscreen — the projector view</div>
+      <div class="hint">Press F for fullscreen · Space to play/pause</div>
     </div>
 
-    <!-- Now-playing bar (playing) -->
     <div id="nowbar">
       <div id="cover" aria-hidden="true"></div>
       <div class="meta">
@@ -54,6 +121,7 @@
 
     <audio id="audio" preload="auto"></audio>
     <input id="file" type="file" accept="audio/*" hidden />
+    <input id="lyrics-file" type="file" accept=".lrc,.srt,.ass,.ssa,text/plain" hidden multiple />
   </div>
 
   <script type="module" src="app.js"></script>

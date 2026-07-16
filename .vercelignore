@@ -1,0 +1,10 @@
+electron
+node_modules
+.venv
+.vercel
+public
+test
+identify.py
+*.wav
+.env
+.DS_Store

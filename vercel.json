@@ -1,0 +1,21 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "builds": [
+    { "src": "api/config.js", "use": "@vercel/node" },
+    { "src": "api/lyrics.js", "use": "@vercel/node" },
+    { "src": "app/**", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/config.js", "dest": "/api/config.js" },
+    { "src": "/api/lyrics", "dest": "/api/lyrics.js" },
+    { "src": "/", "dest": "/app/index.html" },
+    { "src": "/(.*)", "dest": "/app/$1" }
+  ],
+  "headers": [
+    {
+      "source": "/config.js",
+      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+    }
+  ]
+}

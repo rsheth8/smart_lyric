@@ -1,27 +1,17 @@
 // VinylDetector: turns a stream of microphone fingerprints into a locked, synced
-// clock. It's the bridge between the Step 0 recognition idea and the display.
-//
-// Position/latency handling: identification takes several seconds, so we can't
-// use "when the answer arrived" as the song position. Instead the mic reports
-// `onsetAt` — the wall-clock moment the record started playing (first audio). The
-// song position at any instant is therefore `now - onsetAt`, which stays correct
-// no matter how long fingerprinting took. (Dropping the needle mid-record is the
-// harder case; it needs fingerprint-offset alignment, a future enhancement.)
-//
-// All dependencies are injected, so the whole state machine is unit-testable with
-// fakes — no mic, no network.
+// clock. Uses fingerprint offset when available for mid-record needle drops.
 
 export class VinylDetector {
   constructor({
-    identify, // (wavArrayBuffer) => Promise<{recordingId,title,artist,album,duration,score}|null>
-    getChunk, // () => Promise<{ wav, onsetAt } | null>
-    clock, // a PredictiveClock
-    onSong, // async (meta) => void   — fetch lyrics/art, prep the display
-    onState, // (state) => void
+    identify,
+    getChunk,
+    clock,
+    onSong,
+    onState,
     now = () => performance.now() / 1000,
     intervalMs = 5000,
-    missTolerance = 4, // consecutive misses before we consider the music stopped
-    minScore = 0.5, // ignore low-confidence matches
+    missTolerance = 4,
+    minScore = 0.5,
   }) {
     this.identify = identify;
     this.getChunk = getChunk;
@@ -33,10 +23,11 @@ export class VinylDetector {
     this.missTolerance = missTolerance;
     this.minScore = minScore;
 
-    this.state = 'idle'; // idle | listening | locked
+    this.state = 'idle';
     this.currentId = null;
     this.misses = 0;
     this._timer = null;
+    this._lastObs = null; // { song, wall } for calibrateRate
   }
 
   start() {
@@ -51,13 +42,20 @@ export class VinylDetector {
     this._timer = null;
     this.currentId = null;
     this.misses = 0;
+    this._lastObs = null;
     this._setState('idle');
   }
 
-  // One capture→identify→react cycle. Returns the result for testing/introspection.
+  _position(chunk, result) {
+    if (result.offsetSec != null && Number.isFinite(result.offsetSec)) {
+      return Math.max(0, result.offsetSec);
+    }
+    return Math.max(0, this.now() - chunk.onsetAt);
+  }
+
   async pollOnce() {
     const chunk = await this.getChunk();
-    if (!chunk || chunk.onsetAt == null) return null; // no audio detected yet
+    if (!chunk || chunk.onsetAt == null) return null;
 
     let result = null;
     try {
@@ -71,18 +69,22 @@ export class VinylDetector {
       return null;
     }
 
-    const position = Math.max(0, this.now() - chunk.onsetAt);
+    const position = this._position(chunk, result);
+    const wall = this.now();
 
     if (result.recordingId !== this.currentId) {
-      // A different song than we're currently following (or the first one).
       this.currentId = result.recordingId;
       this.misses = 0;
+      this._lastObs = { song: position, wall };
       await this.onSong(result);
-      this.clock.observe(position); // starts the clock if it was stopped
+      this.clock.observe(position);
       this._setState('locked');
     } else {
-      // Same song — refine our position estimate and clear the miss counter.
       this.misses = 0;
+      if (this._lastObs && this.clock.calibrateRate) {
+        this.clock.calibrateRate(this._lastObs.song, this._lastObs.wall, position, wall);
+      }
+      this._lastObs = { song: position, wall };
       this.clock.observe(position);
     }
     return result;
@@ -91,9 +93,9 @@ export class VinylDetector {
   _handleMiss() {
     if (this.state !== 'locked') return;
     if (++this.misses >= this.missTolerance) {
-      // The music seems to have stopped or changed — release the lock.
       this.currentId = null;
       this.misses = 0;
+      this._lastObs = null;
       if (this.clock.pause) this.clock.pause();
       this._setState('listening');
     }

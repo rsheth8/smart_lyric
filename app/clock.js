@@ -99,3 +99,35 @@ export class PredictiveClock {
     if (dw > 0.5) this._targetRate = (song2 - song1) / dw;
   }
 }
+
+// Position pushed in externally (OBS overlay / projector mirror).
+export class PassiveClock {
+  constructor() {
+    this._position = 0;
+    this._playing = false;
+  }
+  push(position, playing) {
+    this._position = position;
+    this._playing = !!playing;
+  }
+  now() {
+    return this._position;
+  }
+  isPlaying() {
+    return this._playing;
+  }
+}
+
+// Wraps a streaming SDK position getter (Spotify / Apple Music).
+export class StreamingClock {
+  constructor({ getPosition, isPlaying }) {
+    this._getPosition = getPosition;
+    this._isPlaying = isPlaying;
+  }
+  now() {
+    return this._getPosition?.() ?? 0;
+  }
+  isPlaying() {
+    return this._isPlaying?.() ?? false;
+  }
+}

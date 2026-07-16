@@ -3,3 +3,6 @@ node_modules/
 .env
 *.wav
 .DS_Store
+public/
+.vercel/
+.vercel
