@@ -1,5 +1,7 @@
 // LRCLIB synced-lyrics provider (https://lrclib.net).
 
+import { candidateScore } from './match.js';
+
 const BASE = 'https://lrclib.net/api';
 const TIMEOUT_MS = 10000;
 
@@ -19,7 +21,7 @@ export function normalizeTitle(s) {
 export function cleanTrackTitle(s) {
   return normalizeTitle(s || '')
     .replace(
-      /\s*[(\[][^)\]]*(remaster|remix|live|bonus|deluxe|edit|version|mono|stereo|feat\.?|ft\.?|featuring)[^)\]]*[)\]]/gi,
+      /\s*[(\[][^)\]]*(remaster|remix|live|bonus|deluxe|edit|version|mono|stereo|feat\.?|ft\.?|featuring|explicit|clean)[^)\]]*[)\]]/gi,
       ''
     )
     .replace(/\s*-\s*(remastered.*|remix.*|live.*|bonus.*|mono|stereo)\s*$/i, '')
@@ -57,8 +59,8 @@ export function titleScore(query, candidate) {
   return overlap / Math.max(qw.size, cw.length);
 }
 
-export function pickBestMatch(list, { artist, track }, minScore = 0.5) {
-  let hits = (list || []).filter((x) => x.syncedLyrics);
+export function pickBestMatch(list, { artist, track, duration }, minScore = 0.5, key = 'syncedLyrics') {
+  let hits = (list || []).filter((x) => x[key]);
   if (!hits.length) return null;
 
   const primary = primaryArtist(artist).toLowerCase();
@@ -71,7 +73,16 @@ export function pickBestMatch(list, { artist, track }, minScore = 0.5) {
   }
 
   const want = cleanTrackTitle(track) || track;
-  hits.sort((x, y) => titleScore(want, y.trackName) - titleScore(want, x.trackName));
+  // Rank by title similarity, broken by how well each candidate's length agrees
+  // with the known duration — this separates the album cut from a same-named live
+  // take / remix / extended edit that LRCLIB also carries. (`x.duration` is seconds.)
+  const rank = (x) =>
+    candidateScore({
+      titleScore: titleScore(want, x.trackName),
+      targetDuration: duration,
+      candidateDuration: x.duration,
+    });
+  hits.sort((x, y) => rank(y) - rank(x));
   const best = hits[0];
   return titleScore(want, best.trackName) >= minScore ? best : null;
 }
@@ -98,10 +109,10 @@ async function fetchSearch(params) {
   return res.json();
 }
 
-export async function search({ artist, track }) {
+export async function search({ artist, track, duration }) {
   const cleaned = cleanTrackTitle(track) || track;
   const primary = primaryArtist(artist);
-  const ctx = { artist: primary || artist, track: cleaned };
+  const ctx = { artist: primary || artist, track: cleaned, duration };
   const variants = [...new Set([cleaned, track, normalizeTitle(track)].filter(Boolean))];
 
   for (const name of variants) {
@@ -123,6 +134,49 @@ export async function search({ artist, track }) {
   return null;
 }
 
+/** Plain (untimed) lyrics from LRCLIB — the text we discard when there's no sync. */
+export async function fetchPlainFromLRCLIB({ artist, track, album, duration }) {
+  const cleaned = cleanTrackTitle(track) || track;
+  const primary = primaryArtist(artist);
+  const params = new URLSearchParams({ track_name: cleaned });
+  if (primary) params.set('artist_name', primary);
+  if (album) params.set('album_name', album);
+  if (duration) params.set('duration', String(Math.round(duration)));
+
+  const toPlain = (hit) =>
+    hit?.plainLyrics
+      ? {
+          plain: hit.plainLyrics,
+          synced: false,
+          meta: {
+            trackName: hit.trackName,
+            artistName: hit.artistName,
+            albumName: hit.albumName,
+            duration: hit.duration,
+          },
+          source: 'lrclib-plain',
+        }
+      : null;
+
+  try {
+    const res = await timedFetch(`${BASE}/get?${params}`);
+    if (res.ok) {
+      const data = await res.json();
+      const p = toPlain(data);
+      if (p) return p;
+    }
+  } catch {
+    /* fall through to search */
+  }
+
+  const ctx = { artist: primary || artist, track: cleaned, duration };
+  const list = await fetchSearch(new URLSearchParams({
+    track_name: cleaned,
+    ...(primary ? { artist_name: primary } : {}),
+  }));
+  return toPlain(pickBestMatch(list, ctx, 0.5, 'plainLyrics'));
+}
+
 export async function fetchFromLRCLIB({ artist, track, album, duration }) {
   const cleaned = cleanTrackTitle(track) || track;
   const primary = primaryArtist(artist);
@@ -140,5 +194,5 @@ export async function fetchFromLRCLIB({ artist, track, album, duration }) {
   } catch {
     /* fall through */
   }
-  return search({ artist: primary || artist, track: cleaned });
+  return search({ artist: primary || artist, track: cleaned, duration });
 }

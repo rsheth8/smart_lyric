@@ -1,6 +1,28 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseLRC } from '../app/lrc.js';
+import { syllableCount } from '../app/providers/formats/lrc.js';
+
+test('syllableCount estimates syllables for Latin words', () => {
+  assert.equal(syllableCount('a'), 1);
+  assert.equal(syllableCount('time'), 1); // silent trailing e
+  assert.equal(syllableCount('running'), 2);
+  assert.equal(syllableCount('beautiful'), 3);
+});
+
+test('syllableCount uses letter count for non-Latin scripts', () => {
+  assert.equal(syllableCount('東京'), 2); // CJK: ~1 mora per char
+  assert.ok(syllableCount('मुझको') >= 3); // Devanagari
+});
+
+test('a multi-syllable word gets more of the line span than a short one', () => {
+  // "a beautiful day" — "beautiful" (3 syl) should hold longest.
+  const { lines } = parseLRC('[00:00.00]a beautiful day\n[00:06.00]end');
+  const [a, beautiful, day] = lines[0].words;
+  const dur = (w) => w.end - w.start;
+  assert.ok(dur(beautiful) > dur(a), 'beautiful longer than "a"');
+  assert.ok(dur(beautiful) > dur(day), 'beautiful longer than "day"');
+});
 
 const SAMPLE = `[ti:Demo]
 [00:01.00]First line here

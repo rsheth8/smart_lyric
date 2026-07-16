@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'public, max-age=86400');
 
-  const { artist = '', track = '' } = req.query || {};
+  const { artist = '', track = '', duration = '' } = req.query || {};
   if (!track) {
     res.statusCode = 400;
     res.end(JSON.stringify({ error: 'track is required' }));
@@ -16,7 +16,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    const result = await fetchNeteaseLyrics({ artist: String(artist), track: String(track) });
+    const result = await fetchNeteaseLyrics({
+      artist: String(artist),
+      track: String(track),
+      duration: Number(duration) || undefined,
+    });
     res.statusCode = 200;
     res.end(JSON.stringify(result || { yrc: '', lrc: '', meta: null }));
   } catch (err) {

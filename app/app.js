@@ -7,7 +7,10 @@ import { readAudioTags } from './audio-tags.js';
 import { parseLyricsFilename } from './local-lyrics.js';
 import { basenamesMatch } from './providers/lyrics/local.js';
 import { createSyncPublisher } from './sync-bridge.js';
+import { translateLines, romanizeLines, needsRomanization } from './providers/translate.js';
 import { getMedium } from './mediums/index.js';
+import { initTvNav } from './tv-nav.js';
+import { refineTimelineWithAudio, refineTimelineFromMic, alignmentAvailable } from './align.js';
 import {
   beginSpotifyLogin,
   completeSpotifyLoginFromUrl,
@@ -57,6 +60,12 @@ let haveAudio = false;
 let activeMedium = null;
 let pendingAudioFile = null;
 let pendingLyricsFile = null;
+let activeMic = null;
+let listenRaf = null;
+let lastListenResult = null;
+let listenEverLocked = false;
+let listenSilentSince = null;
+let selectedInputDeviceId = null; // chosen mic/line-in (e.g. USB turntable)
 let suggestionItems = [];
 let suggestionIndex = -1;
 let suggestTimer = null;
@@ -117,7 +126,20 @@ async function loadArtwork(artist, track) {
 }
 
 async function prepareSong(query) {
-  return session.load(query);
+  const result = await session.load(query);
+  // Nudge the user toward the language aids; the display starts with them off.
+  const canRomanize =
+    result?.hasRoman || needsRomanization((session.timeline?.lines || []).map(lineText));
+  if (canRomanize) {
+    setTimeout(() => showToast('Press T for pronunciation / English'), 900);
+  } else if (result?.estimated) {
+    setTimeout(() => showToast('Estimated timing — press P to read'), 900);
+  } else if (result?.wordSync) {
+    setTimeout(() => showToast('Word sync — press ] [ to nudge if needed'), 900);
+  } else if (result?.lines) {
+    setTimeout(() => showToast('Line sync — aligning to vocal…'), 900);
+  }
+  return result;
 }
 
 function enterSetup() {
@@ -141,6 +163,93 @@ function enterPlaying() {
 function stopActiveMedium() {
   if (activeMedium?.stop) activeMedium.stop();
   activeMedium = null;
+  stopListenMeter();
+}
+
+// Live feedback for vinyl "listen" mode: a mic-level meter + progressive status
+// so the user can see the mic is actually hearing audio and where it is in the
+// identify → lock flow. Driven by a RAF loop off activeMic.level + medium.state.
+const LISTEN_METER_FULL = 0.15; // RMS mapped to a full bar
+const LISTEN_SILENCE_HOLD_MS = 10000; // sustained quiet before we pause the clock
+function startListenMeter(mic) {
+  activeMic = mic;
+  lastListenResult = null;
+  listenEverLocked = false;
+  listenSilentSince = null;
+  const panel = $('listen-panel');
+  const card = panel.querySelector('.listen-card');
+  const fill = panel.querySelector('.listen-meter-fill');
+  const threshold = panel.querySelector('.listen-meter-threshold');
+  const title = $('listen-title');
+  const detail = $('listen-detail');
+  panel.hidden = false;
+  threshold.style.left = `${Math.min(100, (mic.onsetThreshold / LISTEN_METER_FULL) * 100)}%`;
+
+  const tick = () => {
+    if (!activeMic || activeMedium?.id !== 'vinyl') return;
+    const level = activeMic.level || 0;
+    const hot = level > activeMic.onsetThreshold;
+    fill.style.width = `${Math.min(100, (level / LISTEN_METER_FULL) * 100)}%`;
+    card.classList.toggle('is-hot', hot);
+    if (activeMedium?.state === 'locked') listenEverLocked = true;
+
+    // Track sustained silence so we can pause the moment the record stops,
+    // instead of letting the predictive clock scroll lyrics on for ~20s.
+    const nowMs = performance.now();
+    if (hot) listenSilentSince = null;
+    else if (listenSilentSince == null) listenSilentSince = nowMs;
+    const silentFor = listenSilentSince == null ? 0 : nowMs - listenSilentSince;
+
+    if (silentFor > LISTEN_SILENCE_HOLD_MS && vinylClock.isPlaying()) {
+      vinylClock.pause(); // freeze lyrics; next fingerprint match resumes them
+    } else if (hot && listenEverLocked && !vinylClock.isPlaying() && activeMedium?.state === 'locked') {
+      // Music came back on the same locked track — resume immediately; the next
+      // poll's observe() re-anchors precisely.
+      vinylClock.resume();
+    }
+
+    if (vinylClock.isPlaying()) {
+      panel.hidden = true; // lyrics are following — get out of the way
+    } else if (listenEverLocked) {
+      panel.hidden = false;
+      title.textContent = 'Paused — waiting for the music…';
+      detail.textContent = 'Lyrics resume when the record plays again';
+    } else if (hot || activeMic.onsetAt != null) {
+      panel.hidden = false;
+      title.textContent = 'Heard audio — identifying…';
+      detail.textContent = describeListenResult(lastListenResult);
+    } else {
+      panel.hidden = false;
+      title.textContent = 'Listening…';
+      detail.textContent = 'Start the record near the mic';
+    }
+    updatePlayBtn();
+    listenRaf = requestAnimationFrame(tick);
+  };
+  cancelAnimationFrame(listenRaf);
+  listenRaf = requestAnimationFrame(tick);
+}
+
+function describeListenResult(r) {
+  if (!r || !r.attempts) return 'Matching against the AcoustID database…';
+  const n = r.attempts;
+  const tries = `${n} ${n === 1 ? 'try' : 'tries'}`;
+  if (r.reason === 'low-score') {
+    return `Weak match (${Math.round((r.score || 0) * 100)}%) — ${tries}. Move the mic closer / turn it up.`;
+  }
+  if (r.reason === 'error') {
+    return `Error: ${r.detail || 'lookup failed'} — ${tries}`;
+  }
+  // no-match / no-audio
+  return `No match yet · ${tries}. Vinyl through a mic can be hard to fingerprint.`;
+}
+
+function stopListenMeter() {
+  cancelAnimationFrame(listenRaf);
+  listenRaf = null;
+  activeMic = null;
+  const panel = $('listen-panel');
+  if (panel) panel.hidden = true;
 }
 
 // Drop everything tied to the *current* song so the next selection starts clean.
@@ -204,11 +313,66 @@ async function loadSong({ artist, track, duration }) {
   if (haveAudio) {
     session.setClock(mediaClock);
     audio.play();
+    // Refine word timing from the actual vocal in the background — don't hold up
+    // playback. The clean audio file is the ideal input for forced alignment.
+    refineAudioTiming(pendingAudioFile);
   } else {
     session.setClock(demoClock);
     demoClock.start(0);
   }
   updatePlayBtn();
+}
+
+// Forced alignment: sharpen within-line word timings using the audio file's
+// vocal. Desktop-only + best-effort; failures silently keep the existing timing.
+async function refineAudioTiming(file) {
+  if (!file || !alignmentAvailable() || !session.timeline) return;
+  try {
+    const res = await refineTimelineWithAudio(session.timeline, file, {
+      onStatus: (msg) => showToast(msg),
+    });
+    if (res && res.aligned > 0) {
+      display.updateTimingBadge({
+        source: session.meta?.source,
+        format: session.meta?.format,
+        wordSync: ['yrc', 'richsync', 'ass'].includes(session.meta?.format),
+        aligned: true,
+      });
+      showToast('Timing aligned to the vocal');
+    }
+  } catch {
+    /* keep existing timing */
+  }
+}
+
+// Vinyl: vocal alignment needs a ~90 MB model download; only run when already loaded.
+let vinylAlignTimer = null;
+let vinylAlignBusy = false;
+
+function scheduleVinylAlign() {
+  if (!session.timeline || !activeMic || activeMedium?.id !== 'vinyl' || vinylAlignBusy) return;
+  if (!alignmentAvailable()) return;
+  if (!window.bar4bar?.alignModelLoaded) return;
+  clearTimeout(vinylAlignTimer);
+  vinylAlignTimer = setTimeout(async () => {
+    const loaded = await window.bar4bar.alignModelLoaded().catch(() => false);
+    if (!loaded) return;
+    vinylAlignBusy = true;
+    try {
+      const res = await refineTimelineFromMic(session.timeline, activeMic, vinylClock.now());
+      if (res?.aligned) {
+        display.updateTimingBadge({
+          source: session.meta?.source,
+          format: session.meta?.format,
+          wordSync: ['yrc', 'richsync', 'ass'].includes(session.meta?.format),
+          aligned: true,
+        });
+      }
+    } catch {
+      /* keep syllable / richsync timing */
+    }
+    vinylAlignBusy = false;
+  }, 600);
 }
 
 // Find the selected song on Spotify, start it playing there, load its lyrics,
@@ -559,8 +723,11 @@ function updatePlayBtn() {
         ? !audio.paused
         : demoClock.isPlaying();
   let label = playing ? 'Pause' : 'Play';
-  if (vinylActive && activeMedium?.state === 'locked') label = 'Following';
-  else if (vinylActive) label = 'Listening';
+  if (vinylActive && activeMedium?.state === 'locked') {
+    label = vinylClock.isPlaying() ? 'Following' : 'Paused';
+  } else if (vinylActive) {
+    label = 'Listening';
+  }
   $('btn-play').textContent = label;
 }
 audio.addEventListener('play', updatePlayBtn);
@@ -574,6 +741,14 @@ $('btn-change').addEventListener('click', () => {
 
 // ----------------------------- vinyl listen --------------------------------
 $('btn-listen').addEventListener('click', toggleListen);
+$('listen-input').addEventListener('change', (e) => {
+  selectedInputDeviceId = e.target.value || null;
+  // Re-open the mic on the chosen device without leaving the listen screen.
+  if (activeMedium?.id === 'vinyl') {
+    stopActiveMedium();
+    startVinylListen();
+  }
+});
 
 async function toggleListen() {
   if (activeMedium?.id === 'vinyl') {
@@ -581,6 +756,37 @@ async function toggleListen() {
     enterSetup();
     return;
   }
+  startVinylListen();
+}
+
+// Populate the input-device dropdown. Labels are only available after mic
+// permission has been granted (which mic.start() does), so call it after start.
+async function populateInputDevices() {
+  const sel = $('listen-input');
+  const row = $('listen-input-row');
+  if (!sel || !navigator.mediaDevices?.enumerateDevices) return;
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const inputs = devices.filter((d) => d.kind === 'audioinput');
+    if (!inputs.length) {
+      row.hidden = true;
+      return;
+    }
+    sel.innerHTML = '';
+    for (const d of inputs) {
+      const opt = document.createElement('option');
+      opt.value = d.deviceId;
+      opt.textContent = d.label || 'Audio input';
+      if (d.deviceId === selectedInputDeviceId) opt.selected = true;
+      sel.appendChild(opt);
+    }
+    row.hidden = false;
+  } catch {
+    row.hidden = true;
+  }
+}
+
+async function startVinylListen() {
   const medium = getMedium('vinyl');
   if (!medium?.canUse()) {
     setStatus('error', 'Auto-detect needs the desktop app (run: npm start). It uses the mic + fingerprinting.');
@@ -590,38 +796,59 @@ async function toggleListen() {
   // don't override what the fingerprint detects.
   resetSongState();
 
+  // Prefer ACRCloud (ambient recognition) when it's configured in .env.
+  let useAmbient = false;
+  try {
+    const cfg = await window.bar4bar.getConfig?.();
+    useAmbient = !!cfg?.acrCloud;
+  } catch {
+    /* fall back to AcoustID */
+  }
+
   let mic;
   try {
-    mic = new Mic();
+    mic = new Mic({ deviceId: selectedInputDeviceId });
     await mic.start();
   } catch {
-    setStatus('error', 'Could not access the microphone. Check permissions and try again.');
+    setStatus('error', 'Could not access the audio input. Check permissions and try again.');
     return;
   }
 
   $('np-title').textContent = 'Listening…';
-  $('np-artist').textContent = 'Start the record near the mic';
+  $('np-artist').textContent = 'Start the record';
   $('cover').style.backgroundImage = '';
   enterPlaying();
   $('btn-play').textContent = 'Listening';
+  startListenMeter(mic);
+  populateInputDevices();
 
   activeMedium = medium;
   await medium.start({
     session,
     vinylClock,
     mic,
+    useAmbient,
     onStatus: setStatus,
     prepareSong: async (meta) => {
       const ok = await prepareSong(meta);
-      if (ok) enterPlaying();
+      if (ok) {
+        enterPlaying();
+        scheduleVinylAlign();
+      }
       return ok;
     },
     onState: (s) => {
       if (s === 'locked') $('btn-play').textContent = 'Following';
       else if (s === 'listening') {
+        $('btn-play').textContent = 'Listening';
         $('np-title').textContent = 'Listening…';
         $('np-artist').textContent = 'Start the record near the mic';
       }
+    },
+    onResult: (r) => {
+      lastListenResult = r;
+      if (r.reason === 'error') setStatus('error', r.detail || 'Fingerprint error');
+      if (r.reason === 'match' && medium.state === 'locked') scheduleVinylAlign();
     },
   });
 }
@@ -769,28 +996,113 @@ $('btn-projector')?.addEventListener('click', async () => {
   setStatus('ok', `Projector opened on ${external?.label || 'display'}.`);
 });
 
+// ---------------------- language aid (T cycles) ---------------------------
+// Off → Pronunciation (romanized) → English (translated) → Off. Both are filled
+// on demand via the free Google endpoint (romanization also comes pre-aligned
+// from NetEase for JP/KO/ZH); we only offer modes that apply to the song.
+const AID_LABELS = { off: 'Lyrics only', roman: 'Pronunciation', english: 'English translation' };
+let translating = false;
+let romanizing = false;
+
+const lineText = (l) => l.words.map((w) => w.text).join(' ');
+
+// English meaning for each line (cached on line.english).
+async function ensureEnglish() {
+  const lines = session.timeline?.lines || [];
+  if (!lines.length || lines.some((l) => l.english) || translating) return;
+  translating = true;
+  showToast('Translating…');
+  const out = await translateLines(lines.map(lineText), { to: 'en' });
+  translating = false;
+  if (out) {
+    lines.forEach((l, i) => (l.english = out[i] || ''));
+    display.refreshAid();
+  } else {
+    showToast('Couldn’t translate right now');
+  }
+}
+
+// Romanized pronunciation for non-Latin lyrics (cached on line.roman). NetEase
+// may already have supplied line.roman at load; this fills the rest (e.g. Hindi).
+async function ensureRoman() {
+  const lines = session.timeline?.lines || [];
+  if (!lines.length || lines.some((l) => l.roman) || romanizing) return;
+  romanizing = true;
+  showToast('Romanizing…');
+  const out = await romanizeLines(lines.map(lineText));
+  romanizing = false;
+  if (out && out.some(Boolean)) {
+    lines.forEach((l, i) => (l.roman = out[i] || ''));
+    display.refreshAid();
+  } else {
+    showToast('No pronunciation available');
+  }
+}
+
+async function cycleAid() {
+  if (stage.dataset.mode !== 'playing') return;
+  const lines = session.timeline?.lines || [];
+  if (!lines.length) return;
+  // Pronunciation applies when NetEase gave us a romanization OR the lyrics are a
+  // non-Latin script we can romanize on the fly (Hindi, Arabic, Cyrillic, …).
+  const romanApplies = display.aidAvailability().roman || needsRomanization(lines.map(lineText));
+  const order = ['off'];
+  if (romanApplies) order.push('roman');
+  order.push('english'); // always available — translated on demand
+  const next = order[(order.indexOf(display.aidMode || 'off') + 1) % order.length];
+  if (next === 'roman') await ensureRoman();
+  if (next === 'english') await ensureEnglish();
+  display.setAidMode(next);
+  showToast(AID_LABELS[next]);
+}
+
 // ------------------------------ sync nudge --------------------------------
 // Live fine-tune of lyric timing so highlighting lands on the beat. The right
 // value depends on the user's speakers / device / stream path, so it's tunable
 // on the fly ( [ = later, ] = earlier, \ = reset ) and persisted by Display.
 let syncToastTimer;
-function showSyncToast(offset) {
+function showToast(text) {
   let el = $('sync-toast');
   if (!el) {
     el = document.createElement('div');
     el.id = 'sync-toast';
     document.body.appendChild(el);
   }
-  const ms = Math.round(offset * 1000);
-  const dir = ms > 0 ? 'earlier' : ms < 0 ? 'later' : 'on time';
-  el.textContent = ms === 0 ? 'Sync reset (on time)' : `Sync ${ms > 0 ? '+' : ''}${ms}ms (lyrics ${dir})`;
+  el.textContent = text;
   el.classList.add('show');
   clearTimeout(syncToastTimer);
   syncToastTimer = setTimeout(() => el.classList.remove('show'), 1400);
 }
+function showSyncToast(offset) {
+  const ms = Math.round(offset * 1000);
+  const dir = ms > 0 ? 'earlier' : ms < 0 ? 'later' : 'on time';
+  showToast(ms === 0 ? 'Sync reset (on time)' : `Sync ${ms > 0 ? '+' : ''}${ms}ms (lyrics ${dir})`);
+}
+
+// ------------------- D-pad / remote navigation (10-foot UI) ----------------
+// Arrow keys move focus tvOS-style across the setup screen; Enter activates.
+// Inputs keep their own keys: ←/→ move the caret, ↑/↓ drive the suggestion
+// list while it's open, and ↑ stays in the field so typing is never hijacked.
+initTvNav({
+  root: $('setup'),
+  isActive: (e) => {
+    if (stage.dataset.mode !== 'setup') return false;
+    const t = document.activeElement;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT')) {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp') return false;
+      if (!$('suggestions').hidden) return false; // ↑/↓ belong to the list
+    }
+    return true;
+  },
+});
 
 // -------------------- fullscreen + auto-hiding bar -------------------------
 addEventListener('keydown', (e) => {
+  // Remote "Menu"/back: leave the lyric view the same way Change song does.
+  if (e.key === 'Escape' && stage.dataset.mode === 'playing') {
+    $('btn-change').click();
+    return;
+  }
   if (e.key.toLowerCase() === 'f') {
     if (window.bar4bar?.toggleFullscreen) window.bar4bar.toggleFullscreen();
     else if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
@@ -805,6 +1117,12 @@ addEventListener('keydown', (e) => {
   if (e.key === ']') showSyncToast(display.nudgeSyncOffset(0.05));
   else if (e.key === '[') showSyncToast(display.nudgeSyncOffset(-0.05));
   else if (e.key === '\\') showSyncToast(display.resetSyncOffset());
+  else if (e.key.toLowerCase() === 't') {
+    cycleAid();
+  } else if (e.key.toLowerCase() === 'p') {
+    const on = display.toggleReadingMode();
+    showToast(on ? 'Reading mode (scroll to read)' : 'Follow mode');
+  }
 });
 
 let idleTimer;
@@ -815,6 +1133,8 @@ function poke() {
   idleTimer = setTimeout(() => $('nowbar').classList.add('hide'), 3500);
 }
 addEventListener('mousemove', poke);
+// On a remote/keyboard there is no mouse — any key wakes the now-bar too.
+addEventListener('keydown', poke);
 
 async function bootSetup() {
   if (window.bar4bar?.getConfig) {

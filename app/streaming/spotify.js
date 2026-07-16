@@ -18,9 +18,7 @@ let onStateChange = null;
 let currentTrack = null;
 let pollTimer = null;
 let lastTrackKey = '';
-let positionSec = 0;
 let playing = false;
-let startedAt = 0;
 let firstPollTimer = null;
 
 export function getSpotifyConfig() {
@@ -41,8 +39,8 @@ export function getCurrentTrack() {
 function ensureClock() {
   if (!streamingClock) {
     streamingClock = new StreamingClock({
-      getPosition: () => rawPosition() + SPOTIFY_LEAD_SEC,
       isPlaying: () => playing,
+      lead: SPOTIFY_LEAD_SEC,
     });
   }
   return streamingClock;
@@ -94,20 +92,26 @@ function applyPlayerState(data, rttSec = 0) {
     duration: t.duration_ms ? Math.round(t.duration_ms / 1000) : undefined,
   };
   const key = `${meta.artist}::${meta.title}`;
-  if (key !== lastTrackKey) {
+  const trackChanged = key !== lastTrackKey;
+  if (trackChanged) {
     lastTrackKey = key;
     currentTrack = meta;
     onTrackChange?.(meta);
   }
+  const wasPlaying = playing;
   playing = !!data.is_playing;
+
   // `progress_ms` was sampled by Spotify roughly one one-way trip before it
-  // reached us. Advance the anchor by that estimate (half the round trip) so the
-  // clock starts from where playback actually is *now*, not where it was — this
-  // is the main reason highlighting otherwise runs consistently behind.
+  // reached us. Advance the measurement by that estimate (half the round trip)
+  // so we correct toward where playback actually is *now*, not where it was.
   const oneWaySec = playing ? rttSec / 2 : 0;
-  positionSec = (data.progress_ms || 0) / 1000 + oneWaySec;
-  startedAt = performance.now() / 1000;
-  ensureClock();
+  const measured = (data.progress_ms || 0) / 1000 + oneWaySec;
+
+  const clock = ensureClock();
+  // Snap on discontinuities (new track, just-resumed, paused); ease otherwise so
+  // the ~1.5s poll cadence never shows up as a visible hitch in the highlight.
+  if (!playing || trackChanged || (playing && !wasPlaying)) clock.set(measured);
+  else clock.observe(measured);
 }
 
 async function pollOnce() {
@@ -118,7 +122,7 @@ async function pollOnce() {
     const data = await fetchCurrentlyPlaying(token.access_token);
     const rttSec = (performance.now() - reqStart) / 1000;
     applyPlayerState(data, rttSec);
-    onStateChange?.({ playing, position: rawPosition(), track: currentTrack });
+    onStateChange?.({ playing, position: streamingClock?.position() ?? 0, track: currentTrack });
   } catch (e) {
     if (e.message === 'unauthorized') clearToken('spotify');
   }
@@ -258,7 +262,6 @@ export function disconnectSpotify() {
   currentTrack = null;
   lastTrackKey = '';
   playing = false;
-  positionSec = 0;
   onStateChange = null;
 }
 
@@ -273,10 +276,6 @@ export function logoutSpotify() {
 // by a device-dependent buffer; nudge the clock forward so lyrics land on time.
 // (The user can still fine-tune with the on-screen sync dial on top of this.)
 const SPOTIFY_LEAD_SEC = 0.2;
-
-function rawPosition() {
-  return playing ? positionSec + (performance.now() / 1000 - startedAt) : positionSec;
-}
 
 /** Authenticated Spotify Web API call with friendly errors. Returns parsed JSON or null. */
 async function playerApi(path, { method = 'GET', body } = {}) {
@@ -383,23 +382,25 @@ export async function playSpotifyTrack({ uri, positionMs = 0 } = {}) {
     method: 'PUT',
     body: { uris: [uri], position_ms: positionMs },
   });
-  positionSec = positionMs / 1000;
-  startedAt = performance.now() / 1000;
   playing = true;
-  ensureClock();
+  ensureClock().set(positionMs / 1000);
   return deviceId;
 }
 
 export async function pausePlayback() {
-  positionSec = rawPosition(); // freeze at the current spot before pausing
+  const clock = ensureClock();
+  const at = clock.position(); // freeze at the current spot before pausing
   playing = false;
+  clock.set(at);
   await playerApi('/me/player/pause', { method: 'PUT' });
 }
 
 export async function resumePlayback() {
+  const clock = ensureClock();
+  const at = clock.position();
   await playerApi('/me/player/play', { method: 'PUT' });
-  startedAt = performance.now() / 1000;
   playing = true;
+  clock.set(at);
 }
 
 /** Toggle play/pause; returns the new playing state. */
@@ -420,8 +421,7 @@ export async function previousTrack() {
 export async function seekTo(positionMs) {
   const ms = Math.max(0, Math.round(positionMs));
   await playerApi(`/me/player/seek?position_ms=${ms}`, { method: 'PUT' });
-  positionSec = ms / 1000;
-  startedAt = performance.now() / 1000;
+  ensureClock().set(ms / 1000);
 }
 
 export function isSpotifyPlaying() {

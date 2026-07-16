@@ -71,4 +71,13 @@ describe('pickBestMatch', () => {
   it('returns null when nothing is close enough', () => {
     assert.equal(pickBestMatch(list, { artist: 'Drake', track: 'Hotline Bling' }), null);
   });
+
+  it('uses duration to pick the right take among same-titled candidates', () => {
+    const takes = [
+      { trackName: 'Passionfruit', artistName: 'Drake', duration: 338, syncedLyrics: '[00:00.00]live' },
+      { trackName: 'Passionfruit', artistName: 'Drake', duration: 298, syncedLyrics: '[00:00.00]album' },
+    ];
+    const hit = pickBestMatch(takes, { artist: 'Drake', track: 'Passionfruit', duration: 299 });
+    assert.equal(hit.syncedLyrics, '[00:00.00]album');
+  });
 });

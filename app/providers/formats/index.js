@@ -2,6 +2,7 @@ import { parseLRC } from './lrc.js';
 import { parseSRT } from './srt.js';
 import { parseASS } from './ass.js';
 import { parseYRC } from './yrc.js';
+import { parseRichsync } from './richsync.js';
 
 const EXT = {
   lrc: 'lrc',
@@ -23,7 +24,7 @@ export function detectFormat(text, filename) {
   return 'lrc';
 }
 
-const KNOWN = new Set(['lrc', 'srt', 'ass', 'yrc']);
+const KNOWN = new Set(['lrc', 'srt', 'ass', 'yrc', 'richsync']);
 
 export function parseLyrics(text, formatOrFilename) {
   const format = KNOWN.has(formatOrFilename)
@@ -33,6 +34,8 @@ export function parseLyrics(text, formatOrFilename) {
   switch (format) {
     case 'yrc':
       return { timeline: parseYRC(text), format: 'yrc' };
+    case 'richsync':
+      return { timeline: parseRichsync(text), format: 'richsync' };
     case 'srt':
       return { timeline: parseSRT(text), format: 'srt' };
     case 'ass':
@@ -42,4 +45,4 @@ export function parseLyrics(text, formatOrFilename) {
   }
 }
 
-export { parseLRC, parseSRT, parseASS, parseYRC };
+export { parseLRC, parseSRT, parseASS, parseYRC, parseRichsync };

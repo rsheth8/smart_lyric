@@ -68,26 +68,108 @@ export class Display {
     return 0;
   }
 
-  // Build DOM from a parsed timeline ({ lines: [{ start, end, words }] }).
-  setLyrics(timeline) {
+  // Build DOM from a parsed timeline. Each line gets an original text row plus a
+  // `.line-sub` row for the language aid (romanization or English), populated by
+  // setAidMode(). Line objects may carry `.roman` / `.english` overlay strings.
+  setLyrics(timeline, { source, format, wordSync, aligned } = {}) {
     this.lines = timeline.lines || [];
     this.lyricsEl.innerHTML = '';
     this.lineEls = this.lines.map((line) => {
       const el = document.createElement('div');
       el.className = 'line';
+      const orig = document.createElement('div');
+      orig.className = 'line-orig';
       for (const word of line.words) {
         const s = document.createElement('span');
         s.className = 'word';
         s.textContent = word.text;
-        el.appendChild(s);
+        orig.appendChild(s);
         word.el = s;
       }
+      el.appendChild(orig);
+      const sub = document.createElement('div');
+      sub.className = 'line-sub';
+      el.appendChild(sub);
+      line.subEl = sub;
       this.lyricsEl.appendChild(el);
       line.el = el;
       return el;
     });
+    this.aidMode = 'off';
+    this.lyricsEl.classList.remove('show-sub');
+    this.estimated = !!timeline.estimated;
+    this._setBadge(this._timingBadge({ estimated: this.estimated, source, format, wordSync, aligned }));
     this.activeLine = -1;
     this._resize();
+  }
+
+  /** Which aid overlays have any content on the current timeline. */
+  aidAvailability() {
+    return {
+      roman: this.lines.some((l) => l.roman),
+      english: this.lines.some((l) => l.english),
+    };
+  }
+
+  // Show a language aid under each line: 'off' | 'roman' | 'english'.
+  setAidMode(mode) {
+    this.aidMode = mode;
+    const on = mode !== 'off';
+    for (const line of this.lines) {
+      if (line.subEl) line.subEl.textContent = on ? line[mode] || '' : '';
+    }
+    this.lyricsEl.classList.toggle('show-sub', on);
+    if (!this.readingMode && this.activeLine >= 0) this._centerOn(Math.max(0, this.activeLine));
+  }
+
+  // Re-apply the current mode (e.g. after English lines are filled in lazily).
+  refreshAid() {
+    this.setAidMode(this.aidMode || 'off');
+  }
+
+  // Small persistent label (e.g. "Estimated timing") so approximate scroll is honest.
+  _timingBadge({ estimated, source, format, wordSync, aligned }) {
+    if (estimated) return 'Estimated timing';
+    if (aligned) return 'Vocal-aligned';
+    if (wordSync) return `Word sync · ${source || format || 'synced'}`;
+    return 'Line sync · words estimated';
+  }
+
+  _setBadge(text) {
+    if (!text) {
+      this._badge?.remove();
+      this._badge = null;
+      return;
+    }
+    if (!this._badge) {
+      this._badge = document.createElement('div');
+      this._badge.id = 'mode-badge';
+      this.stage.appendChild(this._badge);
+    }
+    this._badge.textContent = text;
+  }
+
+  updateTimingBadge({ source, format, wordSync, aligned } = {}) {
+    this._setBadge(
+      this._timingBadge({ estimated: this.estimated, source, format, wordSync, aligned })
+    );
+  }
+
+  // Plain reading mode: no follow, no highlight — just the full lyrics to scroll.
+  // For the estimated fallback where auto-scroll may feel off. Returns new state.
+  toggleReadingMode(force) {
+    const on = force === undefined ? !this.readingMode : !!force;
+    this.readingMode = on;
+    this.lyricsEl.classList.toggle('reading', on);
+    this.stage.querySelector('#viewport')?.classList.toggle('reading', on);
+    if (on) {
+      this.lyricsEl.style.transform = 'none';
+      this._lastY = null;
+      this.lineEls.forEach((el) => el.classList.remove('active', 'past'));
+    } else if (this.activeLine >= 0) {
+      this._centerOn(Math.max(0, this.activeLine));
+    }
+    return on;
   }
 
   start() {
@@ -126,6 +208,11 @@ export class Display {
 
   _frame(rafTime) {
     if (!this.clock || !this.lines.length) {
+      this._drawBg(rafTime / 1000, 0);
+      return;
+    }
+    // Reading mode is a static scroll — skip all follow/highlight work.
+    if (this.readingMode) {
       this._drawBg(rafTime / 1000, 0);
       return;
     }

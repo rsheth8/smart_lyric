@@ -32,6 +32,7 @@ async function fetchViaBridgeOrProxy(query) {
   const params = new URLSearchParams();
   if (query.artist) params.set('artist', query.artist);
   if (query.track) params.set('track', query.track);
+  if (query.duration) params.set('duration', String(query.duration));
   const res = await fetch(`/api/lyrics?${params}`, { signal: AbortSignal.timeout(9000) });
   if (!res.ok) return null;
   return res.json();
@@ -51,11 +52,19 @@ export async function fetchFromNetease(query) {
   }
   if (!data) return null;
 
+  // Romanized (Latin-letter) pronunciation overlay — the "sing-along" aid.
+  const roman = (data.rlrc || '').trim() || null;
   if (data.yrc && data.yrc.trim()) {
     const { lines } = parseYRC(data.yrc);
     if (lines.length) {
-      return { text: data.yrc, format: 'yrc', meta: data.meta || {}, source: 'netease' };
+      return { text: data.yrc, format: 'yrc', roman, meta: data.meta || {}, source: 'netease' };
     }
   }
-  return null; // no usable word-level timing → let LRCLIB handle line-level
+  // No word-level timing. Normally we defer to LRCLIB for line-level lyrics — but
+  // if NetEase carries a romanization, keep its line-level `lrc` so the
+  // pronunciation overlay has aligned original text to sit under.
+  if (roman && data.lrc && data.lrc.trim()) {
+    return { lrc: data.lrc, format: 'lrc', roman, meta: data.meta || {}, source: 'netease' };
+  }
+  return null; // let LRCLIB handle line-level
 }

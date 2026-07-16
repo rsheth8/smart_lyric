@@ -8,23 +8,27 @@
 import { encodeWAV, rms } from './wav.js';
 
 export class Mic {
-  constructor({ seconds = 12, sampleRate = 44100, onsetThreshold = 0.02 } = {}) {
+  constructor({ seconds = 12, sampleRate = 44100, onsetThreshold = 0.02, deviceId = null } = {}) {
     this.seconds = seconds;
     this.sampleRate = sampleRate;
     this.onsetThreshold = onsetThreshold;
+    this.deviceId = deviceId; // specific input (e.g. USB line-in), or null = default
     this.buffer = new Float32Array(seconds * sampleRate);
     this.writeIndex = 0;
     this.filled = false;
     this.onsetAt = null; // wall-clock (s) when audio first crossed the threshold
+    this.level = 0; // smoothed input RMS (0..1), for a live UI meter
     this._ctx = null;
     this._node = null;
     this._stream = null;
   }
 
   async start() {
-    this._stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-    });
+    // Disable all the "cleanup" DSP — for line-in / vinyl we want the raw signal,
+    // and noise suppression / AGC would corrupt the fingerprint.
+    const audio = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+    if (this.deviceId) audio.deviceId = { exact: this.deviceId };
+    this._stream = await navigator.mediaDevices.getUserMedia({ audio });
     this._ctx = new AudioContext({ sampleRate: this.sampleRate });
     const source = this._ctx.createMediaStreamSource(this._stream);
     // ScriptProcessor is deprecated but universally available and fine here.
@@ -35,8 +39,11 @@ export class Mic {
   }
 
   _onAudio(input) {
+    const level = rms(input);
+    // Smooth the level a little so the UI meter doesn't strobe.
+    this.level = this.level * 0.6 + level * 0.4;
     // Detect the moment the record starts (rising above the noise floor).
-    if (this.onsetAt == null && rms(input) > this.onsetThreshold) {
+    if (this.onsetAt == null && level > this.onsetThreshold) {
       this.onsetAt = performance.now() / 1000;
     }
     // Append into the ring buffer.
@@ -66,6 +73,11 @@ export class Mic {
     return out;
   }
 
+  /** Chronological PCM from the ring buffer (for vocal alignment). */
+  getOrderedPcm() {
+    return this._orderedBuffer();
+  }
+
   stop() {
     try {
       this._node && this._node.disconnect();
@@ -77,5 +89,6 @@ export class Mic {
     this.onsetAt = null;
     this.filled = false;
     this.writeIndex = 0;
+    this.level = 0;
   }
 }

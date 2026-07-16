@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MediaClock, PredictiveClock } from '../app/clock.js';
+import { MediaClock, PredictiveClock, StreamingClock } from '../app/clock.js';
 
 // Helper: a PredictiveClock with a manually-advanced wall clock.
 function makeClock(opts = {}) {
@@ -34,6 +34,14 @@ test('pause freezes the reported position', () => {
   state.t = 500;
   assert.equal(clock.now(), frozen);
   assert.equal(clock.isPlaying(), false);
+});
+
+test('observe() does not jump backward on a modest ahead error', () => {
+  const { clock, state } = makeClock();
+  clock.start(0);
+  state.t = 10;
+  clock.observe(8.5); // 1.5s ahead — should ease, not rewind
+  assert.ok(clock.now() >= 9.5, `position should not jump back, got ${clock.now()}`);
 });
 
 test('observe() snaps when the error exceeds the jump threshold', () => {
@@ -84,6 +92,66 @@ test('calibrateRate() estimates vinyl speed from two measurements', () => {
   const { clock } = makeClock();
   clock.calibrateRate(0, 0, 10.1, 10); // 10.1 song-seconds in 10 wall-seconds
   assert.ok(Math.abs(clock._targetRate - 1.01) < 1e-9);
+});
+
+// Helper: a StreamingClock with a manually-advanced wall clock.
+function makeStreaming(opts = {}) {
+  const state = { t: 0, playing: true };
+  const clock = new StreamingClock({
+    isPlaying: () => state.playing,
+    now: () => state.t,
+    ...opts,
+  });
+  return { clock, state };
+}
+
+test('StreamingClock free-runs at rate 1.0 between measurements', () => {
+  const { clock, state } = makeStreaming();
+  clock.set(30);
+  state.t = 5;
+  assert.ok(Math.abs(clock.position() - 35) < 1e-9);
+});
+
+test('StreamingClock applies the device-latency lead to now()', () => {
+  const { clock } = makeStreaming({ lead: 0.2 });
+  clock.set(30);
+  assert.ok(Math.abs(clock.now() - 30.2) < 1e-9);
+});
+
+test('StreamingClock eases toward a small poll error instead of snapping', () => {
+  const { clock, state } = makeStreaming({ ease: 0.25 });
+  clock.set(10);
+  state.t = 2; // predicted = 12
+  clock.observe(12.4); // 0.4s behind → nudge by 0.4*0.25 = 0.1
+  assert.ok(Math.abs(clock.position() - 12.1) < 1e-9, 'moved a fraction, not the whole error');
+});
+
+test('StreamingClock snaps when a poll is beyond the jump threshold', () => {
+  const { clock, state } = makeStreaming({ jumpThreshold: 0.75 });
+  clock.set(10);
+  state.t = 2; // predicted = 12
+  clock.observe(45); // seek / new track
+  assert.ok(Math.abs(clock.position() - 45) < 1e-9);
+});
+
+test('StreamingClock freezes while paused', () => {
+  const { clock, state } = makeStreaming();
+  clock.set(20);
+  state.t = 3;
+  state.playing = false;
+  const frozen = clock.position();
+  state.t = 100;
+  assert.equal(clock.position(), frozen);
+});
+
+test('StreamingClock with an exact getPosition bypasses the ease model', () => {
+  const state = { pos: 42 };
+  const clock = new StreamingClock({
+    isPlaying: () => true,
+    getPosition: () => state.pos,
+  });
+  clock.observe(0); // should be ignored — exact source wins
+  assert.equal(clock.position(), 42);
 });
 
 test('MediaClock reflects the underlying media element', () => {

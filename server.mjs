@@ -6,6 +6,8 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fetchNeteaseLyrics } from './lib/netease.mjs';
+import { fetchGeniusLyrics } from './lib/genius.mjs';
+import { fetchMusixmatchRichsync } from './lib/musixmatch.mjs';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), 'app');
 const PORT = process.env.PORT || 4321;
@@ -45,11 +47,40 @@ createServer(async (req, res) => {
     if (path === '/api/lyrics') {
       const q = new URL(req.url, 'http://localhost').searchParams;
       const track = q.get('track') || '';
+      const duration = Number(q.get('duration')) || undefined;
       let payload = { yrc: '', lrc: '', meta: null };
       if (track) {
         try {
-          payload = (await fetchNeteaseLyrics({ artist: q.get('artist') || '', track })) || payload;
+          payload = (await fetchNeteaseLyrics({ artist: q.get('artist') || '', track, duration })) || payload;
         } catch { /* soft-fail → client falls through to LRCLIB */ }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(payload));
+      return;
+    }
+
+    if (path === '/api/richsync') {
+      const q = new URL(req.url, 'http://localhost').searchParams;
+      const track = q.get('track') || '';
+      let payload = { richsync: '', meta: null };
+      if (track) {
+        try {
+          payload = (await fetchMusixmatchRichsync({ artist: q.get('artist') || '', track })) || payload;
+        } catch { /* soft-fail → client falls through to line-level providers */ }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(payload));
+      return;
+    }
+
+    if (path === '/api/genius') {
+      const q = new URL(req.url, 'http://localhost').searchParams;
+      const track = q.get('track') || '';
+      let payload = { plain: '', meta: null };
+      if (track) {
+        try {
+          payload = (await fetchGeniusLyrics({ artist: q.get('artist') || '', track })) || payload;
+        } catch { /* soft-fail → no plain lyrics */ }
       }
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify(payload));

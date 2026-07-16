@@ -1,5 +1,7 @@
 import { fetchLyrics } from './providers/lyrics/index.js';
 import { parseLyrics } from './providers/formats/index.js';
+import { attachLineText } from './providers/formats/translation.js';
+import { estimateTimeline } from './providers/formats/estimate.js';
 
 /**
  * Orchestrates lyrics loading, timeline parsing, and active medium/clock.
@@ -51,8 +53,17 @@ export class SongSession {
       return false;
     }
 
-    const text = result.lrc || result.text;
-    const { timeline } = parseLyrics(text, result.format || 'lrc');
+    // Untimed plain lyrics → estimate a scroll from the song duration.
+    let timeline;
+    if (result.plain && result.synced === false) {
+      timeline = estimateTimeline(result.plain, { duration: duration || result.meta?.duration });
+    } else {
+      const text = result.lrc || result.text;
+      ({ timeline } = parseLyrics(text, result.format || 'lrc'));
+      // Romanized pronunciation overlay (NetEase). English meaning is translated
+      // lazily on demand (see app.js), not here, to avoid a per-song network hit.
+      if (result.roman) attachLineText(timeline, result.roman, 'roman');
+    }
     if (!timeline.lines.length) {
       this.onError('Found lyrics, but they had no timing data.');
       return false;
@@ -64,11 +75,26 @@ export class SongSession {
       track: result.meta?.trackName || track,
       album: result.meta?.albumName || album,
       source: result.source,
+      format: result.format || (result.plain ? 'plain' : 'lrc'),
     };
-    this.display.setLyrics(timeline);
+    const wordSync = ['yrc', 'richsync', 'ass'].includes(this.meta.format);
+    this.display.setLyrics(timeline, {
+      source: this.meta.source,
+      format: this.meta.format,
+      wordSync,
+      aligned: !!timeline.aligned,
+    });
     this.onMeta(this.meta);
     this.onStatus('', '');
-    return { lines: timeline.lines.length, meta: this.meta };
+    return {
+      lines: timeline.lines.length,
+      meta: this.meta,
+      hasRoman: !!timeline.hasRoman,
+      estimated: !!timeline.estimated,
+      format: this.meta.format,
+      wordSync,
+      source: this.meta.source,
+    };
   }
 
   setClock(clock) {

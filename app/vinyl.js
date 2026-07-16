@@ -8,6 +8,7 @@ export class VinylDetector {
     clock,
     onSong,
     onState,
+    onResult,
     now = () => performance.now() / 1000,
     intervalMs = 5000,
     missTolerance = 4,
@@ -18,6 +19,7 @@ export class VinylDetector {
     this.clock = clock;
     this.onSong = onSong;
     this.onState = onState;
+    this.onResult = onResult; // per-poll diagnostics for the UI
     this.now = now;
     this.intervalMs = intervalMs;
     this.missTolerance = missTolerance;
@@ -26,6 +28,7 @@ export class VinylDetector {
     this.state = 'idle';
     this.currentId = null;
     this.misses = 0;
+    this.attempts = 0; // total identify() calls with audio
     this._timer = null;
     this._lastObs = null; // { song, wall } for calibrateRate
   }
@@ -55,8 +58,12 @@ export class VinylDetector {
 
   async pollOnce() {
     const chunk = await this.getChunk();
-    if (!chunk || chunk.onsetAt == null) return null;
+    if (!chunk || chunk.onsetAt == null) {
+      this._emitResult({ reason: 'no-audio' });
+      return null;
+    }
 
+    this.attempts++;
     let result = null;
     try {
       result = await this.identify(chunk.wav);
@@ -64,7 +71,13 @@ export class VinylDetector {
       result = null;
     }
 
-    if (!result || (result.score != null && result.score < this.minScore)) {
+    if (!result) {
+      this._emitResult({ reason: 'no-match' });
+      this._handleMiss();
+      return null;
+    }
+    if (result.score != null && result.score < this.minScore) {
+      this._emitResult({ reason: 'low-score', score: result.score, title: result.title, artist: result.artist });
       this._handleMiss();
       return null;
     }
@@ -87,7 +100,12 @@ export class VinylDetector {
       this._lastObs = { song: position, wall };
       this.clock.observe(position);
     }
+    this._emitResult({ reason: 'match', score: result.score, title: result.title, artist: result.artist });
     return result;
+  }
+
+  _emitResult(info) {
+    if (this.onResult) this.onResult({ attempts: this.attempts, ...info });
   }
 
   _handleMiss() {

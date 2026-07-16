@@ -8,13 +8,19 @@ export const vinylMedium = {
   _detector: null,
   _mic: null,
 
-  async start({ session, vinylClock, mic, onState, onStatus, prepareSong }) {
+  async start({ session, vinylClock, mic, onState, onStatus, onResult, useAmbient, prepareSong }) {
     this._mic = mic;
     session.setClock(vinylClock);
 
+    // ACRCloud (ambient/landmark) when configured — it recognizes music through a
+    // room mic; AcoustID/Chromaprint only matches near-identical digital audio.
+    const recognize = useAmbient
+      ? (wav) => window.bar4bar.identifyAmbient(wav)
+      : (wav) => window.bar4bar.identify(wav);
+
     this._detector = new VinylDetector({
       identify: async (wav) => {
-        const r = await window.bar4bar.identify(wav);
+        const r = await recognize(wav);
         if (r?.error) {
           onStatus('error', `Fingerprint error: ${r.error}`);
           return null;
@@ -31,6 +37,7 @@ export const vinylMedium = {
           duration: meta.duration,
         }),
       onState,
+      onResult,
     });
     this._detector.start();
   },

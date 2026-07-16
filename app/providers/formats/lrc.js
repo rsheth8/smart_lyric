@@ -1,5 +1,22 @@
 // LRC parsing → canonical timeline with line and (interpolated) word timings.
 
+// Estimate a word's syllable count — a much better proxy for how long it's sung
+// than raw character length (the previous heuristic). Vowel *groups* ≈ syllables
+// for Latin/romanized text; for non-Latin scripts (CJK, Devanagari, …) each
+// letter is roughly one mora, so letter count is the better estimate.
+const LATIN_RE = /[a-z]/i;
+export function syllableCount(word) {
+  const w = (word || '').toLowerCase();
+  if (LATIN_RE.test(w)) {
+    let n = (w.match(/[aeiouyàáâäãåèéêëìíîïòóôöõùúûüỳýŷÿ]+/g) || []).length;
+    // Drop a silent trailing "e" (e.g. "time" → 1, not 2).
+    if (n > 1 && /[^aeiou]e\b/.test(w)) n -= 1;
+    return Math.max(1, n);
+  }
+  const letters = [...w].filter((c) => /\p{L}/u.test(c)).length;
+  return Math.max(1, letters);
+}
+
 const LINE_RE = /^((?:\[\d{1,2}:\d{1,2}(?:\.\d{1,3})?\])+)(.*)$/;
 const TAG_RE = /\[(\d{1,2}):(\d{1,2}(?:\.\d{1,3})?)\]/g;
 const WORD_TS_RE = /<(\d{1,2}):(\d{1,2}(?:\.\d{1,3})?)>/g;
@@ -60,7 +77,9 @@ export function parseLRC(lrc, { trailingLineSeconds = 4 } = {}) {
         end: wi + 1 < line.wordTimes.length ? line.wordTimes[wi + 1] : end,
       }));
     } else {
-      const weights = tokens.map((t) => 0.5 + t.replace(/[^\p{L}\p{N}]/gu, '').length);
+      // Distribute the line span by estimated syllables (+ a small floor so tiny
+      // function words like "a"/"the" still read), instead of character length.
+      const weights = tokens.map((t) => 0.4 + syllableCount(t));
       const total = weights.reduce((a, b) => a + b, 0) || 1;
       let t = line.start;
       words = tokens.map((text, wi) => {

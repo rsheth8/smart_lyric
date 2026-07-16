@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Word-by-word lyrics that follow every bar, in sync.",
   "type": "module",
-  "main": "electron/main.js",
+  "main": "electron/main.cjs",
   "engines": {
     "node": ">=18"
   },
@@ -14,5 +14,8 @@
   },
   "devDependencies": {
     "electron": "^31.0.0"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.2.0"
   }
 }

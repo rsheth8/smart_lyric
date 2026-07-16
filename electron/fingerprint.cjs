@@ -79,8 +79,14 @@ async function identifyWav(arrayBuffer) {
     if (!res.ok) throw new Error(`AcoustID lookup failed: HTTP ${res.status}`);
     const data = await res.json();
 
-    const top = (data.results || []).sort((a, b) => (b.score || 0) - (a.score || 0))[0];
+    const results = data.results || [];
+    const top = results.slice().sort((a, b) => (b.score || 0) - (a.score || 0))[0];
     const rec = top && top.recordings && top.recordings[0];
+    console.log(
+      `[vinyl] fp ${Math.round(duration)}s → ${results.length} result(s)` +
+        (top ? `, top score ${(top.score ?? 0).toFixed(2)}` : '') +
+        (rec ? `, "${rec.title}" — ${rec.artists?.[0]?.name || '?'}` : ', no recording metadata')
+    );
     if (!rec) return null;
 
     let offsetSec = null;

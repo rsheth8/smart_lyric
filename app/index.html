@@ -16,6 +16,22 @@
 
     <div id="viewport"><div id="lyrics" aria-live="off"></div></div>
 
+    <div id="listen-panel" hidden aria-live="polite">
+      <div class="listen-card">
+        <div class="listen-pulse" aria-hidden="true"></div>
+        <div id="listen-meter" class="listen-meter" aria-hidden="true">
+          <span class="listen-meter-fill"></span>
+          <span class="listen-meter-threshold" title="onset threshold"></span>
+        </div>
+        <b id="listen-title">Listening…</b>
+        <p id="listen-detail">Start the record near the mic</p>
+        <label id="listen-input-row" class="listen-input-row" hidden>
+          <span>Input</span>
+          <select id="listen-input" aria-label="Audio input device"></select>
+        </label>
+      </div>
+    </div>
+
     <div id="setup">
       <div class="setup-panel">
         <header class="setup-header">
@@ -108,7 +124,7 @@
           </div>
         </section>
       </div>
-      <div class="hint">F fullscreen · Space play/pause · [ ] \ nudge sync</div>
+      <div class="hint">↑↓←→ navigate · Enter select · F fullscreen · Space play/pause · T translate · P read · [ ] \ sync</div>
     </div>
 
     <div id="nowbar">

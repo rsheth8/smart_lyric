@@ -5,6 +5,7 @@ import { basenamesMatch } from '../app/providers/lyrics/local.js';
 import { parseSRT } from '../app/providers/formats/srt.js';
 import { parseASS } from '../app/providers/formats/ass.js';
 import { parseYRC } from '../app/providers/formats/yrc.js';
+import { parseRichsync } from '../app/providers/formats/richsync.js';
 import { detectFormat, parseLyrics } from '../app/providers/formats/index.js';
 import { fetchLyrics } from '../app/providers/lyrics/index.js';
 import { validateTimeline, emptyTimeline } from '../app/timeline.js';
@@ -32,6 +33,50 @@ Hello world`;
   assert.equal(lines.length, 1);
   assert.equal(lines[0].start, 1);
   assert.equal(lines[0].words[0].text, 'Hello');
+});
+
+test('parseRichsync gives each word its real vocal onset', () => {
+  // ts/te = line start/end (s); each chunk offset `o` is added to ts.
+  const body = JSON.stringify([
+    { ts: 1, te: 3, x: 'hey there now', l: [
+      { c: 'hey', o: 0 }, { c: ' ', o: 0.4 }, { c: 'there', o: 0.5 }, { c: ' ', o: 1.2 }, { c: 'now', o: 1.3 },
+    ] },
+    { ts: 3, te: 4, x: 'end', l: [{ c: 'end', o: 0 }] },
+  ]);
+  const { lines } = parseRichsync(body);
+  assert.equal(lines.length, 2);
+  const [hey, there, now] = lines[0].words; // spacing-only chunks are dropped
+  assert.deepEqual([hey.text, there.text, now.text], ['hey', 'there', 'now']);
+  assert.equal(hey.start, 1);
+  assert.equal(there.start, 1.5); // ts + offset, not an even split
+  assert.equal(now.start, 2.3);
+  assert.equal(hey.end, there.start); // each word holds until the next begins
+  assert.equal(lines[0].end, lines[1].start); // line held until the next line starts
+});
+
+test('parseRichsync falls back to interpolation on degenerate crammed lines', () => {
+  // A multi-second line whose word offsets barely advance (all in the first 0.1s)
+  // would flash by — detect it and spread the words across the real span instead.
+  const body = JSON.stringify([
+    { ts: 0, te: 4, x: 'one two three four', l: [
+      { c: 'one', o: 0 }, { c: ' ', o: 0.02 }, { c: 'two', o: 0.04 },
+      { c: ' ', o: 0.06 }, { c: 'three', o: 0.08 }, { c: ' ', o: 0.09 }, { c: 'four', o: 0.1 },
+    ] },
+  ]);
+  const { lines } = parseRichsync(body);
+  const words = lines[0].words;
+  assert.equal(words.length, 4);
+  // Interpolated: the last word starts well after the crammed 0.1s original.
+  assert.ok(words[3].start > 1, `expected spread timing, got ${words[3].start}`);
+  // Monotonic and covering the line.
+  for (let i = 1; i < words.length; i++) assert.ok(words[i].start >= words[i - 1].start);
+});
+
+test('parseLyrics routes richsync to the word-level parser', () => {
+  const body = JSON.stringify([{ ts: 0, te: 2, x: 'hi', l: [{ c: 'hi', o: 0 }] }]);
+  const { timeline, format } = parseLyrics(body, 'richsync');
+  assert.equal(format, 'richsync');
+  assert.equal(timeline.lines[0].words[0].text, 'hi');
 });
 
 test('parseASS parses Dialogue karaoke lines', () => {

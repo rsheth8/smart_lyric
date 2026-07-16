@@ -1,16 +1,26 @@
 // Thin Electron shell: control window + optional projector overlay window.
+//
+// This file is CommonJS (.cjs) on purpose: Electron 31 + Node 20's ESM loader
+// crashes preparsing the built-in `electron` module's exports when the main
+// entry is ESM (cjsPreparseModuleExports → "Cannot read properties of
+// undefined"). CJS main is the supported, reliable path. The two lyric helpers
+// live in ESM (.mjs) modules and are loaded here via dynamic import().
 
-import { app, BrowserWindow, ipcMain, screen, shell } from 'electron';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { createRequire } from 'node:module';
-import { createHash, randomBytes } from 'node:crypto';
-import http from 'node:http';
-import { fetchNeteaseLyrics } from '../lib/netease.mjs';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
+const { app, BrowserWindow, ipcMain, screen, shell } = require('electron');
+const { join } = require('node:path');
+const { createHash, randomBytes } = require('node:crypto');
+const http = require('node:http');
 const { identifyWav } = require('./fingerprint.cjs');
+const { identifyAcr, acrConfigured } = require('./acrcloud.cjs');
+const { alignSong, alignAvailable, alignModelLoaded } = require('./align.cjs');
+
+// ESM-only helpers — pulled in lazily since this module is CommonJS.
+const fetchNeteaseLyrics = (...args) =>
+  import('../lib/netease.mjs').then((m) => m.fetchNeteaseLyrics(...args));
+const fetchGeniusLyrics = (...args) =>
+  import('../lib/genius.mjs').then((m) => m.fetchGeniusLyrics(...args));
+const fetchMusixmatchRichsync = (...args) =>
+  import('../lib/musixmatch.mjs').then((m) => m.fetchMusixmatchRichsync(...args));
 
 app.setName('Bar4Bar');
 
@@ -22,6 +32,7 @@ try {
 
 let mainWindow = null;
 let projectorWindow = null;
+let _alignErrorLogged = false;
 
 const SPOTIFY_SCOPES = [
   'streaming',
@@ -37,6 +48,7 @@ function loadEnvConfig() {
     spotifyClientId: process.env.SPOTIFY_CLIENT_ID || '',
     appleMusicDeveloperToken: process.env.APPLE_MUSIC_DEVELOPER_TOKEN || '',
     spotifyRedirectUri: process.env.SPOTIFY_REDIRECT_URI || '',
+    acrCloud: acrConfigured(),
   };
 }
 
@@ -244,6 +256,16 @@ function createWindow() {
     try {
       return await identifyWav(arrayBuffer);
     } catch (err) {
+      console.error('[vinyl] identify error:', err.message);
+      return { error: err.message };
+    }
+  });
+
+  ipcMain.handle('identify-ambient', async (_e, arrayBuffer) => {
+    try {
+      return await identifyAcr(arrayBuffer);
+    } catch (err) {
+      console.error('[vinyl] ACRCloud identify error:', err.message);
       return { error: err.message };
     }
   });
@@ -305,6 +327,35 @@ function createWindow() {
       return (await fetchNeteaseLyrics(query || {})) || { yrc: '', lrc: '', meta: null };
     } catch {
       return { yrc: '', lrc: '', meta: null };
+    }
+  });
+  ipcMain.handle('genius-lyrics', async (_e, query) => {
+    // Genius needs the secret token + a page scrape → main process only.
+    try {
+      return (await fetchGeniusLyrics(query || {})) || { plain: '', meta: null };
+    } catch {
+      return { plain: '', meta: null };
+    }
+  });
+  ipcMain.handle('align-song', async (_e, payload) => {
+    // Forced alignment (CTC) — refine per-word vocal timing. Soft-fails so lyrics
+    // timing is never disturbed when the model can't download (HF gateway, etc.).
+    const result = await alignSong(payload || {});
+    if (result?.error && !_alignErrorLogged) {
+      console.warn('[align] vocal alignment unavailable:', result.error);
+      _alignErrorLogged = true;
+    }
+    return result;
+  });
+  ipcMain.handle('align-available', () => alignAvailable());
+  ipcMain.handle('align-model-loaded', () => alignModelLoaded());
+  ipcMain.handle('richsync', async (_e, query) => {
+    // Musixmatch richsync uses a reverse-engineered token endpoint (no CORS, and
+    // it captcha-blocks datacenter IPs) → best from the residential-IP main process.
+    try {
+      return (await fetchMusixmatchRichsync(query || {})) || { richsync: '', meta: null };
+    } catch {
+      return { richsync: '', meta: null };
     }
   });
 }
