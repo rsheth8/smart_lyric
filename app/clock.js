@@ -152,8 +152,9 @@ export class StreamingClock {
     getPosition = null,
     now = () => performance.now() / 1000,
     lead = 0,
-    jumpThreshold = 0.75,
-    ease = 0.25,
+    jumpThreshold = 1.5,
+    ease = 0.2,
+    deadband = 0.15,
   } = {}) {
     this._isPlayingFn = isPlaying;
     // When an SDK exposes an exact position (e.g. MusicKit's currentPlaybackTime),
@@ -161,8 +162,17 @@ export class StreamingClock {
     this._getPosition = getPosition;
     this._nowFn = now;
     this.lead = lead;
+    // A genuine seek/track jump moves by seconds; anything smaller is treated as
+    // poll noise to smooth, not a discontinuity to snap to.
     this.jumpThreshold = jumpThreshold;
     this.ease = ease;
+    // Corrections smaller than this are ignored entirely. Spotify's polled
+    // `progress_ms` is coarse (updates ~1/s, trails real output by a device
+    // buffer) and reaches us over variable network latency, so it wobbles by a
+    // few hundred ms poll-to-poll. Since digital playback runs at exactly rate
+    // 1.0, our free-running clock is already accurate between polls — chasing
+    // that wobble is what made the highlight drift "randomly ahead/behind."
+    this.deadband = deadband;
     this._anchorSong = 0;
     this._anchorWall = now();
   }
@@ -189,20 +199,27 @@ export class StreamingClock {
     this._anchorWall = this._nowFn();
   }
 
-  // Noisy measurement from a follow-poll. Ease toward it so steady-state
-  // corrections are invisible; snap when it's too far off to hide (seek / new
-  // track / long stall). Callers should `set()` instead on known discontinuities.
+  // Noisy measurement from a follow-poll. Three bands, so the coarse ~1.5s poll
+  // never shows up as a visible hitch:
+  //   • within the deadband → hold (the free-running clock is already right);
+  //   • up to the jump threshold → ease a fraction toward it (invisible drift-track);
+  //   • beyond it → a real seek/track jump, snap straight to truth.
+  // Callers should `set()` instead on discontinuities they initiate.
   observe(measuredSongTime) {
+    // An exact SDK position needs no smoothing (and position() ignores the anchor).
+    if (this._getPosition) return;
     if (!this.isPlaying()) {
       this.set(measuredSongTime);
       return;
     }
     const predicted = this.position();
     const error = measuredSongTime - predicted;
-    if (Math.abs(error) > this.jumpThreshold) {
+    const mag = Math.abs(error);
+    if (mag > this.jumpThreshold) {
       this.set(measuredSongTime);
       return;
     }
+    if (mag < this.deadband) return; // poll noise — don't inject it as wander
     this._anchorSong = predicted + error * this.ease;
     this._anchorWall = this._nowFn();
   }

@@ -60,6 +60,22 @@ Projector-ready lyric-follow / karaoke display. Clock-driven highlighting (displ
 > upstream (follow-up). Vinyl line-in / Spotify-loopback need *streaming windowed*
 > alignment (we only hold the last N seconds live) — documented follow-up below.
 
+> **Spotify follow jitter fix — "randomly ahead/behind" (2026-07-16):** the real
+> cause of unstable following was `StreamingClock.observe()` **hard-snapping on any
+> poll >0.75s from its prediction**. Spotify's `/currently-playing` `progress_ms` is
+> coarse (updates ~1/s, trails real output by a device buffer) and arrives over
+> variable latency, so ordinary staleness routinely crossed 0.75s and snapped the
+> highlight — in both directions, every few seconds. Fix: since digital playback
+> runs at exactly rate 1.0 and never drifts, the free-running clock is already
+> accurate between polls, so polls should only make *invisible* corrections. New
+> three-band `observe()`: **deadband 0.15s** (hold — ignore sub-perceptible poll
+> noise instead of chasing it), **ease 0.2 up to jumpThreshold** (gentle drift-track),
+> **snap only beyond 1.5s** (genuine seek/track jump). Known discontinuities still
+> use `set()` (unchanged). Simulated over 40s of realistic noisy polls: visible
+> jumps **6 → 0**, RMS deviation 0.33s → 0.19s, max 0.98s → 0.36s. 136 tests
+> (added deadband/no-false-snap/genuine-seek cases). The manual sync dial (`]` `[`
+> `\`) still stacks on top for any residual device-latency offset.
+
 > **10-foot "couch" UI + cinematic pass (2026-07-16):** the setup menu is now a
 > TV-style experience aimed at projector/Apple TV viewing (today via AirPlay/HDMI
 > from the Mac; a native tvOS app is a documented future project, below).

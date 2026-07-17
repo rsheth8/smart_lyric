@@ -134,6 +134,30 @@ test('StreamingClock snaps when a poll is beyond the jump threshold', () => {
   assert.ok(Math.abs(clock.position() - 45) < 1e-9);
 });
 
+test('StreamingClock holds inside the deadband (poll noise is ignored, not chased)', () => {
+  const { clock, state } = makeStreaming({ deadband: 0.15 });
+  clock.set(30);
+  state.t = 2; // predicted = 32
+  clock.observe(32.1); // 0.1s wobble, within the deadband → no correction at all
+  assert.ok(Math.abs(clock.position() - 32) < 1e-9);
+});
+
+test('StreamingClock does NOT snap on ordinary sub-1.5s poll staleness', () => {
+  const { clock, state } = makeStreaming(); // production defaults (jumpThreshold 1.5)
+  clock.set(10);
+  state.t = 0; // predicted = 10
+  clock.observe(11.2); // 1.2s stale poll — a real seek would move much further
+  assert.ok(clock.position() > 10 && clock.position() < 10.5, 'eased gently, not snapped');
+});
+
+test('StreamingClock still snaps on a genuine seek beyond the threshold', () => {
+  const { clock, state } = makeStreaming(); // production defaults
+  clock.set(10);
+  state.t = 0;
+  clock.observe(25); // skipped ahead 15s → snap to truth
+  assert.ok(Math.abs(clock.position() - 25) < 1e-9);
+});
+
 test('StreamingClock freezes while paused', () => {
   const { clock, state } = makeStreaming();
   clock.set(20);
