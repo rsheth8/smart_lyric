@@ -94,6 +94,23 @@ test('calibrateRate() estimates vinyl speed from two measurements', () => {
   assert.ok(Math.abs(clock._targetRate - 1.01) < 1e-9);
 });
 
+test('calibrateRate() smooths later vinyl speed estimates', () => {
+  const { clock } = makeClock({ rateAlpha: 0.5 });
+  clock.calibrateRate(0, 0, 10, 10);
+  clock.calibrateRate(10, 10, 20.4, 20); // estimate 1.04
+  assert.ok(clock._targetRate > 1 && clock._targetRate < 1.04);
+});
+
+test('calibrateRate() rejects wild later speed outliers', () => {
+  const { clock } = makeClock();
+  clock.calibrateRate(0, 0, 10, 10);
+  clock.calibrateRate(10, 10, 20.1, 20);
+  clock.calibrateRate(20, 20, 30.2, 30);
+  const before = clock._targetRate;
+  clock.calibrateRate(30, 30, 41.2, 40); // implausible after a stable lock
+  assert.equal(clock._targetRate, before);
+});
+
 // Helper: a StreamingClock with a manually-advanced wall clock.
 function makeStreaming(opts = {}) {
   const state = { t: 0, playing: true };

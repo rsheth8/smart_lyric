@@ -15,13 +15,26 @@ test('syllableCount uses letter count for non-Latin scripts', () => {
   assert.ok(syllableCount('मुझको') >= 3); // Devanagari
 });
 
-test('a multi-syllable word gets more of the line span than a short one', () => {
-  // "a beautiful day" — "beautiful" (3 syl) should hold longest.
-  const { lines } = parseLRC('[00:00.00]a beautiful day\n[00:06.00]end');
-  const [a, beautiful, day] = lines[0].words;
+test('an interior multi-syllable word gets more span than a short one', () => {
+  // "a beautiful cat sat" — among interior words, "beautiful" (3 syl) holds
+  // longer than "cat" (1 syl). (The final word absorbs any trailing held tail,
+  // so it's excluded from this comparison.)
+  const { lines } = parseLRC('[00:00.00]a beautiful cat sat\n[00:06.00]end');
+  const [, beautiful, cat] = lines[0].words;
   const dur = (w) => w.end - w.start;
-  assert.ok(dur(beautiful) > dur(a), 'beautiful longer than "a"');
-  assert.ok(dur(beautiful) > dur(day), 'beautiful longer than "day"');
+  assert.ok(dur(beautiful) > dur(cat), 'beautiful longer than "cat"');
+});
+
+test('the final word holds a trailing gap instead of smearing it across the line', () => {
+  // A long instrumental/held gap before the next line: early words should be
+  // sung near the start at a natural pace, and the last word holds the rest —
+  // not every word stretched across the whole 12s span (the old bug).
+  const { lines } = parseLRC('[00:00.00]hold me now\n[00:12.00]end');
+  const w = lines[0].words;
+  const dur = (x) => x.end - x.start;
+  assert.ok(w[0].start < 1, 'first word sung at the top of the line');
+  assert.ok(dur(w[w.length - 1]) > dur(w[0]) * 3, 'last word holds the long tail');
+  assert.ok(Math.abs(w[w.length - 1].end - lines[0].end) < 1e-6, 'tail reaches line end');
 });
 
 const SAMPLE = `[ti:Demo]

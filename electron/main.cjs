@@ -6,13 +6,16 @@
 // undefined"). CJS main is the supported, reliable path. The two lyric helpers
 // live in ESM (.mjs) modules and are loaded here via dynamic import().
 
-const { app, BrowserWindow, ipcMain, screen, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, shell, session, desktopCapturer } = require('electron');
 const { join } = require('node:path');
 const { createHash, randomBytes } = require('node:crypto');
 const http = require('node:http');
 const { identifyWav } = require('./fingerprint.cjs');
 const { identifyAcr, acrConfigured } = require('./acrcloud.cjs');
-const { alignSong, alignAvailable, alignModelLoaded } = require('./align.cjs');
+const { alignSong, alignAvailable, alignModelLoaded, alignWarm } = require('./align.cjs');
+const { separateVocals, separateAvailable, separateWarm } = require('./separate.cjs');
+const { transcribeAudio, transcribeAvailable } = require('./transcribe.cjs');
+const { cleanLyricLines, guessSongLanguage, anthropicConfigured } = require('./anthropic.cjs');
 
 // ESM-only helpers — pulled in lazily since this module is CommonJS.
 const fetchNeteaseLyrics = (...args) =>
@@ -33,6 +36,7 @@ try {
 let mainWindow = null;
 let projectorWindow = null;
 let _alignErrorLogged = false;
+let _separateErrorLogged = false;
 
 const SPOTIFY_SCOPES = [
   'streaming',
@@ -229,6 +233,23 @@ function spotifyLogin() {
 }
 
 function createWindow() {
+  // Let the renderer's getDisplayMedia({ audio: true }) capture SYSTEM audio
+  // (loopback) without a picker dialog — the internal tap for vocal alignment:
+  // Spotify's output reaches the aligner digitally, with zero room noise.
+  // Loopback audio is OS-dependent (Windows: native; macOS: needs OS support /
+  // virtual device) — the renderer soft-falls back to a mic/loopback input.
+  session.defaultSession.setDisplayMediaRequestHandler(
+    async (_request, callback) => {
+      try {
+        const sources = await desktopCapturer.getSources({ types: ['screen'] });
+        callback({ video: sources[0], audio: 'loopback' });
+      } catch {
+        callback({});
+      }
+    },
+    { useSystemPicker: false }
+  );
+
   mainWindow = new BrowserWindow({
     title: 'Bar4Bar',
     icon: join(__dirname, '..', 'app', 'icon.svg'),
@@ -337,6 +358,23 @@ function createWindow() {
       return { plain: '', meta: null };
     }
   });
+  ipcMain.handle('transcribe-audio', async (_e, payload) => transcribeAudio(payload || {}));
+  ipcMain.handle('transcribe-available', () => transcribeAvailable());
+  ipcMain.handle('clean-lyrics', async (_e, payload) => {
+    try {
+      return await cleanLyricLines(payload || {});
+    } catch (e) {
+      return { error: e.message || String(e) };
+    }
+  });
+  ipcMain.handle('clean-lyrics-available', () => anthropicConfigured());
+  ipcMain.handle('guess-language', async (_e, payload) => {
+    try {
+      return await guessSongLanguage(payload || {});
+    } catch (e) {
+      return { language: null, error: e.message || String(e) };
+    }
+  });
   ipcMain.handle('align-song', async (_e, payload) => {
     // Forced alignment (CTC) — refine per-word vocal timing. Soft-fails so lyrics
     // timing is never disturbed when the model can't download (HF gateway, etc.).
@@ -349,6 +387,35 @@ function createWindow() {
   });
   ipcMain.handle('align-available', () => alignAvailable());
   ipcMain.handle('align-model-loaded', () => alignModelLoaded());
+  ipcMain.handle('align-warm', async () => {
+    try {
+      return await alignWarm();
+    } catch {
+      return false;
+    }
+  });
+
+  ipcMain.handle('separate-vocals', async (_e, payload) => {
+    // Vocal isolation before alignment. Soft-fails to null so a missing/failed
+    // model just means we align the raw mix (never breaks lyrics timing).
+    try {
+      return await separateVocals(payload || {});
+    } catch (err) {
+      if (!_separateErrorLogged) {
+        console.warn('[separate] vocal separation unavailable:', err?.message || err);
+        _separateErrorLogged = true;
+      }
+      return null;
+    }
+  });
+  ipcMain.handle('separate-available', () => separateAvailable());
+  ipcMain.handle('separate-warm', async () => {
+    try {
+      return await separateWarm();
+    } catch {
+      return false;
+    }
+  });
   ipcMain.handle('richsync', async (_e, query) => {
     // Musixmatch richsync uses a reverse-engineered token endpoint (no CORS, and
     // it captcha-blocks datacenter IPs) → best from the residential-IP main process.

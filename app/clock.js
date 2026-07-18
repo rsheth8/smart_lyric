@@ -29,7 +29,15 @@ export class MediaClock {
 export class PredictiveClock {
   // rate = song-seconds per wall-second. Vinyl rarely runs at exactly 1.0.
   // `now` is the wall-clock source in seconds; injectable so tests can control time.
-  constructor({ rate = 1, now = () => performance.now() / 1000, correctionWindow = 4, jumpThreshold = 1.5 } = {}) {
+  constructor({
+    rate = 1,
+    now = () => performance.now() / 1000,
+    correctionWindow = 4,
+    jumpThreshold = 1.5,
+    rateAlpha = 0.35,
+    minRate = 0.94,
+    maxRate = 1.06,
+  } = {}) {
     this.rate = rate;
     this._playing = false;
     this._anchorSong = 0; // song position at the anchor moment
@@ -38,6 +46,10 @@ export class PredictiveClock {
     this._nowFn = now;
     this._correctionWindow = correctionWindow;
     this._jumpThreshold = jumpThreshold;
+    this._rateAlpha = rateAlpha;
+    this._minRate = minRate;
+    this._maxRate = maxRate;
+    this._rateSamples = 0;
   }
 
   _wall() {
@@ -114,7 +126,21 @@ export class PredictiveClock {
   // Estimate playback rate from two measurements (vinyl speed calibration).
   calibrateRate(song1, wall1, song2, wall2) {
     const dw = wall2 - wall1;
-    if (dw > 0.5) this._targetRate = (song2 - song1) / dw;
+    if (dw <= 0.5) return;
+    const estimate = (song2 - song1) / dw;
+    if (!Number.isFinite(estimate) || estimate < 0.8 || estimate > 1.2) return;
+    const clamped = Math.max(this._minRate, Math.min(this._maxRate, estimate));
+
+    // First good pair locks immediately. Later pairs are smoothed so one bad
+    // fingerprint timestamp cannot make the lyrics visibly speed up/slow down.
+    if (this._rateSamples === 0) {
+      this._targetRate = clamped;
+    } else {
+      const delta = Math.abs(clamped - this._targetRate);
+      if (this._rateSamples >= 3 && delta > 0.035) return;
+      this._targetRate = this._targetRate * (1 - this._rateAlpha) + clamped * this._rateAlpha;
+    }
+    this._rateSamples++;
   }
 }
 

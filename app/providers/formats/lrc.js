@@ -1,5 +1,7 @@
 // LRC parsing → canonical timeline with line and (interpolated) word timings.
 
+import { wordsAcrossSpan } from './estimate.js';
+
 // Estimate a word's syllable count — a much better proxy for how long it's sung
 // than raw character length (the previous heuristic). Vowel *groups* ≈ syllables
 // for Latin/romanized text; for non-Latin scripts (CJK, Devanagari, …) each
@@ -67,7 +69,6 @@ export function parseLRC(lrc, { trailingLineSeconds = 4 } = {}) {
     const next = rawLines[i + 1];
     const end = next ? next.start : line.start + trailingLineSeconds;
     const tokens = line.text.split(/\s+/).filter(Boolean);
-    const span = Math.max(0.001, end - line.start);
 
     let words;
     if (line.wordTimes && line.wordTimes.length === tokens.length) {
@@ -77,17 +78,9 @@ export function parseLRC(lrc, { trailingLineSeconds = 4 } = {}) {
         end: wi + 1 < line.wordTimes.length ? line.wordTimes[wi + 1] : end,
       }));
     } else {
-      // Distribute the line span by estimated syllables (+ a small floor so tiny
-      // function words like "a"/"the" still read), instead of character length.
-      const weights = tokens.map((t) => 0.4 + syllableCount(t));
-      const total = weights.reduce((a, b) => a + b, 0) || 1;
-      let t = line.start;
-      words = tokens.map((text, wi) => {
-        const dur = (weights[wi] / total) * span;
-        const w = { text, start: t, end: t + dur };
-        t += dur;
-        return w;
-      });
+      // No per-word timestamps: estimate them. Shared with the plain/estimated and
+      // ASR paths so every "words estimated" source uses one corrected model.
+      words = wordsAcrossSpan(tokens, line.start, end);
     }
     return { start: line.start, end, words };
   });

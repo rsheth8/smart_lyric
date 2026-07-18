@@ -3,24 +3,34 @@ import { fetchFromLocal } from './local.js';
 import { fetchFromNetease } from './netease.js';
 import { fetchFromMusixmatch } from './musixmatch.js';
 import { fetchPlain } from './plain.js';
+import { fetchTranscriptFromAudio, transcriptionAvailable } from './transcript.js';
 import { preferResult } from './match.js';
 
 /** @typedef {import('./types.js')} LyricsResult */
 
+/** Error thrown when a catalog miss is followed by a failed AI transcription attempt. */
+export class TranscriptFailedError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'TranscriptFailedError';
+    this.code = 'TRANSCRIPT_FAILED';
+  }
+}
+
+const CATALOG_SOURCES = ['local', 'netease', 'musixmatch', 'lrclib'];
+
 /**
- * Try lyrics providers: local file (if attached) → NetEase word-level, Musixmatch
- * richsync (word-level), and LRCLIB (line-level) in parallel. Word-by-word timing
- * "moves with the singer," so it wins: NetEase `yrc` first (it also carries a
- * romanization overlay), then Musixmatch `richsync` (the broadest word-level
- * catalog — Punjabi/Bollywood/Western), then line-level (NetEase+roman → LRCLIB).
- * Racing them means a slow provider never blocks a fast one while playback runs.
+ * Exhaust every non-AI lyrics source. AI transcription must never run until this
+ * returns null — synced catalogs, title-only retries, then plain text (LRCLIB /
+ * lyrics.ovh / Genius), also with a title-only pass.
+ *
  * @param {{ artist?: string, track: string, album?: string, duration?: number, lyricsFile?: File }} query
- * @param {{ sources?: string[] }} [opts]
+ * @param {{ sources?: string[], plain?: boolean }} [opts]
  * @returns {Promise<LyricsResult|null>}
  */
-export async function fetchLyrics(
+export async function fetchCatalogLyrics(
   query,
-  { sources = ['local', 'netease', 'musixmatch', 'lrclib'], plain = true } = {}
+  { sources = CATALOG_SOURCES, plain = true } = {}
 ) {
   if (sources.includes('local') && query.lyricsFile) {
     const result = await fetchFromLocal(query.lyricsFile);
@@ -53,7 +63,26 @@ export async function fetchLyrics(
   // line-level one. With no target duration, order is preserved (old behavior).
   const yrc = netease?.format === 'yrc' ? netease : null;
   const neteaseLine = netease && netease.format !== 'yrc' ? netease : null;
-  const best = preferResult([yrc, musixmatch, neteaseLine, lrclib], query.duration);
+  let best = preferResult([yrc, musixmatch, neteaseLine, lrclib], query.duration);
+
+  // Streaming metadata often credits a playback-singer the lyric catalogs don't
+  // know (common for Bollywood/regional tracks). Title-only retries against the
+  // synced providers rescue those before we give up on timed lyrics.
+  if (!best && cleaned.artist) {
+    const titleJobs = [];
+    if (sources.includes('musixmatch')) {
+      titleJobs.push(fetchFromMusixmatch({ ...cleaned, artist: undefined }));
+    } else {
+      titleJobs.push(Promise.resolve(null));
+    }
+    if (sources.includes('lrclib')) {
+      titleJobs.push(fetchFromLRCLIB({ ...cleaned, artist: undefined }));
+    } else {
+      titleJobs.push(Promise.resolve(null));
+    }
+    const [mmOnly, lrOnly] = await Promise.all(titleJobs);
+    best = preferResult([mmOnly, lrOnly], query.duration);
+  }
   if (best) return best;
 
   // Nothing synced. Fall back to plain (untimed) text — the display estimates a
@@ -61,6 +90,55 @@ export async function fetchLyrics(
   if (plain) {
     const p = await fetchPlain(cleaned);
     if (p) return p;
+    if (cleaned.artist) {
+      const titleOnlyPlain = await fetchPlain({ ...cleaned, artist: undefined });
+      if (titleOnlyPlain) return titleOnlyPlain;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Catalog lyrics first; AI transcription only if every catalog source missed
+ * and the caller allowed it (local audio file path). Spotify AI uses a separate
+ * capture path and must call fetchCatalogLyrics alone before transcribing.
+ *
+ * @param {{ artist?: string, track: string, album?: string, duration?: number, lyricsFile?: File, audioFile?: File }} query
+ * @param {{ sources?: string[], plain?: boolean, allowTranscript?: boolean }} [opts]
+ */
+export async function fetchLyrics(
+  query,
+  {
+    sources = [...CATALOG_SOURCES, 'transcript'],
+    plain = true,
+    allowTranscript = true,
+  } = {}
+) {
+  const catalogSources = sources.filter((s) => s !== 'transcript');
+  const catalog = await fetchCatalogLyrics(query, { sources: catalogSources, plain });
+  if (catalog) return catalog;
+
+  // Absolute last resort: only after every catalog/plain source returned nothing.
+  if (allowTranscript && sources.includes('transcript') && query.audioFile) {
+    const transcript = await fetchTranscriptFromAudio({
+      ...query,
+      track: cleanTrackTitle(query.track) || query.track,
+      artist: primaryArtist(query.artist) || query.artist,
+    });
+    if (transcript?.plain || transcript?.timeline) return transcript;
+    if (transcript?.error) throw new TranscriptFailedError(transcript.error);
+  }
+  return null;
+}
+
+/** Hint for the UI when catalogs miss and transcription never started. */
+export function transcriptSkipHint(query = {}) {
+  if (!transcriptionAvailable()) {
+    return 'AI lyrics need the desktop app (npm start).';
+  }
+  if (!query.audioFile) {
+    return 'No catalog lyrics. Choose Audio file and Load, or play on Spotify — Bar4Bar will listen and transcribe.';
   }
   return null;
 }

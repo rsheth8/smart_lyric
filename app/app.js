@@ -2,6 +2,16 @@ import { Display } from './display.js';
 import { MediaClock, PredictiveClock } from './clock.js';
 import { fetchArtworkUrl, paletteFromUrl } from './art.js';
 import { Mic } from './mic.js';
+import { startBestCapture, listInputDevices, findLoopbackDevice, waitForCaptureWindow } from './capture.js';
+import {
+  resolveOffset,
+  rememberOffset,
+  clearTrackOffset,
+  migrateLegacyOffset,
+  getDeviceDefault,
+  devicePriorWeight,
+} from './sync-offset.js';
+import { SyncEstimator, syncLockState, driftReadout } from './sync-learn.js';
 import { SongSession } from './session.js';
 import { readAudioTags } from './audio-tags.js';
 import { parseLyricsFilename } from './local-lyrics.js';
@@ -10,8 +20,20 @@ import { createSyncPublisher } from './sync-bridge.js';
 import { translateLines, romanizeLines, needsRomanization } from './providers/translate.js';
 import { getMedium } from './mediums/index.js';
 import { initTvNav } from './tv-nav.js';
-import { refineTimelineWithAudio, refineTimelineFromMic, alignmentAvailable } from './align.js';
 import {
+  refineTimelineWithAudio,
+  refineTimelineFromMic,
+  alignmentAvailable,
+  warmAlignModel,
+  warmSeparationModel,
+  setVocalSeparationEnabled,
+  needsVocalAlign,
+  isWordSyncFormat,
+} from './align.js';
+import {
+  transcriptionAvailable,
+  fetchTranscriptFromPcm,
+} from './providers/lyrics/transcript.js';import {
   beginSpotifyLogin,
   completeSpotifyLoginFromUrl,
   searchSpotifyTrack,
@@ -61,11 +83,34 @@ let activeMedium = null;
 let pendingAudioFile = null;
 let pendingLyricsFile = null;
 let activeMic = null;
+let alignMic = null; // silent capture for Spotify/streaming vocal align
+let alignCaptureOwned = false;
+let alignCaptureLabel = ''; // human name of the active capture source
+let alignCaptureError = ''; // last failure reason (shown in Sync panel)
+let liveAlignTimer = null;
+let liveAlignBusy = false;
+// How the vocal aligner listens: 'auto' | 'system' | 'device' | 'off'.
+let alignSourceMode = localStorage.getItem('bar4bar.alignSource') || 'auto';
+let alignSourceDeviceId = localStorage.getItem('bar4bar.alignDevice') || null;
+// Auto-timing: the aligner measures latency from the audio and converges the
+// sync offset on its own. Off the moment the user nudges manually (per session).
+let autoTiming = localStorage.getItem('bar4bar.autoTiming') !== 'off';
+let autoTimingSuspended = false; // user took manual control this song
+let lastAutoApplied = null;
+let practiceSlow = false;
+const PRACTICE_RATE = 0.8;
+const RECAL_NUDGE = 0.08; // feel-late → earlier; feel-early → later
+// Isolate the vocal (MDX-Net) before aligning — only takes effect when a model
+// is configured (SEPARATE_MODEL_PATH). Default on so it's used once available.
+let vocalIsolation = localStorage.getItem('bar4bar.vocalIsolation') !== 'off';
+setVocalSeparationEnabled(vocalIsolation);
+const syncEstimator = new SyncEstimator();
 let listenRaf = null;
 let lastListenResult = null;
 let listenEverLocked = false;
 let listenSilentSince = null;
-let selectedInputDeviceId = null; // chosen mic/line-in (e.g. USB turntable)
+let listenPanelDismissed = false; // user closed the vinyl overlay with ×
+let selectedInputDeviceId = null; // chosen mic/line-in (e.g. USB turntable / BlackHole)
 let suggestionItems = [];
 let suggestionIndex = -1;
 let suggestTimer = null;
@@ -127,25 +172,120 @@ async function loadArtwork(artist, track) {
 
 async function prepareSong(query) {
   const result = await session.load(query);
+  // Apply the best known timing offset for this track (saved per-song, else the
+  // learned device default from prior nudges). Not BPM — speaker/Spotify lag.
+  applySongTimingOffset(session.meta, { quiet: !result });
   // Nudge the user toward the language aids; the display starts with them off.
   const canRomanize =
     result?.hasRoman || needsRomanization((session.timeline?.lines || []).map(lineText));
   if (canRomanize) {
     setTimeout(() => showToast('Press T for pronunciation / English'), 900);
+  } else if (result?.fromCache && result?.aligned) {
+    setTimeout(() => showToast('Vocal-aligned (cached)'), 900);
+  } else if (result?.source === 'ai-spotify' || result?.source === 'ai-transcript') {
+    setTimeout(() => showToast('AI lyrics — nudge with [ ] if needed'), 900);
   } else if (result?.estimated) {
-    setTimeout(() => showToast('Estimated timing — press P to read'), 900);
+    setTimeout(() => showToast('Estimated timing — aligning when audio is heard…'), 900);
   } else if (result?.wordSync) {
     setTimeout(() => showToast('Word sync — press ] [ to nudge if needed'), 900);
-  } else if (result?.lines) {
+  } else if (result?.needsAlign && alignmentAvailable()) {
     setTimeout(() => showToast('Line sync — aligning to vocal…'), 900);
+  } else if (result?.lines) {
+    setTimeout(() => showToast('Line sync · words estimated'), 900);
   }
   return result;
+}
+
+/** Catalog lyrics first; on miss while Spotify is audible, capture + transcribe. */
+async function prepareSongOrAi(meta) {
+  const query = {
+    artist: meta.artist,
+    track: meta.title || meta.track || meta.name,
+    album: meta.album,
+    duration: meta.duration,
+    id: meta.id,
+    spotifyId: meta.id || meta.spotifyId,
+    quietMiss: true, // AI capture will explain if it also fails
+    allowTranscript: false, // catalogs only — AI only after a total miss below
+  };
+  let loaded = await prepareSong(query);
+  if (!loaded && (activeMedium?.id === 'spotify' || meta._spotifyAi)) {
+    loaded = await trySpotifyAiLyrics(query);
+  } else if (!loaded) {
+    setStatus(
+      'error',
+      `No lyrics found for “${query.track}”. Play on Spotify with Sync capture on, or choose an Audio file.`
+    );
+  }
+  return loaded;
+}
+
+/** Load per-track or device-default latency offset when a song starts. */
+function applySongTimingOffset(meta, { quiet = false } = {}) {
+  // New song → fresh measurements, and let auto retake control.
+  syncEstimator.reset();
+  autoTimingSuspended = false;
+  lastAutoApplied = null;
+
+  const { offset, source } = resolveOffset(meta || {});
+  display.setSyncOffset(offset, { source, persistLegacy: true });
+  // After 1–2 songs on this output path, seed harder so song 2–3 start locked-in.
+  syncEstimator.seed(offset, { weight: devicePriorWeight() });
+  updateTimingReadout();
+  if (!quiet && source === 'track' && offset !== 0) {
+    const ms = Math.round(offset * 1000);
+    setTimeout(
+      () => showToast(`Timing ${ms > 0 ? '+' : ''}${ms}ms (saved for this song)`),
+      1200
+    );
+  } else if (!quiet && source === 'device' && offset !== 0) {
+    const ms = Math.round(offset * 1000);
+    setTimeout(
+      () => showToast(`Timing ${ms > 0 ? '+' : ''}${ms}ms (your usual delay)`),
+      1200
+    );
+  }
+}
+
+function persistCurrentTiming(offset, { fromLock = false } = {}) {
+  rememberOffset(session.meta || {}, offset, { fromLock });
+}
+
+/**
+ * Fold measured latency samples from the aligner into the estimator and, when
+ * confident, converge the live sync offset automatically. This is the "learns as
+ * it plays" loop — measured from the actual vocal, not BPM.
+ */
+function ingestTimingSamples(samples) {
+  for (const s of samples) syncEstimator.addSample(s);
+  if (!autoTiming || autoTimingSuspended) {
+    updateTimingReadout();
+    return;
+  }
+  const suggestion = syncEstimator.suggestion();
+  if (suggestion == null) {
+    updateTimingReadout();
+    return;
+  }
+  // Move gently and only when it actually changes something perceptible (>15ms).
+  const current = display.syncOffset || 0;
+  if (Math.abs(suggestion - current) < 0.015) {
+    lastAutoApplied = suggestion;
+    updateTimingReadout();
+    return;
+  }
+  const next = Math.round((current + (suggestion - current) * 0.5) * 1000) / 1000;
+  display.setSyncOffset(next, { source: 'auto', persistLegacy: true });
+  persistCurrentTiming(next, { fromLock: true }); // mic lock → train device path
+  lastAutoApplied = next;
+  updateTimingReadout();
 }
 
 function enterSetup() {
   stage.dataset.mode = 'setup';
   clearTimeout(idleTimer);
   $('nowbar').classList.remove('hide');
+  $('hotkeys')?.classList.add('hide');
   stopActiveMedium();
   updateTransport();
   if (!audio.paused) audio.pause();
@@ -157,12 +297,15 @@ function enterPlaying() {
   stage.dataset.mode = 'playing';
   updateTransport();
   updatePlayBtn();
-  poke();
+  // First reveal a bit longer so the key guide is discoverable.
+  poke(5200);
 }
 
 function stopActiveMedium() {
   if (activeMedium?.stop) activeMedium.stop();
   activeMedium = null;
+  stopLiveAlign();
+  stopAlignCapture();
   stopListenMeter();
 }
 
@@ -176,6 +319,7 @@ function startListenMeter(mic) {
   lastListenResult = null;
   listenEverLocked = false;
   listenSilentSince = null;
+  listenPanelDismissed = false;
   const panel = $('listen-panel');
   const card = panel.querySelector('.listen-card');
   const fill = panel.querySelector('.listen-meter-fill');
@@ -208,8 +352,8 @@ function startListenMeter(mic) {
       vinylClock.resume();
     }
 
-    if (vinylClock.isPlaying()) {
-      panel.hidden = true; // lyrics are following — get out of the way
+    if (vinylClock.isPlaying() || listenPanelDismissed) {
+      panel.hidden = true; // following, or the user closed the overlay
     } else if (listenEverLocked) {
       panel.hidden = false;
       title.textContent = 'Paused — waiting for the music…';
@@ -257,6 +401,7 @@ function stopListenMeter() {
 // later searches — and even into Spotify/vinyl follow, since session.load still
 // forwards the old lyricsFile. Call this whenever the user picks a new source.
 function resetSongState() {
+  setPracticeSlow(false, { quiet: true });
   haveAudio = false;
   pendingAudioFile = null;
   pendingLyricsFile = null;
@@ -315,7 +460,7 @@ async function loadSong({ artist, track, duration }) {
     audio.play();
     // Refine word timing from the actual vocal in the background — don't hold up
     // playback. The clean audio file is the ideal input for forced alignment.
-    refineAudioTiming(pendingAudioFile);
+    ensureVocalAlignment({ file: pendingAudioFile });
   } else {
     session.setClock(demoClock);
     demoClock.start(0);
@@ -323,61 +468,214 @@ async function loadSong({ artist, track, duration }) {
   updatePlayBtn();
 }
 
-// Forced alignment: sharpen within-line word timings using the audio file's
-// vocal. Desktop-only + best-effort; failures silently keep the existing timing.
-async function refineAudioTiming(file) {
-  if (!file || !alignmentAvailable() || !session.timeline) return;
-  try {
-    const res = await refineTimelineWithAudio(session.timeline, file, {
-      onStatus: (msg) => showToast(msg),
-    });
-    if (res && res.aligned > 0) {
-      display.updateTimingBadge({
-        source: session.meta?.source,
-        format: session.meta?.format,
-        wordSync: ['yrc', 'richsync', 'ass'].includes(session.meta?.format),
-        aligned: true,
-      });
-      showToast('Timing aligned to the vocal');
-    }
-  } catch {
-    /* keep existing timing */
+function markAlignedBadge() {
+  display.updateTimingBadge({
+    source: session.meta?.source,
+    format: session.meta?.format,
+    wordSync: isWordSyncFormat(session.meta?.format),
+    aligned: true,
+  });
+}
+
+function persistAlignedTiming() {
+  if (session.saveAlignedCache?.()) {
+    /* cached for next play */
   }
 }
 
-// Vinyl: vocal alignment needs a ~90 MB model download; only run when already loaded.
-let vinylAlignTimer = null;
-let vinylAlignBusy = false;
+/**
+ * Near word-sync path: catalog word sync wins; otherwise force-align from any
+ * audio we can hear (local file, vinyl/line-in, or Spotify loopback/mic).
+ * @param {{ file?: File|null, capture?: boolean, forceCapture?: boolean }} [opts]
+ *   `forceCapture` starts listening even when the catalog already has word sync
+ *   (used when the user opens Sync / changes source mid-song).
+ */
+async function ensureVocalAlignment({ file = null, capture = false, forceCapture = false } = {}) {
+  if (!session.timeline) return;
+  const needs = needsVocalAlign(session.timeline, session.meta || {});
+  // Auto-timing needs audio even when provider/cached word timing is already
+  // good; it measures the separate speaker/output delay.
+  if (!needs && !forceCapture && !(capture && autoTiming)) return;
+  if (!alignmentAvailable()) {
+    alignCaptureError = 'Vocal aligner needs the desktop app (npm start)';
+    updateSyncSourceUi();
+    return;
+  }
 
-function scheduleVinylAlign() {
-  if (!session.timeline || !activeMic || activeMedium?.id !== 'vinyl' || vinylAlignBusy) return;
-  if (!alignmentAvailable()) return;
-  if (!window.bar4bar?.alignModelLoaded) return;
-  clearTimeout(vinylAlignTimer);
-  vinylAlignTimer = setTimeout(async () => {
-    const loaded = await window.bar4bar.alignModelLoaded().catch(() => false);
-    if (!loaded) return;
-    vinylAlignBusy = true;
+  if (needs || autoTiming) warmAlignModel(); // fire-and-forget first-run download
+
+  if (file && needs) {
     try {
-      const res = await refineTimelineFromMic(session.timeline, activeMic, vinylClock.now());
-      if (res?.aligned) {
-        display.updateTimingBadge({
-          source: session.meta?.source,
-          format: session.meta?.format,
-          wordSync: ['yrc', 'richsync', 'ass'].includes(session.meta?.format),
-          aligned: true,
-        });
+      let announced = false;
+      const res = await refineTimelineWithAudio(session.timeline, file, {
+        onProgress: (done, total) => {
+          // Flip the badge as soon as the first lines sharpen; keep it quiet after.
+          if (!announced && session.timeline.aligned) {
+            announced = true;
+            markAlignedBadge();
+          }
+          if (done < total) setStatus('ok', `Aligning vocals… ${done}/${total}`);
+        },
+      });
+      if (res && res.aligned > 0) {
+        markAlignedBadge();
+        persistAlignedTiming();
+        setStatus('ok', '');
+        showToast('Timing aligned to the vocal');
+      } else if (res && res.error) {
+        showToast('Vocal aligner unavailable — using estimated timing');
       }
+    } catch {
+      /* keep existing timing */
+    }
+    return;
+  }
+
+  if (capture || forceCapture) {
+    if (alignSourceMode === 'off') return;
+    const ok = await startAlignCapture();
+    if (ok) {
+      if (needs) {
+        showToast(`Aligning words to the vocal — ${alignCaptureLabel}`);
+      } else {
+        showToast(
+          autoTiming
+            ? `Auto-timing is listening — ${alignCaptureLabel}`
+            : `Listening on ${alignCaptureLabel}`
+        );
+      }
+      // Auto-timing also runs for catalog/cached word sync. In that case this is
+      // measurement-only: preserve good word spans, learn the output latency.
+      if (needs || autoTiming) scheduleLiveAlign();
+    } else if (alignCaptureError) {
+      showToast(alignCaptureError);
+    }
+    updateSyncSourceUi();
+  }
+}
+
+/** Silent capture used to align Spotify (and similar) while they play. */
+async function startAlignCapture() {
+  if (!alignmentAvailable()) {
+    alignCaptureError = 'Vocal aligner needs the desktop app (npm start)';
+    return false;
+  }
+  if (activeMic) {
+    alignCaptureLabel = 'Vinyl input';
+    alignCaptureError = '';
+    return true; // vinyl mic already capturing
+  }
+  if (alignMic) {
+    alignCaptureError = '';
+    return true;
+  }
+  const res = await startBestCapture({
+    mode: alignSourceMode,
+    deviceId: alignSourceDeviceId,
+    seconds: 16,
+  });
+  if (!res) {
+    alignCaptureError = '';
+    return false; // mode === off
+  }
+  if (res.error || !res.mic) {
+    alignCaptureError = res.error || 'Could not start audio capture';
+    return false;
+  }
+  alignMic = res.mic;
+  alignCaptureOwned = true;
+  alignCaptureLabel = res.label;
+  alignCaptureError = '';
+  return true;
+}
+
+function stopAlignCapture() {
+  if (alignCaptureOwned && alignMic) {
+    try {
+      alignMic.stop();
+    } catch {
+      /* ignore */
+    }
+  }
+  alignMic = null;
+  alignCaptureOwned = false;
+  alignCaptureLabel = '';
+  updateSyncSourceUi();
+}
+
+function liveAlignMic() {
+  return alignMic || activeMic;
+}
+
+function liveAlignNowSec() {
+  if (activeMedium?.id === 'vinyl') return vinylClock.now();
+  const streaming = getStreamingClock?.();
+  if (streaming) return streaming.now();
+  if (session.clock?.now) return session.clock.now();
+  return 0;
+}
+
+function stopLiveAlign() {
+  clearTimeout(liveAlignTimer);
+  liveAlignTimer = null;
+  liveAlignBusy = false;
+}
+
+function scheduleLiveAlign() {
+  if (!session.timeline || liveAlignBusy) return;
+  if (!liveAlignMic()) return;
+  const needsWords = needsVocalAlign(session.timeline, session.meta || {});
+  // First collect a wide-window latency estimate. Once it locks, line-sync songs
+  // continue into word refinement; catalog/cached word-sync remains timing-only.
+  const autoNeedsSamples =
+    autoTiming && !autoTimingSuspended && syncEstimator.suggestion() == null;
+  const timingOnly = !needsWords || autoNeedsSamples;
+  if (!timingOnly && !alignmentAvailable()) return;
+  if (timingOnly && (!autoTiming || autoTimingSuspended)) return;
+
+  // Word refinement and timing calibration have separate completion flags.
+  const pending = session.timeline.lines.some(
+    (l) =>
+      (l.words?.length || 0) > 0 &&
+      (timingOnly ? !l._timingMeasured : !l._vocalAligned)
+  );
+  if (!pending) {
+    if (session.timeline.aligned) persistAlignedTiming();
+    return;
+  }
+
+  clearTimeout(liveAlignTimer);
+  liveAlignTimer = setTimeout(async () => {
+    liveAlignBusy = true;
+    try {
+      if (!timingOnly) await warmAlignModel();
+      const mic = liveAlignMic();
+      if (!mic || !session.timeline) return;
+      const res = await refineTimelineFromMic(session.timeline, mic, liveAlignNowSec(), {
+        timingOnly,
+        maxLines: timingOnly ? 3 : 2,
+        expectedOffset: display.syncOffset || 0,
+      });
+      if (res?.aligned) {
+        markAlignedBadge();
+        persistAlignedTiming();
+        updateSyncSourceUi();
+      }
+      if (res?.timingSamples?.length) ingestTimingSamples(res.timingSamples);
     } catch {
       /* keep syllable / richsync timing */
     }
-    vinylAlignBusy = false;
-  }, 600);
+    liveAlignBusy = false;
+    // Keep chasing upcoming lines while this song is playing.
+    if (session.timeline && stage.dataset.mode === 'playing') scheduleLiveAlign();
+  }, 700);
 }
 
 // Find the selected song on Spotify, start it playing there, load its lyrics,
 // and follow playback (also handles skips via the follow-poll).
 async function startSpotifySong({ artist, track }) {
+  // Drop any leftover local audio/lyrics so catalog miss never transcribes the wrong file.
+  resetSongState();
   showBusy('Starting on Spotify', 'Finding the track and loading lyrics…');
   setStatus('loading', `Finding “${track}” on Spotify…`);
   $('btn-load').disabled = true;
@@ -392,12 +690,16 @@ async function startSpotifySong({ artist, track }) {
     // Lyrics + playback in parallel — don't serialize NetEase behind Spotify play
     // (that was the "song starts, lyrics never show" feel).
     let playErr = null;
-    const [ok] = await Promise.all([
+    let [ok] = await Promise.all([
       prepareSong({
         artist: found.artist,
         track: found.name,
         album: found.album,
         duration: found.duration,
+        id: found.id,
+        spotifyId: found.id,
+        quietMiss: true,
+        allowTranscript: false, // never AI until every catalog/plain source misses
       }),
       playSpotifyTrack({ uri: found.uri, positionMs: 0 }).catch((err) => {
         playErr = err;
@@ -410,7 +712,18 @@ async function startSpotifySong({ artist, track }) {
       else setStatus('error', playErr.message || 'Couldn’t start Spotify playback.');
       return;
     }
-    if (!ok) return; // prepareSong set its own "no lyrics" error (song may still be playing)
+    if (!ok) {
+      // Every catalog + plain source missed — only then listen and generate AI lyrics.
+      ok = await trySpotifyAiLyrics({
+        artist: found.artist,
+        track: found.name,
+        album: found.album,
+        duration: found.duration,
+        id: found.id,
+        spotifyId: found.id,
+      });
+      if (!ok) return;
+    }
 
     primeTrack({ artist: found.artist, name: found.name });
 
@@ -423,13 +736,11 @@ async function startSpotifySong({ artist, track }) {
       onState: () => updatePlayBtn(),
       prepareSong: async (meta) => {
         // Fired when the user skips to another track — reload lyrics for it.
-        const loaded = await prepareSong({
-          artist: meta.artist,
-          track: meta.title || meta.track,
-          album: meta.album,
-          duration: meta.duration,
-        });
-        if (loaded) enterPlaying();
+        const loaded = await prepareSongOrAi(meta);
+        if (loaded) {
+          enterPlaying();
+          ensureVocalAlignment({ capture: true });
+        }
         return loaded;
       },
     });
@@ -439,8 +750,15 @@ async function startSpotifySong({ artist, track }) {
     enterPlaying();
     updateTransport();
     loadArtwork(found.artist, found.name);
-    setStatus('ok', 'Playing on Spotify — lyrics are following.');
+    setStatus(
+      'ok',
+      session.meta?.source?.startsWith('ai-')
+        ? 'Playing on Spotify — AI lyrics (from your speakers).'
+        : 'Playing on Spotify — lyrics are following.'
+    );
     updatePlayBtn();
+    // Desktop: capture speakers/loopback/mic and force-align line timing → near word sync.
+    ensureVocalAlignment({ capture: true });
   } catch (err) {
     setStatus('error', err.message || 'Couldn’t start playback on Spotify.');
     console.error('[Bar4Bar] Spotify play failed', err);
@@ -448,6 +766,116 @@ async function startSpotifySong({ artist, track }) {
     hideBusy();
     $('btn-load').disabled = false;
   }
+}
+
+/**
+ * Absolute last resort after every catalog/plain source missed on Spotify:
+ * capture speakers/loopback for ~40–90s, run Whisper, install the timeline.
+ * Callers must already have run a catalog-only prepareSong that returned false.
+ */
+async function trySpotifyAiLyrics(meta) {
+  if (!transcriptionAvailable()) {
+    setStatus(
+      'error',
+      `No lyrics found for “${meta.track}”. AI lyrics need the desktop app (npm start).`
+    );
+    return false;
+  }
+  if (alignSourceMode === 'off') {
+    setStatus(
+      'error',
+      `No lyrics for “${meta.track}”. Turn Sync capture on (not Off) so Bar4Bar can hear Spotify.`
+    );
+    return false;
+  }
+
+  const duration = Number(meta.duration) || 180;
+  const targetSec = Math.min(90, Math.max(40, Math.min(duration, 90)));
+  const bufSec = Math.ceil(targetSec + 10);
+
+  showBusy('Generating AI lyrics', `Listening to Spotify for ~${Math.round(targetSec)}s…`);
+  setStatus(
+    'loading',
+    `No lyrics from any catalog — listening to generate AI lyrics (~${Math.round(targetSec)}s)…`
+  );
+
+  // Need a long contiguous buffer; replace any short align-only capture.
+  stopAlignCapture();
+  const res = await startBestCapture({
+    mode: alignSourceMode,
+    deviceId: alignSourceDeviceId,
+    seconds: bufSec,
+  });
+  if (!res || res.error || !res.mic) {
+    setStatus(
+      'error',
+      `No catalog lyrics. ${res?.error || 'Could not capture Spotify audio.'}`
+    );
+    return false;
+  }
+  alignMic = res.mic;
+  alignCaptureOwned = true;
+  alignCaptureLabel = res.label;
+  alignCaptureError = '';
+  updateSyncSourceUi();
+
+  let songPosAtOnset = null;
+  const clock = getStreamingClock?.();
+  const wait = await waitForCaptureWindow(res.mic, {
+    targetSec,
+    timeoutSec: targetSec + 50,
+    onProgress: (_heard, msg) => {
+      if (res.mic.onsetAt != null && songPosAtOnset == null) {
+        songPosAtOnset = typeof clock?.now === 'function' ? clock.now() : 0;
+      }
+      setStatus('loading', msg);
+      showBusy('Generating AI lyrics', msg);
+    },
+  });
+
+  if (!wait.ok) {
+    setStatus('error', wait.reason || 'Couldn’t capture enough Spotify audio to transcribe.');
+    return false;
+  }
+  if (songPosAtOnset == null) {
+    songPosAtOnset =
+      typeof clock?.now === 'function' ? Math.max(0, clock.now() - wait.heardSec) : 0;
+  }
+
+  const pcm = res.mic.getOrderedPcm();
+  const result = await fetchTranscriptFromPcm({
+    pcm,
+    sampleRate: res.mic.sampleRate || 44100,
+    offsetSec: songPosAtOnset,
+    artist: meta.artist,
+    track: meta.track,
+    album: meta.album,
+    duration: meta.duration,
+    onStatus: setStatus,
+    source: 'ai-spotify',
+  });
+
+  if (result?.error || result?.skipped || !(result?.timeline || result?.plain)) {
+    setStatus(
+      'error',
+      `No catalog lyrics. Transcription failed: ${result?.error || result?.reason || 'no speech detected'}`
+    );
+    return false;
+  }
+
+  const loaded = session.applyResult(result, {
+    artist: meta.artist,
+    track: meta.track,
+    album: meta.album,
+    duration: meta.duration,
+    id: meta.id || meta.spotifyId,
+    spotifyId: meta.id || meta.spotifyId,
+  });
+  if (loaded) {
+    applySongTimingOffset(session.meta, { quiet: true });
+    showToast('AI lyrics from Spotify audio — nudge with [ ] if needed');
+  }
+  return loaded;
 }
 
 // Fallback when Spotify can't start playback: display lyrics on the demo clock.
@@ -652,6 +1080,14 @@ $('file').addEventListener('change', async (e) => {
   haveAudio = true;
   session.setAudioFile(file);
   display.setClock(mediaClock);
+  updateTransport();
+  // Prefetch the ~90 MB aligner model now (desktop) so it's ready by the time the
+  // user hits Load — forced alignment then starts immediately instead of stalling.
+  // Also warm the vocal-separation model (no-op unless one is configured).
+  if (alignmentAvailable()) {
+    warmAlignModel();
+    warmSeparationModel();
+  }
 
   const tags = await readAudioTags(file);
   session.setAudioFile(file, tags);
@@ -668,7 +1104,7 @@ $('file').addEventListener('change', async (e) => {
     }
   }
 
-  setStatus('ok', `Audio ready: ${file.name}. Now load its lyrics to sync.`);
+  setStatus('ok', `Audio ready: ${file.name}. Load to sync — if no lyrics exist, it’ll transcribe.`);
   $('in-track').focus();
 });
 
@@ -710,6 +1146,10 @@ function updateTransport() {
   const spotify = activeMedium?.id === 'spotify';
   if ($('btn-prev')) $('btn-prev').hidden = !spotify;
   if ($('btn-next')) $('btn-next').hidden = !spotify;
+  // Practice 0.8× only makes sense when we own the <audio> element.
+  if ($('btn-practice')) $('btn-practice').hidden = !haveAudio;
+  if ($('practice-row')) $('practice-row').hidden = !haveAudio;
+  if (!haveAudio && practiceSlow) setPracticeSlow(false, { quiet: true });
 }
 
 function updatePlayBtn() {
@@ -738,6 +1178,200 @@ $('btn-change').addEventListener('click', () => {
   resetSongState();
   setStatus('', '');
 });
+
+// --------------------- sync source (how the aligner listens) ---------------
+const SYNC_MODE_LABELS = {
+  auto: 'Auto',
+  system: 'System audio',
+  device: 'Input device',
+  off: 'Off',
+};
+
+// ------------------- dismissible popups (×, outside click, Esc) ------------
+// Any element with data-close="<panel id>" hides that panel. The vinyl listen
+// overlay is driven by a RAF loop, so closing it also sets a dismissed flag the
+// loop respects (it un-dismisses on the next Listen session).
+function closePanel(id) {
+  const panel = $(id);
+  if (!panel || panel.hidden) return false;
+  panel.hidden = true;
+  if (id === 'listen-panel') listenPanelDismissed = true;
+  return true;
+}
+
+/** Close whichever dismissible popup is open. Returns true if one closed. */
+function closeAnyOpenPopup() {
+  if (!$('suggestions').hidden) {
+    hideSuggestions();
+    return true;
+  }
+  return closePanel('sync-panel') || closePanel('listen-panel');
+}
+
+document.addEventListener('click', (e) => {
+  const closer = e.target.closest?.('[data-close]');
+  if (closer) {
+    closePanel(closer.dataset.close);
+    return;
+  }
+  // Click outside the sync panel (and not on its toggle button) dismisses it.
+  const syncPanel = $('sync-panel');
+  if (!syncPanel.hidden && !syncPanel.contains(e.target) && e.target !== $('btn-sync-source')) {
+    syncPanel.hidden = true;
+  }
+});
+
+$('btn-sync-source').addEventListener('click', () => {
+  const panel = $('sync-panel');
+  if (panel.hidden) openSyncPanel();
+  else panel.hidden = true;
+});
+
+async function openSyncPanel() {
+  const panel = $('sync-panel');
+  const sourceSel = $('sync-source');
+  sourceSel.innerHTML = '';
+  for (const [id, label] of Object.entries(SYNC_MODE_LABELS)) {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent =
+      id === 'auto'
+        ? 'Auto — loopback → mic → system tap'
+        : id === 'system'
+          ? 'System audio (internal tap, no noise)'
+          : id === 'device'
+            ? 'Specific input device'
+            : 'Off — keep line sync';
+    if (id === alignSourceMode) opt.selected = true;
+    sourceSel.appendChild(opt);
+  }
+  await populateSyncDevices();
+  panel.hidden = false;
+  // If a song is already playing and we're not capturing, start now (don't wait
+  // for the next track) — this is the usual "why isn't it capturing?" fix.
+  if (
+    alignSourceMode !== 'off' &&
+    stage.dataset.mode === 'playing' &&
+    !alignMic &&
+    !activeMic &&
+    activeMedium?.id !== 'vinyl' &&
+    session.timeline
+  ) {
+    const needs = needsVocalAlign(session.timeline, session.meta || {});
+    // Only auto-retry when alignment is still needed, or the last attempt failed.
+    if (needs || alignCaptureError) {
+      await ensureVocalAlignment({ capture: true, forceCapture: true });
+    }
+  }
+  updateTimingReadout();
+  updateSyncSourceUi();
+  refreshVocalIsolationUi();
+}
+
+// Show the vocal-isolation toggle only when a separation model is configured in
+// the desktop app; otherwise it's meaningless, so keep it hidden.
+async function refreshVocalIsolationUi() {
+  const row = $('vocal-isolation-row');
+  const box = $('vocal-isolation');
+  const state = $('vocal-isolation-state');
+  if (!row || !box) return;
+  let available = false;
+  try {
+    available = !!(await window.bar4bar?.separateAvailable?.());
+  } catch {
+    available = false;
+  }
+  row.hidden = !available;
+  if (!available) return;
+  box.checked = vocalIsolation;
+  if (state) state.textContent = vocalIsolation ? 'on — cleaner alignment' : 'off';
+}
+
+async function populateSyncDevices() {
+  const row = $('sync-device-row');
+  const sel = $('sync-device');
+  row.hidden = alignSourceMode !== 'device';
+  if (row.hidden) return;
+  const inputs = await listInputDevices();
+  sel.innerHTML = '';
+  const loop = findLoopbackDevice(inputs);
+  for (const d of inputs) {
+    const opt = document.createElement('option');
+    opt.value = d.deviceId;
+    opt.textContent = (d.label || 'Audio input') + (loop && d.deviceId === loop.deviceId ? ' · loopback' : '');
+    if (d.deviceId === alignSourceDeviceId) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+$('sync-source').addEventListener('change', async (e) => {
+  alignSourceMode = e.target.value;
+  localStorage.setItem('bar4bar.alignSource', alignSourceMode);
+  await populateSyncDevices();
+  restartAlignCapture();
+});
+
+$('sync-device').addEventListener('change', (e) => {
+  alignSourceDeviceId = e.target.value || null;
+  if (alignSourceDeviceId) localStorage.setItem('bar4bar.alignDevice', alignSourceDeviceId);
+  else localStorage.removeItem('bar4bar.alignDevice');
+  restartAlignCapture();
+});
+
+/** Apply a source change immediately if a song is playing. */
+function restartAlignCapture() {
+  stopAlignCapture();
+  stopLiveAlign();
+  alignCaptureError = '';
+  if (alignSourceMode !== 'off' && stage.dataset.mode === 'playing' && activeMedium?.id !== 'vinyl') {
+    ensureVocalAlignment({ capture: true, forceCapture: true });
+  }
+  updateSyncSourceUi();
+}
+
+/** Reflect the current source on the now-bar button + panel status line. */
+function updateSyncSourceUi() {
+  const btn = $('btn-sync-source');
+  if (btn) {
+    const mode = SYNC_MODE_LABELS[alignSourceMode] || 'Auto';
+    btn.textContent = `Sync: ${alignMic || activeMic ? alignCaptureLabel || mode : mode}`;
+  }
+  const status = $('sync-capture-status');
+  if (!status) return;
+
+  const playing = stage.dataset.mode === 'playing';
+  const wordSync = isWordSyncFormat(session.meta?.format);
+  const alreadyAligned = !!session.timeline?.aligned;
+
+  if (alignSourceMode === 'off') {
+    status.textContent = 'Vocal alignment off — using provider timing.';
+    status.classList.remove('ok');
+  } else if (alignMic || activeMic) {
+    const hearing = (alignMic || activeMic).level > 0.01;
+    status.textContent = `Capturing: ${alignCaptureLabel || 'input'}${hearing ? ' — hearing audio' : ' — silent so far'}`;
+    status.classList.toggle('ok', hearing);
+  } else if (alignCaptureError) {
+    status.textContent = alignCaptureError;
+    status.classList.remove('ok');
+  } else if (!playing) {
+    status.textContent = 'Not capturing — starts when a song is playing.';
+    status.classList.remove('ok');
+  } else if (wordSync && !needsVocalAlign(session.timeline, session.meta || {})) {
+    status.textContent = 'Not capturing — this song already has catalog word sync.';
+    status.classList.remove('ok');
+  } else if (alreadyAligned && !needsVocalAlign(session.timeline, session.meta || {})) {
+    status.textContent = 'Not capturing — timings already vocal-aligned (cached).';
+    status.classList.remove('ok');
+  } else {
+    status.textContent = 'Not capturing — open Sync again or pick a device to retry.';
+    status.classList.remove('ok');
+  }
+}
+
+// Keep the status line honest while the panel is open.
+setInterval(() => {
+  if (!$('sync-panel')?.hidden) updateSyncSourceUi();
+}, 1200);
 
 // ----------------------------- vinyl listen --------------------------------
 $('btn-listen').addEventListener('click', toggleListen);
@@ -833,7 +1467,8 @@ async function startVinylListen() {
       const ok = await prepareSong(meta);
       if (ok) {
         enterPlaying();
-        scheduleVinylAlign();
+        warmAlignModel();
+        scheduleLiveAlign();
       }
       return ok;
     },
@@ -848,7 +1483,7 @@ async function startVinylListen() {
     onResult: (r) => {
       lastListenResult = r;
       if (r.reason === 'error') setStatus('error', r.detail || 'Fingerprint error');
-      if (r.reason === 'match' && medium.state === 'locked') scheduleVinylAlign();
+      if (r.reason === 'match' && medium.state === 'locked') scheduleLiveAlign();
     },
   });
 }
@@ -938,15 +1573,11 @@ async function connectStreaming(id) {
       },
       onState: () => updatePlayBtn(),
       prepareSong: async (meta) => {
-        const loaded = await prepareSong({
-          artist: meta.artist,
-          track: meta.title || meta.track,
-          album: meta.album,
-          duration: meta.duration,
-        });
+        const loaded = await prepareSongOrAi(meta);
         if (loaded) {
           hideBusy();
           enterPlaying();
+          ensureVocalAlignment({ capture: true });
         }
         return loaded;
       },
@@ -1077,7 +1708,291 @@ function showSyncToast(offset) {
   const ms = Math.round(offset * 1000);
   const dir = ms > 0 ? 'earlier' : ms < 0 ? 'later' : 'on time';
   showToast(ms === 0 ? 'Sync reset (on time)' : `Sync ${ms > 0 ? '+' : ''}${ms}ms (lyrics ${dir})`);
+  updateTimingReadout();
 }
+
+/** Live ms readout in the Sync panel (+ = lyrics earlier than the clock). */
+function updateTimingReadout() {
+  const el = $('timing-readout');
+  if (el) {
+    const ms = Math.round((display.syncOffset || 0) * 1000);
+    const src = display.syncOffsetSource;
+    const tag =
+      src === 'auto'
+        ? ' · auto'
+        : src === 'track'
+          ? ' · this song'
+          : src === 'device'
+            ? ' · usual'
+            : src === 'manual'
+              ? ' · tuned'
+              : '';
+    el.textContent = (ms === 0 ? '0 ms' : `${ms > 0 ? '+' : ''}${ms} ms`) + tag;
+    el.title =
+      ms === 0
+        ? 'On time with the clock'
+        : ms > 0
+          ? 'Lyrics show earlier (helps when highlight feels late)'
+          : 'Lyrics show later (helps when highlight feels early)';
+  }
+  const toggle = $('auto-timing');
+  if (toggle) toggle.checked = autoTiming;
+  const lock = syncLockState(syncEstimator, {
+    autoOn: autoTiming,
+    suspended: autoTimingSuspended,
+  });
+  display.setSyncLock(lock);
+  const hint = $('auto-timing-state');
+  if (hint) {
+    hint.textContent =
+      lock === 'off'
+        ? ''
+        : lock === 'manual'
+          ? 'paused (you tuned it)'
+          : lock === 'locked'
+            ? 'locked on'
+            : lock === 'converging'
+              ? 'converging…'
+              : 'listening…';
+  }
+  renderDrift(
+    driftReadout({
+      measuredSec: syncEstimator.value,
+      appliedOffsetSec: display.syncOffset || 0,
+      confidence: syncEstimator.confidence,
+      count: syncEstimator.count,
+    })
+  );
+}
+
+// Real-time drift meter: how closely the highlight is landing on the vocal now.
+// The now-bar chip is silent until the aligner locks, then shows "in sync" or the
+// live early/late error; the sync panel shows the full status incl. "listening".
+function renderDrift(d) {
+  const readout = $('drift-readout');
+  if (readout) {
+    readout.textContent =
+      d.status === 'insync'
+        ? '◉ In sync — highlight is landing on the vocal'
+        : d.status === 'late'
+          ? `▲ Lyrics ${d.magnitudeMs}ms behind the vocal`
+          : d.status === 'early'
+            ? `▼ Lyrics ${d.magnitudeMs}ms ahead of the vocal`
+            : d.status === 'listening'
+              ? 'Listening for the vocal…'
+              : '';
+  }
+  const chip = $('drift-chip');
+  if (chip) {
+    const show = d.status === 'insync' || d.status === 'late' || d.status === 'early';
+    chip.hidden = !show;
+    chip.classList.toggle('drift-ok', d.status === 'insync');
+    chip.classList.toggle('drift-off', d.status === 'late' || d.status === 'early');
+    chip.textContent =
+      d.status === 'insync'
+        ? '◉ In sync'
+        : d.status === 'late'
+          ? `▲ ${d.magnitudeMs}ms late`
+          : d.status === 'early'
+            ? `▼ ${d.magnitudeMs}ms early`
+            : '';
+  }
+}
+
+function applyTimingNudge(deltaSec) {
+  // Manual control wins for this song; auto stops fighting the user.
+  autoTimingSuspended = true;
+  showSyncToast(display.nudgeSyncOffset(deltaSec, persistCurrentTiming));
+}
+
+/**
+ * One-tap recal from singer feel.
+ * `late`  → highlight lagging the voice → show lyrics earlier (+)
+ * `early` → highlight ahead of the voice → show lyrics later (−)
+ */
+function applyFeelRecal(sense) {
+  const late = sense !== 'early';
+  const delta = late ? RECAL_NUDGE : -RECAL_NUDGE;
+  autoTimingSuspended = false; // let auto keep refining from here
+  const next = display.nudgeSyncOffset(delta, (v) => persistCurrentTiming(v, { fromLock: true }));
+  syncEstimator.addSample({
+    value: next,
+    weight: 1.8,
+    score: 0.9,
+    source: late ? 'recal-late' : 'recal-early',
+  });
+  const ms = Math.round(Math.abs(delta) * 1000);
+  showToast(
+    late
+      ? `Caught up (+${ms}ms) — learning this delay`
+      : `Pulled back (−${ms}ms) — learning this lead`
+  );
+  updateTimingReadout();
+}
+
+function setPracticeSlow(on, { quiet = false } = {}) {
+  practiceSlow = !!on && haveAudio;
+  if (haveAudio) audio.playbackRate = practiceSlow ? PRACTICE_RATE : 1;
+  else if (audio) audio.playbackRate = 1;
+  const btn = $('btn-practice');
+  if (btn) {
+    btn.hidden = !haveAudio;
+    btn.setAttribute('aria-pressed', practiceSlow ? 'true' : 'false');
+    btn.textContent = practiceSlow ? '0.8× on' : '0.8×';
+  }
+  const row = $('practice-row');
+  if (row) row.hidden = !haveAudio;
+  const box = $('practice-slow');
+  if (box) box.checked = practiceSlow;
+  if (!quiet && haveAudio) {
+    showToast(practiceSlow ? 'Practice mode — Esc or “Exit 0.8×” to leave' : 'Normal speed');
+  }
+  updateModeExits();
+  return practiceSlow;
+}
+
+function syncSingerLeadUi() {
+  const ms = Math.round((display.singerLead || 0) * 1000);
+  const slider = $('singer-lead');
+  const readout = $('singer-lead-readout');
+  if (slider && Number(slider.value) !== ms) slider.value = String(ms);
+  if (readout) readout.textContent = `${ms} ms`;
+}
+
+function syncFocusUi() {
+  const btn = $('btn-focus');
+  if (!btn) return;
+  btn.setAttribute('aria-pressed', display.focusMode ? 'true' : 'false');
+  btn.textContent = display.focusMode ? 'Focus on' : 'Focus';
+  updateModeExits();
+}
+
+/** Corner chips so focus/practice/reading are always escapable (nowbar may be hidden). */
+function updateModeExits() {
+  const host = $('mode-exits');
+  if (!host) return;
+  const chips = [];
+  if (display.focusMode) {
+    chips.push({ id: 'exit-focus', label: 'Exit focus · Esc', action: 'focus' });
+  }
+  if (display.readingMode) {
+    chips.push({ id: 'exit-reading', label: 'Exit reading · Esc', action: 'reading' });
+  }
+  if (practiceSlow) {
+    chips.push({ id: 'exit-practice', label: 'Exit 0.8× · Esc', action: 'practice' });
+  }
+  const sig = chips.map((c) => c.id).join('|');
+  if (host.dataset.sig === sig) return;
+  host.dataset.sig = sig;
+  host.innerHTML = '';
+  for (const chip of chips) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.id = chip.id;
+    b.dataset.exit = chip.action;
+    b.textContent = chip.label;
+    host.appendChild(b);
+  }
+}
+
+function exitOverlayMode(which) {
+  if (which === 'focus' && display.focusMode) {
+    display.setFocusMode(false);
+    syncFocusUi();
+    showToast('Full lyric view');
+    return true;
+  }
+  if (which === 'reading' && display.readingMode) {
+    display.toggleReadingMode(false);
+    updateModeExits();
+    showToast('Follow mode');
+    return true;
+  }
+  if (which === 'practice' && practiceSlow) {
+    setPracticeSlow(false);
+    updateModeExits();
+    return true;
+  }
+  return false;
+}
+
+/** Peel one overlay mode; returns true if something was exited. */
+function exitTopOverlayMode() {
+  if (display.focusMode) return exitOverlayMode('focus');
+  if (display.readingMode) return exitOverlayMode('reading');
+  if (practiceSlow) return exitOverlayMode('practice');
+  return false;
+}
+
+$('btn-timing-early')?.addEventListener('click', () => applyTimingNudge(0.025));
+$('btn-timing-late')?.addEventListener('click', () => applyTimingNudge(-0.025));
+$('btn-recal')?.addEventListener('click', () => applyFeelRecal('late'));
+$('btn-recal-early')?.addEventListener('click', () => applyFeelRecal('early'));
+$('btn-focus')?.addEventListener('click', () => {
+  const on = display.toggleFocusMode();
+  syncFocusUi();
+  showToast(on ? 'Focus mode — Esc or “Exit focus” to leave' : 'Full lyric view');
+});
+$('btn-practice')?.addEventListener('click', () => {
+  if (!haveAudio) {
+    showToast('Practice slowdown needs a local audio file');
+    return;
+  }
+  setPracticeSlow(!practiceSlow);
+  updateModeExits();
+});
+$('mode-exits')?.addEventListener('click', (e) => {
+  const btn = e.target.closest?.('[data-exit]');
+  if (!btn) return;
+  exitOverlayMode(btn.dataset.exit);
+});
+$('practice-slow')?.addEventListener('change', (e) => {
+  setPracticeSlow(e.target.checked);
+});
+$('singer-lead')?.addEventListener('input', (e) => {
+  display.setSingerLead(Number(e.target.value) / 1000);
+  syncSingerLeadUi();
+});
+
+$('auto-timing')?.addEventListener('change', (e) => {
+  autoTiming = e.target.checked;
+  localStorage.setItem('bar4bar.autoTiming', autoTiming ? 'on' : 'off');
+  if (autoTiming) {
+    autoTimingSuspended = false; // re-enable → let it retake control
+    showToast('Auto-timing on — it will match the vocal as it plays');
+  } else {
+    showToast('Auto-timing off — using manual offset');
+  }
+  updateTimingReadout();
+});
+
+$('vocal-isolation')?.addEventListener('change', (e) => {
+  vocalIsolation = e.target.checked;
+  localStorage.setItem('bar4bar.vocalIsolation', vocalIsolation ? 'on' : 'off');
+  setVocalSeparationEnabled(vocalIsolation);
+  const state = $('vocal-isolation-state');
+  if (state) state.textContent = vocalIsolation ? 'on — cleaner alignment' : 'off';
+  showToast(
+    vocalIsolation
+      ? 'Vocal isolation on — re-load the song to re-align on the clean vocal'
+      : 'Vocal isolation off — aligning on the full mix'
+  );
+});
+
+document.querySelector('.timing-dial')?.addEventListener('click', (e) => {
+  const btn = e.target.closest?.('[data-timing]');
+  if (!btn) return;
+  applyTimingNudge(parseFloat(btn.dataset.timing));
+});
+$('timing-reset')?.addEventListener('click', () => {
+  clearTrackOffset(session.meta || {});
+  syncEstimator.reset();
+  autoTimingSuspended = false; // fresh start; auto may retake if enabled
+  const fallback = getDeviceDefault();
+  display.setSyncOffset(fallback, { source: fallback ? 'device' : 'zero' });
+  showSyncToast(fallback);
+  updateTimingReadout();
+});
 
 // ------------------- D-pad / remote navigation (10-foot UI) ----------------
 // Arrow keys move focus tvOS-style across the setup screen; Enter activates.
@@ -1098,10 +2013,14 @@ initTvNav({
 
 // -------------------- fullscreen + auto-hiding bar -------------------------
 addEventListener('keydown', (e) => {
-  // Remote "Menu"/back: leave the lyric view the same way Change song does.
-  if (e.key === 'Escape' && stage.dataset.mode === 'playing') {
-    $('btn-change').click();
-    return;
+  // Esc peels layers: popup → focus/reading/practice → leave lyric view.
+  if (e.key === 'Escape') {
+    if (closeAnyOpenPopup()) return;
+    if (stage.dataset.mode === 'playing' && exitTopOverlayMode()) return;
+    if (stage.dataset.mode === 'playing') {
+      $('btn-change').click();
+      return;
+    }
   }
   if (e.key.toLowerCase() === 'f') {
     if (window.bar4bar?.toggleFullscreen) window.bar4bar.toggleFullscreen();
@@ -1114,27 +2033,66 @@ addEventListener('keydown', (e) => {
   }
   // Sync nudge only while lyrics are playing — avoids clashing with search typing.
   if (stage.dataset.mode !== 'playing') return;
-  if (e.key === ']') showSyncToast(display.nudgeSyncOffset(0.05));
-  else if (e.key === '[') showSyncToast(display.nudgeSyncOffset(-0.05));
-  else if (e.key === '\\') showSyncToast(display.resetSyncOffset());
+  if (e.key === ']') applyTimingNudge(e.shiftKey ? 0.1 : 0.025);
+  else if (e.key === '[') applyTimingNudge(e.shiftKey ? -0.1 : -0.025);
+  else if (e.key === '\\') {
+    clearTrackOffset(session.meta || {});
+    syncEstimator.reset();
+    autoTimingSuspended = false;
+    const fallback = getDeviceDefault();
+    display.setSyncOffset(fallback, { source: fallback ? 'device' : 'zero' });
+    showSyncToast(fallback);
+  }
   else if (e.key.toLowerCase() === 't') {
     cycleAid();
   } else if (e.key.toLowerCase() === 'p') {
     const on = display.toggleReadingMode();
-    showToast(on ? 'Reading mode (scroll to read)' : 'Follow mode');
+    updateModeExits();
+    showToast(on ? 'Reading mode — Esc to leave' : 'Follow mode');
+  } else if (e.key.toLowerCase() === 'o') {
+    const on = display.toggleFocusMode();
+    syncFocusUi();
+    showToast(on ? 'Focus mode — Esc or “Exit focus” to leave' : 'Full lyric view');
+  } else if (e.key.toLowerCase() === 'l') {
+    applyFeelRecal('late');
+  } else if (e.key.toLowerCase() === 'e') {
+    applyFeelRecal('early');
+  } else if (e.key.toLowerCase() === 's') {
+    if (!haveAudio) showToast('Practice slowdown needs a local audio file');
+    else setPracticeSlow(!practiceSlow);
+  } else if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
+    // Hold the guide a little longer when asked for explicitly.
+    poke(10000);
   }
 });
 
 let idleTimer;
-function poke() {
+let lastPokeMove = 0;
+/** Wake nowbar + hotkey guide; they fade after idle. `holdMs` overrides the hide delay. */
+function poke(holdMs = 3500) {
   if (stage.dataset.mode !== 'playing') return;
-  $('nowbar').classList.remove('hide');
+  $('nowbar')?.classList.remove('hide');
+  $('hotkeys')?.classList.remove('hide');
   clearTimeout(idleTimer);
-  idleTimer = setTimeout(() => $('nowbar').classList.add('hide'), 3500);
+  const ms = typeof holdMs === 'number' && holdMs > 0 ? holdMs : 3500;
+  idleTimer = setTimeout(() => {
+    $('nowbar')?.classList.add('hide');
+    $('hotkeys')?.classList.add('hide');
+  }, ms);
 }
-addEventListener('mousemove', poke);
-// On a remote/keyboard there is no mouse — any key wakes the now-bar too.
-addEventListener('keydown', poke);
+// Mouse wake — lightly throttled so tiny jitter doesn't thrash the fade.
+addEventListener('mousemove', () => {
+  const now = performance.now();
+  if (now - lastPokeMove < 120) return;
+  lastPokeMove = now;
+  poke();
+});
+// On a remote/keyboard there is no mouse — any key wakes the chrome too.
+// Skip ? — that path already calls poke(10000) and shouldn't be shortened.
+addEventListener('keydown', (e) => {
+  if (e.key === '?' || (e.key === '/' && e.shiftKey)) return;
+  poke();
+});
 
 async function bootSetup() {
   if (window.bar4bar?.getConfig) {
@@ -1143,6 +2101,13 @@ async function bootSetup() {
   const apple = !!window.__SL_CONFIG__?.appleMusicDeveloperToken;
   if ($('btn-apple')) $('btn-apple').hidden = !apple;
   await bootAuth();
+  migrateLegacyOffset(display.syncOffset);
+  applySongTimingOffset(null, { quiet: true });
+  updateSyncSourceUi();
+  updateTimingReadout();
+  syncSingerLeadUi();
+  syncFocusUi();
+  setPracticeSlow(false, { quiet: true });
   await Promise.all([loadChartRecs(), refreshSpotifyPanel()]);
 }
 

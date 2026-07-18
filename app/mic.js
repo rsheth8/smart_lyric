@@ -8,11 +8,12 @@
 import { encodeWAV, rms } from './wav.js';
 
 export class Mic {
-  constructor({ seconds = 12, sampleRate = 44100, onsetThreshold = 0.02, deviceId = null } = {}) {
+  constructor({ seconds = 12, sampleRate = 44100, onsetThreshold = 0.02, deviceId = null, stream = null } = {}) {
     this.seconds = seconds;
     this.sampleRate = sampleRate;
     this.onsetThreshold = onsetThreshold;
     this.deviceId = deviceId; // specific input (e.g. USB line-in), or null = default
+    this._providedStream = stream; // pre-acquired stream (e.g. system-audio loopback)
     this.buffer = new Float32Array(seconds * sampleRate);
     this.writeIndex = 0;
     this.filled = false;
@@ -24,18 +25,27 @@ export class Mic {
   }
 
   async start() {
-    // Disable all the "cleanup" DSP — for line-in / vinyl we want the raw signal,
-    // and noise suppression / AGC would corrupt the fingerprint.
-    const audio = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
-    if (this.deviceId) audio.deviceId = { exact: this.deviceId };
-    this._stream = await navigator.mediaDevices.getUserMedia({ audio });
+    if (this._providedStream) {
+      this._stream = this._providedStream;
+    } else {
+      // Disable all the "cleanup" DSP — for line-in / vinyl we want the raw signal,
+      // and noise suppression / AGC would corrupt the fingerprint.
+      const audio = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+      if (this.deviceId) audio.deviceId = { exact: this.deviceId };
+      this._stream = await navigator.mediaDevices.getUserMedia({ audio });
+    }
     this._ctx = new AudioContext({ sampleRate: this.sampleRate });
     const source = this._ctx.createMediaStreamSource(this._stream);
     // ScriptProcessor is deprecated but universally available and fine here.
     this._node = this._ctx.createScriptProcessor(4096, 1, 1);
     this._node.onaudioprocess = (e) => this._onAudio(e.inputBuffer.getChannelData(0));
     source.connect(this._node);
-    this._node.connect(this._ctx.destination);
+    // Keep the processor graph alive without playing the input (avoids feedback
+    // when capturing speakers / loopback / line-in while music is playing).
+    this._silent = this._ctx.createGain();
+    this._silent.gain.value = 0;
+    this._node.connect(this._silent);
+    this._silent.connect(this._ctx.destination);
   }
 
   _onAudio(input) {
@@ -81,6 +91,7 @@ export class Mic {
   stop() {
     try {
       this._node && this._node.disconnect();
+      this._silent && this._silent.disconnect();
       this._stream && this._stream.getTracks().forEach((t) => t.stop());
       this._ctx && this._ctx.close();
     } catch {

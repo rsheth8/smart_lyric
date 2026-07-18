@@ -77,15 +77,164 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 }
 .line.active { opacity: 1; filter: none; transform: none; }
 .line.past { opacity: .1; filter: blur(2.2px); }
+/* Next-line peek: readable enough to prep the phrase, still behind the active line. */
+.line.next {
+  opacity: .46; filter: blur(.55px); transform: scale(.985);
+}
+/* Last-second prep: upcoming line sharpens so the entrance is readable. */
+.line.next.prep-ready {
+  opacity: .62; filter: blur(.2px); transform: scale(.99);
+}
+/* Focus mode: only active + next line; chrome gets out of the way.
+   Nowbar still wakes on mouse/keys (no !important) so Focus/0.8× stay reachable. */
+#stage.focus-mode #nowbar.hide {
+  opacity: 0; pointer-events: none;
+}
+#stage.focus-mode #nowbar:not(.hide) {
+  opacity: .94; pointer-events: auto;
+}
+#stage.focus-mode #mode-badge { opacity: 0; }
+#stage.focus-mode #sync-lock { opacity: .35; }
+#stage.focus-mode .line:not(.active):not(.next) {
+  opacity: 0; filter: blur(6px); transform: scale(.94);
+  pointer-events: none;
+}
+#stage.focus-mode .line.next {
+  opacity: .5; filter: blur(.35px);
+}
+#stage.focus-mode .line.next.prep-ready {
+  opacity: .7; filter: none;
+}
+#stage.focus-mode .line.active {
+  opacity: 1; filter: none; transform: scale(1.02);
+}
+/* Always-clickable exits for modes that hide chrome (focus / practice / reading). */
+#mode-exits {
+  position: absolute; left: 16px; bottom: 18px; z-index: 9;
+  display: flex; flex-wrap: wrap; gap: 8px;
+  pointer-events: none;
+}
+#mode-exits:empty { display: none; }
+#mode-exits button {
+  pointer-events: auto;
+  font: 600 12px/1 "SF Pro Display", system-ui, sans-serif;
+  color: rgba(255,255,255,.82);
+  background: rgba(7,12,22,.72);
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 999px;
+  padding: 8px 12px;
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+}
+#mode-exits button:hover {
+  color: var(--ice-soft);
+  border-color: rgba(82,229,255,.35);
+  background: rgba(7,12,22,.88);
+}
+#stage[data-mode="setup"] #mode-exits { display: none; }
+/* Breath gap: soft inhale cue above the upcoming line after a real pause. */
+.line.breath { position: relative; }
+.line.breath::before {
+  content: "";
+  display: block; width: 2.4em; height: 3px; margin: 0 auto .55em;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(82,229,255,.55), transparent);
+  animation: breath-in 1.1s var(--ease) infinite;
+}
+@keyframes breath-in {
+  0%, 100% { opacity: .25; transform: scaleX(.55); }
+  50% { opacity: .9; transform: scaleX(1); }
+}
 .word {
   display: inline-block; margin: 0 .16em; color: var(--dim);
-  transition: color .22s ease, transform .28s var(--ease), text-shadow .3s ease;
+  /* Soft fade only for parked/dim words. Active wipe/lead-in snap with the clock. */
+  transition: color .28s ease, -webkit-text-fill-color .28s ease;
+}
+/* Snap word states to the playhead — lagged color/transform feels "out of sync". */
+.line.active .word,
+.line.next .word {
+  transition: none;
 }
 .line.active .word { color: var(--upcoming); }
-.line.active .word.sung { color: var(--sung); }
+/* Phrase coaching: first + last word of the line read a touch stronger. */
+.line.active .word.phrase-head:not(.sung):not(.current),
+.line.active .word.phrase-tail:not(.sung):not(.current) {
+  color: rgba(238, 248, 250, .58);
+}
+.line.active .word.sung {
+  color: var(--sung);
+  -webkit-text-fill-color: var(--sung);
+  background: none;
+}
+/* Lead-in: word brightens ~320ms early so you can start on the beat. */
+.line.active .word.leadin,
+.line.next .word.leadin {
+  color: var(--ice-soft);
+  -webkit-text-fill-color: var(--ice-soft);
+  transform: translateY(-.02em) scale(1.02);
+  text-shadow: 0 0 22px rgba(82,229,255,.28);
+}
+/* Prep strip: first words of the next line light up in the last ~1s. */
+.line.next .word.prep {
+  color: rgba(238, 248, 250, .72);
+  -webkit-text-fill-color: rgba(238, 248, 250, .72);
+  text-shadow: 0 0 16px rgba(82,229,255,.18);
+}
+/* Karaoke wipe: fill left→right through the sung span (--wipe from JS).
+   --hold lifts long notes; --cut snaps tight follow-ons; --attack punches onset;
+   --glow ticks multi-syllable peaks. */
 .line.active .word.current {
-  color: var(--current); transform: translateY(-.05em) scale(1.04);
-  text-shadow: 0 0 34px rgba(82,229,255,.5);
+  background-image: linear-gradient(
+    90deg,
+    var(--sung) 0%,
+    var(--sung) var(--wipe, 0%),
+    var(--current) var(--wipe, 0%),
+    var(--current) 100%
+  );
+  background-size: 100% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  transform: translateY(calc(-0.03em - 0.04em * var(--hold, 0) - 0.05em * var(--attack, 0)))
+    scale(calc(1.02 + 0.045 * var(--hold, 0) + 0.06 * var(--attack, 0) - 0.02 * var(--cut, 0)));
+  text-shadow: none;
+  filter: drop-shadow(
+    0 0 calc(18px + 16px * var(--glow, 0) + 14px * var(--attack, 0))
+    rgba(82,229,255, calc(.35 + .4 * var(--glow, 0) + .35 * var(--attack, 0)))
+  );
+}
+.line.active .word.current.phrase-head,
+.line.active .word.current.phrase-tail {
+  filter: drop-shadow(
+    0 0 calc(22px + 16px * var(--glow, 0) + 14px * var(--attack, 0))
+    rgba(82,229,255, calc(.42 + .4 * var(--glow, 0) + .35 * var(--attack, 0)))
+  );
+}
+.line.active .word.current.cut {
+  /* Tight next word — keep the wipe snappy, less floaty lift. */
+  letter-spacing: -.03em;
+}
+/* Low-confidence word: honest soft glow instead of a fake karaoke sweep. */
+.line.active .word.soft:not(.sung) {
+  color: rgba(184, 245, 255, .55);
+}
+.line.active .word.current.soft {
+  background: none;
+  color: var(--ice-soft);
+  -webkit-text-fill-color: var(--ice-soft);
+  transform: translateY(-.02em) scale(1.02);
+  filter: drop-shadow(0 0 16px rgba(82,229,255,.28));
+  letter-spacing: inherit;
+}
+/* Low-confidence alignment: light the whole active line uniformly (line-level) —
+   honest about not knowing the exact per-word timing here. */
+.line.active.uncertain .word {
+  color: var(--current);
+  -webkit-text-fill-color: var(--current);
+  background: none;
+  text-shadow: 0 0 20px rgba(82,229,255,.26);
+  filter: none;
 }
 /* Language aid line (romanization / English) — hidden until #lyrics.show-sub. */
 .line-sub {
@@ -107,11 +256,86 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(8px);
   pointer-events: none;
 }
+/* Mic auto-timing lock chip (top-right). Quiet status for listening → locked. */
+#stage[data-mode="setup"] #sync-lock { display: none; }
+#sync-lock {
+  position: absolute; top: 18px; right: 18px; z-index: 7;
+  padding: 5px 11px; border-radius: 999px;
+  font: 600 11px/1 "SF Pro Display", system-ui, sans-serif; letter-spacing: .03em;
+  color: rgba(255,255,255,.55); background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1); backdrop-filter: blur(8px);
+  opacity: 0; transition: opacity .4s ease; pointer-events: none;
+}
+#sync-lock.show { opacity: 1; }
+#sync-lock[data-state="converging"] { color: rgba(184,245,255,.85); border-color: rgba(82,229,255,.22); }
+#sync-lock[data-state="locked"] {
+  color: rgba(184,245,255,.95); border-color: rgba(82,229,255,.4);
+  box-shadow: 0 0 18px rgba(82,229,255,.12);
+}
+/* Instrumental (no-vocal) stretch: soften the parked lyrics and show a ♪ pulse so
+   the highlight isn't sitting on a word nobody is singing. */
+#lyrics.instrumental { filter: blur(1.5px); opacity: .5; transition: opacity .5s ease, filter .5s ease; }
+#lyrics.instrumental .line.active .word.current {
+  color: var(--upcoming);
+  -webkit-text-fill-color: var(--upcoming);
+  background: none;
+  text-shadow: none;
+  filter: none;
+}
+#instrumental-indicator {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(.9);
+  z-index: 7; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  opacity: 0; transition: opacity .5s ease, transform .5s var(--ease); pointer-events: none;
+}
+#instrumental-indicator.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+#instrumental-indicator .instr-note {
+  font-size: clamp(40px, 7vw, 88px); color: rgba(255,255,255,.85);
+  animation: instr-pulse 1.8s ease-in-out infinite;
+}
+#instrumental-indicator .instr-next {
+  font: 600 clamp(13px, 1.5vw, 18px)/1 "SF Pro Display", system-ui, sans-serif;
+  color: rgba(255,255,255,.55); letter-spacing: .02em; min-height: 1em;
+}
+@keyframes instr-pulse { 0%,100% { opacity: .55; transform: scale(1); } 50% { opacity: 1; transform: scale(1.08); } }
+/* Line count-in: runway fills before a phrase with a real gap; 3-2-1 in the last beats. */
+#count-in {
+  position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%) translateY(8px);
+  z-index: 8; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  opacity: 0; transition: opacity .35s ease, transform .45s var(--ease); pointer-events: none;
+}
+#count-in.show { opacity: 1; transform: translate(-50%, -50%) translateY(0); }
+#count-in .ci-track {
+  width: min(220px, 42vw); height: 4px; border-radius: 999px;
+  background: rgba(255,255,255,.12); overflow: hidden;
+}
+#count-in .ci-fill {
+  height: 100%; width: 0%; border-radius: inherit;
+  background: linear-gradient(90deg, var(--ice-soft), var(--ice));
+}
+#count-in .ci-num {
+  font: 700 clamp(28px, 5vw, 52px)/1 "SF Pro Display", system-ui, sans-serif;
+  color: rgba(255,255,255,.88); letter-spacing: -.02em; min-height: 1em;
+  text-shadow: 0 0 28px rgba(82,229,255,.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  #instrumental-indicator .instr-note { animation: none; }
+  .line.breath::before { animation: none; opacity: .6; }
+  #count-in { display: none; }
+}
+
 /* Plain reading mode: static, scrollable, all lines legible, no follow/highlight. */
 #viewport.reading { overflow-y: auto; align-items: flex-start; }
 #lyrics.reading { transform: none !important; padding: 12vh 0; }
 #lyrics.reading .line { opacity: .78; filter: none; transform: none; }
-#lyrics.reading .line .word { color: var(--upcoming); }
+#lyrics.reading .line::before { display: none; }
+#lyrics.reading .line .word {
+  color: var(--upcoming);
+  -webkit-text-fill-color: var(--upcoming);
+  background: none;
+  filter: none;
+  transform: none;
+  text-shadow: none;
+}
 
 /* ============================ SETUP SCREEN ============================ */
 #setup {
@@ -389,6 +613,58 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
+/* Playing-only hotkey guide — wakes with the nowbar on mouse/keys, then fades. */
+#hotkeys {
+  position: absolute; right: 16px; bottom: 18px; z-index: 6;
+  width: min(220px, 42vw);
+  padding: 10px 12px 11px;
+  border-radius: 14px;
+  background: rgba(7,12,22,.55);
+  border: 1px solid rgba(255,255,255,.1);
+  backdrop-filter: blur(14px) saturate(1.1);
+  box-shadow: 0 12px 36px rgba(0,0,0,.35);
+  opacity: 0; transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity .4s ease, transform .4s ease;
+}
+#stage[data-mode="playing"] #hotkeys:not(.hide) {
+  opacity: 1; transform: translateY(0);
+}
+#stage[data-mode="setup"] #hotkeys { display: none; }
+#stage.focus-mode #hotkeys:not(.hide) { opacity: .85; }
+.hk-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 7px;
+  font: 600 10px/1 "SF Pro Display", system-ui, sans-serif;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: rgba(255,255,255,.38);
+}
+.hk-head kbd {
+  font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0; text-transform: none;
+  color: rgba(255,255,255,.45);
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 5px; padding: 2px 5px;
+}
+.hk-list {
+  display: grid; gap: 3px; margin: 0;
+}
+.hk-list > div {
+  display: grid; grid-template-columns: 72px 1fr; gap: 8px; align-items: baseline;
+}
+.hk-list dt {
+  margin: 0;
+  font: 600 11px/1.25 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: rgba(184,245,255,.72);
+  font-variant-numeric: tabular-nums;
+}
+.hk-list dd {
+  margin: 0;
+  font: 500 11.5px/1.25 "SF Pro Display", system-ui, sans-serif;
+  color: rgba(255,255,255,.48);
+}
+
 #sync-toast {
   position: absolute; left: 50%; top: 32px; transform: translateX(-50%) translateY(-8px);
   z-index: 30; pointer-events: none;
@@ -409,6 +685,15 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 #nowbar .meta { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 #nowbar .meta b { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #nowbar .meta span { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Live drift chip: silent until the aligner locks, then reassures ("in sync") or
+   warns ("late"/"early") — the real-time self-assessment readout. */
+#drift-chip {
+  flex: none; padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+  font: 600 11px/1 "SF Pro Display", system-ui, sans-serif; letter-spacing: .02em;
+  transition: opacity .3s ease;
+}
+#drift-chip.drift-ok { color: rgba(120,230,160,.92); background: rgba(120,230,160,.10); border: 1px solid rgba(120,230,160,.22); }
+#drift-chip.drift-off { color: rgba(255,196,110,.96); background: rgba(255,196,110,.12); border: 1px solid rgba(255,196,110,.26); }
 #nowbar .spacer { flex: 1; min-width: 16px; }
 #nowbar button {
   font: inherit; font-size: 13.5px; font-weight: 500; color: #071018; flex: none;
@@ -426,8 +711,102 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 #nowbar button.transport:hover { background: rgba(255,255,255,.16); filter: none; }
 #nowbar button.transport[hidden] { display: none; }
 
-/* ---- live listening (vinyl) feedback ---- */
-#listen-panel {
+/* ---- sync source panel (how the aligner listens) ---- */
+#sync-panel {
+  position: absolute; right: 18px; bottom: 84px; z-index: 8;
+}
+#sync-panel[hidden] { display: none; }
+.sync-panel-card {
+  position: relative;
+  display: flex; flex-direction: column; gap: 10px;
+  width: min(340px, 86vw); padding: 18px 20px; border-radius: 16px;
+  background: rgba(7,12,22,.92); border: 1px solid rgba(255,255,255,.12);
+  backdrop-filter: blur(12px); box-shadow: 0 14px 40px rgba(0,0,0,.5);
+  font-size: 13px;
+}
+
+/* Close (×) for dismissible popups */
+.panel-close {
+  position: absolute; top: 8px; right: 10px;
+  width: 26px; height: 26px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  font: inherit; font-size: 16px; line-height: 1; color: var(--muted);
+  background: rgba(255,255,255,.07); border: 0; border-radius: 50%;
+  pointer-events: auto; transition: background .15s ease, color .15s ease;
+}
+.panel-close:hover { background: rgba(255,255,255,.16); color: var(--ink); }
+.listen-card { position: relative; }
+.sync-panel-card b { font-size: 14.5px; }
+.sync-panel-hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.sync-panel-card label { display: flex; align-items: center; gap: 10px; }
+.sync-panel-card label span { color: var(--muted); font-size: 12px; min-width: 52px; }
+.sync-panel-card select {
+  flex: 1; min-width: 0;
+  background: rgba(255,255,255,.06); color: var(--ink);
+  border: 1px solid rgba(255,255,255,.14); border-radius: 8px;
+  padding: 6px 8px; font-size: 12.5px;
+}
+.sync-panel-card label[hidden] { display: none; }
+.sync-panel-status { min-height: 15px; color: var(--muted); font-size: 12px; }
+.sync-panel-status.ok { color: #6df06d; }
+.sync-panel-divider {
+  height: 1px; margin: 4px 0;
+  background: rgba(255,255,255,.1);
+}
+.timing-dial {
+  display: flex; align-items: center; gap: 6px;
+}
+.auto-timing-row {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: 12.5px; color: var(--ink);
+}
+.auto-timing-row input { width: 15px; height: 15px; accent-color: var(--gold, #e9c46a); }
+.auto-timing-row small { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+.timing-dial button {
+  flex: none; min-width: 44px; padding: 7px 8px;
+  font: inherit; font-size: 12px; font-weight: 600; color: var(--ink);
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
+  border-radius: 8px; cursor: pointer;
+}
+.timing-dial button:hover { background: rgba(255,255,255,.14); }
+#timing-readout {
+  flex: 1; text-align: center; font-size: 13px; font-weight: 600;
+  font-variant-numeric: tabular-nums; color: var(--gold-soft, var(--gold));
+}
+.timing-reset {
+  font: inherit; font-size: 12px; color: var(--muted);
+  background: transparent; border: 0; padding: 4px 0; cursor: pointer; text-align: left;
+}
+.singer-lead-row {
+  display: flex; flex-direction: column; gap: 6px; margin-top: 2px;
+}
+.singer-lead-row .singer-lead-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px; color: var(--ink);
+}
+.singer-lead-row .singer-lead-head small { color: var(--muted); font-variant-numeric: tabular-nums; }
+.singer-lead-row input[type="range"] {
+  width: 100%; accent-color: var(--ice);
+  cursor: pointer;
+}
+.practice-row { margin-top: 2px; }
+.practice-row[hidden] { display: none; }
+#btn-recal,
+#btn-recal-early {
+  font-size: 12px; font-weight: 600;
+}
+#btn-practice {
+  min-width: 52px;
+}
+#btn-practice[aria-pressed="true"],
+#btn-focus[aria-pressed="true"] {
+  color: var(--ice);
+  border-color: rgba(82,229,255,.35);
+  background: rgba(82,229,255,.1);
+}
+.timing-reset:hover { color: var(--ink); }
+
+/* ---- live listening (vinyl) feedback ---- */#listen-panel {
   position: absolute; inset: 0; z-index: 6;
   display: flex; align-items: center; justify-content: center;
   pointer-events: none;
@@ -479,8 +858,16 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .line, .word, #lyrics, #setup, #viewport, #nowbar, .rec, .sync-btn, .chip { transition-duration: .01ms !important; }
+  .line, .word, #lyrics, #setup, #viewport, #nowbar, #hotkeys, .rec, .sync-btn, .chip { transition-duration: .01ms !important; }
   .setup-panel, #stage[data-mode="playing"] #nowbar { animation-duration: .01ms !important; }
   #setup-status[data-type="loading"]::before { animation: none; }
   .listen-pulse { animation: none; }
+  .line.active .word.current {
+    transform: none;
+    filter: none;
+    color: var(--current);
+    -webkit-text-fill-color: var(--current);
+    background: none;
+  }
+  #sync-lock { transition: none; }
 }

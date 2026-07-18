@@ -9,6 +9,8 @@
 /** @typedef {Object} LyricsResult
  * @property {string} [lrc]
  * @property {string} [text]
+ * @property {string} [plain]
+ * @property {boolean} [synced]
  * @property {string} [format]
  * @property {LyricsMeta} meta
  * @property {string} source

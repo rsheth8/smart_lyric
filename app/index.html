@@ -18,6 +18,7 @@
 
     <div id="listen-panel" hidden aria-live="polite">
       <div class="listen-card">
+        <button class="panel-close" type="button" data-close="listen-panel" aria-label="Hide">×</button>
         <div class="listen-pulse" aria-hidden="true"></div>
         <div id="listen-meter" class="listen-meter" aria-hidden="true">
           <span class="listen-meter-fill"></span>
@@ -26,7 +27,7 @@
         <b id="listen-title">Listening…</b>
         <p id="listen-detail">Start the record near the mic</p>
         <label id="listen-input-row" class="listen-input-row" hidden>
-          <span>Input</span>
+          <span>Input (mic / loopback)</span>
           <select id="listen-input" aria-label="Audio input device"></select>
         </label>
       </div>
@@ -124,8 +125,31 @@
           </div>
         </section>
       </div>
-      <div class="hint">↑↓←→ navigate · Enter select · F fullscreen · Space play/pause · T translate · P read · [ ] \ sync</div>
+      <div class="hint">↑↓←→ navigate · Enter select · F fullscreen · while playing, move mouse or press ? for keys</div>
     </div>
+
+    <div id="mode-exits" aria-label="Exit active modes"></div>
+
+    <aside id="hotkeys" class="hide" aria-label="Keyboard shortcuts">
+      <div class="hk-head">
+        <span>Keys</span>
+        <kbd>?</kbd>
+      </div>
+      <dl class="hk-list">
+        <div><dt>Space</dt><dd>Play / pause</dd></div>
+        <div><dt>[ ]</dt><dd>Timing ±25ms</dd></div>
+        <div><dt>Shift+[ ]</dt><dd>Timing ±100ms</dd></div>
+        <div><dt>\</dt><dd>Reset timing</dd></div>
+        <div><dt>L</dt><dd>Feel late (+80ms)</dd></div>
+        <div><dt>E</dt><dd>Feel early (−80ms)</dd></div>
+        <div><dt>O</dt><dd>Focus mode</dd></div>
+        <div><dt>P</dt><dd>Reading mode</dd></div>
+        <div><dt>S</dt><dd>Practice 0.8×</dd></div>
+        <div><dt>T</dt><dd>Translate / romanize</dd></div>
+        <div><dt>F</dt><dd>Fullscreen</dd></div>
+        <div><dt>Esc</dt><dd>Exit mode / back</dd></div>
+      </dl>
+    </aside>
 
     <div id="nowbar">
       <div id="cover" aria-hidden="true"></div>
@@ -133,11 +157,69 @@
         <b id="np-title">—</b>
         <span id="np-artist"></span>
       </div>
+      <span id="drift-chip" hidden title="How closely the highlight is landing on the vocal right now"></span>
       <div class="spacer"></div>
       <button id="btn-prev" class="transport" type="button" title="Previous" aria-label="Previous track" hidden>⏮</button>
       <button id="btn-play" type="button">Play</button>
       <button id="btn-next" class="transport" type="button" title="Next" aria-label="Next track" hidden>⏭</button>
+      <button id="btn-timing-late" class="transport" type="button" title="Lyrics later (−25ms) · [" aria-label="Lyrics later">⏪</button>
+      <button id="btn-timing-early" class="transport" type="button" title="Lyrics earlier (+25ms) · ]" aria-label="Lyrics earlier">⏩</button>
+      <button id="btn-recal-early" class="ghost" type="button" title="Lyrics feel early — nudge later and learn (E)">Feel early</button>
+      <button id="btn-recal" class="ghost" type="button" title="Lyrics feel late — nudge earlier and learn (L)">Feel late</button>
+      <button id="btn-practice" class="ghost" type="button" title="Practice at 0.8× (local files · S)" aria-pressed="false" hidden>0.8×</button>
+      <button id="btn-focus" class="ghost" type="button" title="Focus mode — only active lyrics (O)" aria-pressed="false">Focus</button>
+      <button id="btn-sync-source" class="ghost" type="button" title="How lyrics follow the music">Sync: Auto</button>
       <button id="btn-change" class="ghost" type="button">Change song</button>
+    </div>
+
+    <div id="sync-panel" hidden>
+      <div class="sync-panel-card">
+        <button class="panel-close" type="button" data-close="sync-panel" aria-label="Close">×</button>
+        <b>Follow audio</b>
+        <p class="sync-panel-hint">Where the vocal aligner listens. A digital tap (system audio / BlackHole) is cleanest — no room noise.</p>
+        <label>
+          <span>Source</span>
+          <select id="sync-source" aria-label="Vocal align audio source"></select>
+        </label>
+        <label id="sync-device-row" hidden>
+          <span>Device</span>
+          <select id="sync-device" aria-label="Audio input device"></select>
+        </label>
+        <div id="sync-capture-status" class="sync-panel-status"></div>
+        <label class="auto-timing-row" id="vocal-isolation-row" hidden>
+          <input type="checkbox" id="vocal-isolation" />
+          <span>Isolate the vocal before aligning <small id="vocal-isolation-state"></small></span>
+        </label>
+        <div class="sync-panel-divider"></div>
+        <b>Timing</b>
+        <p class="sync-panel-hint">If words are early or late vs the singer, shift them here. Saved <em>per song</em>, and your usual delay becomes the default for new tracks. (This is speaker lag — not BPM.)</p>
+        <label class="auto-timing-row">
+          <input type="checkbox" id="auto-timing" />
+          <span>Auto-match to the vocal <small id="auto-timing-state"></small></span>
+        </label>
+        <div id="drift-readout" class="sync-panel-status" aria-live="polite"></div>
+        <div class="timing-dial" role="group" aria-label="Lyric timing offset">
+          <button type="button" data-timing="-0.1" title="Lyrics 100ms later">−100</button>
+          <button type="button" data-timing="-0.025" title="Lyrics 25ms later">−25</button>
+          <span id="timing-readout">0 ms</span>
+          <button type="button" data-timing="0.025" title="Lyrics 25ms earlier">+25</button>
+          <button type="button" data-timing="0.1" title="Lyrics 100ms earlier">+100</button>
+        </div>
+        <button type="button" id="timing-reset" class="timing-reset">Reset timing</button>
+        <div class="singer-lead-row">
+          <div class="singer-lead-head">
+            <span>Singer cue lead</span>
+            <small id="singer-lead-readout">120 ms</small>
+          </div>
+          <input id="singer-lead" type="range" min="0" max="250" step="10" value="120"
+            aria-label="How early highlights appear before the sung word" />
+          <p class="sync-panel-hint">How early the wipe/cue runs ahead of the audio. Separate from speaker lag above.</p>
+        </div>
+        <label class="auto-timing-row practice-row" id="practice-row" hidden>
+          <input type="checkbox" id="practice-slow" />
+          <span>Practice slowdown (0.8×) <small>local files only</small></span>
+        </label>
+      </div>
     </div>
 
     <audio id="audio" preload="auto"></audio>

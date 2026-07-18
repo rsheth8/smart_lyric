@@ -91,6 +91,17 @@ function alignModelLoaded() {
   return !!_modelP && !_modelFailed;
 }
 
+/** Start downloading/loading the model in the background. Returns true on success. */
+async function alignWarm() {
+  if (_modelFailed) return false;
+  try {
+    await getModel();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Zero-mean / unit-variance normalize (wav2vec2 base feature extraction). */
 function normalize(samples) {
   let mean = 0;
@@ -120,20 +131,21 @@ async function emissionFor(samples, model, processor) {
   const logits = out.logits; // dims [1, numFrame, numLabel]
   const [, numFrame, numLabel] = logits.dims;
   const data = logits.data; // flat Float32Array
-  const emission = new Array(numFrame);
+  const emission = new Float32Array(numFrame * numLabel);
   for (let f = 0; f < numFrame; f++) {
     const base = f * numLabel;
     // log_softmax across labels for numerical stability.
     let max = -Infinity;
-    for (let l = 0; l < numLabel; l++) max = Math.max(max, data[base + l]);
+    for (let l = 0; l < numLabel; l++) {
+      const v = data[base + l];
+      if (v > max) max = v;
+    }
     let sum = 0;
     for (let l = 0; l < numLabel; l++) sum += Math.exp(data[base + l] - max);
     const logDen = max + Math.log(sum);
-    const row = new Array(numLabel);
-    for (let l = 0; l < numLabel; l++) row[l] = data[base + l] - logDen;
-    emission[f] = row;
+    for (let l = 0; l < numLabel; l++) emission[base + l] = data[base + l] - logDen;
   }
-  return { emission, numFrame };
+  return { emission: { data: emission, numFrame, numLabel }, numFrame };
 }
 
 /**
@@ -171,11 +183,19 @@ async function alignSong(payload) {
   const outLines = [];
   let aligned = 0;
 
+  // Widen the per-line window on request so a word sung *before* the catalog's
+  // line anchor (early entries) or held past it can still be found — the caller
+  // then re-anchors the line to the real vocal onset.
+  const pad =
+    Number.isFinite(payload.searchPad) && payload.searchPad >= 0
+      ? Math.min(payload.searchPad, 5)
+      : WINDOW_PAD_SEC;
+
   for (const line of lines) {
     const words = line.words || [];
     const nulls = { words: words.map(() => null) };
-    const s0 = Math.max(0, (line.start ?? 0) - WINDOW_PAD_SEC);
-    const e0 = Math.min(durSec, (line.end ?? durSec) + WINDOW_PAD_SEC);
+    const s0 = Math.max(0, (line.start ?? 0) - pad);
+    const e0 = Math.min(durSec, (line.end ?? durSec) + pad);
     const startSample = Math.floor(s0 * SAMPLE_RATE);
     const endSample = Math.min(samples.length, Math.ceil(e0 * SAMPLE_RATE));
     if (endSample - startSample < MIN_WINDOW_SAMPLES || !words.length) {
@@ -233,4 +253,4 @@ function alignAvailable() {
   }
 }
 
-module.exports = { alignSong, alignAvailable, alignModelLoaded, WAV2VEC2_960H_VOCAB };
+module.exports = { alignSong, alignAvailable, alignModelLoaded, alignWarm, WAV2VEC2_960H_VOCAB };

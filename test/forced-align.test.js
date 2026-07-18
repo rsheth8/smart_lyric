@@ -38,6 +38,22 @@ test('alignTokens recovers a single word span from clear emissions', () => {
   assert.ok(w.score > 0.3, `score ${w.score}`);
 });
 
+test('alignTokens accepts flat typed-array emissions', () => {
+  const labels = [SEP, SEP, 2, 2, 3, 3, SEP, SEP];
+  const rows = emissionFrom(labels);
+  const flat = new Float32Array(rows.length * NLABEL);
+  rows.forEach((row, i) => row.forEach((v, j) => {
+    flat[i * NLABEL + j] = v;
+  }));
+  const words = alignTokens(
+    { data: flat, numFrame: rows.length, numLabel: NLABEL },
+    [SEP, 2, 3, SEP],
+    { blankId: BLANK, separatorId: SEP }
+  );
+  assert.equal(words.length, 1);
+  assert.ok(words[0].end > words[0].start);
+});
+
 test('alignTokens keeps two words in order with a gap between them', () => {
   const labels = [SEP, 2, 2, SEP, 3, 3, SEP];
   const emission = emissionFrom(labels);

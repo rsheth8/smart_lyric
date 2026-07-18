@@ -15,6 +15,8 @@ export const spotifyMedium = {
           track: meta.title,
           album: meta.album,
           duration: meta.duration,
+          id: meta.id,
+          spotifyId: meta.id,
         }),
       onError,
       onStatus,

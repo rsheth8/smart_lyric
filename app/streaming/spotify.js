@@ -86,6 +86,7 @@ function applyPlayerState(data, rttSec = 0) {
   }
   const t = data.item;
   const meta = {
+    id: t.id,
     artist: (t.artists || []).map((a) => a.name).join(', '),
     title: t.name,
     album: t.album?.name,
@@ -275,7 +276,7 @@ export function logoutSpotify() {
 // Spotify's currently-playing progress trails the device's actual audio output
 // by a device-dependent buffer; nudge the clock forward so lyrics land on time.
 // (The user can still fine-tune with the on-screen sync dial on top of this.)
-const SPOTIFY_LEAD_SEC = 0.2;
+const SPOTIFY_LEAD_SEC = 0.45;
 
 /** Authenticated Spotify Web API call with friendly errors. Returns parsed JSON or null. */
 async function playerApi(path, { method = 'GET', body } = {}) {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { encodeWAV, rms } from '../app/wav.js';
+import { encodeWAV, decodeWAV, rms } from '../app/wav.js';
 
 function readString(view, offset, len) {
   let s = '';
@@ -47,4 +47,19 @@ test('rms is zero for silence and ~1 for full-scale', () => {
   assert.equal(rms(new Float32Array([0, 0, 0])), 0);
   assert.ok(Math.abs(rms(new Float32Array([1, -1, 1, -1])) - 1) < 1e-9);
   assert.equal(rms(new Float32Array([])), 0);
+});
+
+test('decodeWAV round-trips encodeWAV (mono 16-bit)', () => {
+  const src = new Float32Array([0, 0.5, -0.5, 0.25, -0.9]);
+  const { channels, sampleRate, numChannels } = decodeWAV(encodeWAV(src, 22050));
+  assert.equal(sampleRate, 22050);
+  assert.equal(numChannels, 1);
+  for (let i = 0; i < src.length; i++) {
+    // 16-bit quantization + encode(×0x7fff)/decode(÷0x8000) asymmetry ≈ 3e-5.
+    assert.ok(Math.abs(channels[0][i] - src[i]) < 1e-4, `sample ${i}`);
+  }
+});
+
+test('decodeWAV rejects non-WAV data', () => {
+  assert.throws(() => decodeWAV(new ArrayBuffer(8)), /RIFF|WAVE/);
 });
