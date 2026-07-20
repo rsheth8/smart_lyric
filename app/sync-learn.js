@@ -46,12 +46,24 @@ export class SyncEstimator {
    * @param {number} [opts.clamp=2]         max |offset| in seconds
    * @param {number} [opts.priorWeight=0.75] weight for the previous learned offset
    */
-  constructor({ window = 14, minSamples = 2, agreeBand = 0.12, clamp = 2, priorWeight = 0.75 } = {}) {
+  constructor({
+    window = 14,
+    minSamples = 2,
+    agreeBand = 0.12,
+    clamp = 2,
+    priorWeight = 0.75,
+    recencyHalfLife = 4,
+    regimeRun = 3,
+  } = {}) {
     this.window = window;
     this.minSamples = minSamples;
     this.agreeBand = agreeBand;
     this.clamp = clamp;
     this.priorWeight = priorWeight;
+    // Newer measurements outweigh older ones, so a changed playback path is
+    // followed in 2-3 samples instead of half a window.
+    this.recencyHalfLife = recencyHalfLife;
+    this.regimeRun = regimeRun;
     this.samples = [];
     this.prior = null;
   }
@@ -91,7 +103,31 @@ export class SyncEstimator {
       source: input.source || 'measured',
       prior: false,
     });
+    this._maybeRegimeShift();
     if (this.samples.length > this.window) this.samples.shift();
+  }
+
+  /**
+   * Step-change detector. When the newest run of measurements all land far on the
+   * SAME side of the older ones, latency genuinely moved (output device switched,
+   * a new song whose catalog sits elsewhere, or a bad early lock) — the old window
+   * describes a world that no longer exists. Dropping it re-converges in a few
+   * samples instead of dragging a stale median, which is what used to force the
+   * user to dial it in by hand.
+   */
+  _maybeRegimeShift() {
+    const run = this.regimeRun;
+    if (this.samples.length < run * 2) return;
+    const recent = this.samples.slice(-run);
+    const older = this.samples.slice(0, -run);
+    const oldMid = weightedMedian(older);
+    const far = 2 * this.agreeBand;
+    const allAbove = recent.every((s) => s.value - oldMid > far);
+    const allBelow = recent.every((s) => oldMid - s.value > far);
+    if (allAbove || allBelow) {
+      this.samples = recent;
+      this.prior = null; // the remembered offset described the old regime too
+    }
   }
 
   get count() {
@@ -131,12 +167,30 @@ export class SyncEstimator {
    */
   suggestion(minConfidence = 0.6) {
     if (this.samples.length < this.minSamples) return null;
-    if (this.confidence < minConfidence) return null;
-    return this.value;
+    const value = this.value;
+    if (this.confidence < this.requiredConfidence(value, minConfidence)) return null;
+    return value;
+  }
+
+  /**
+   * How much agreement we demand before acting, eased down by error size. A
+   * listener fixes an obvious half-second lag on the first clear cue rather than
+   * gathering proof; only near-zero corrections need real consensus.
+   */
+  requiredConfidence(value, base = 0.6) {
+    const mag = Math.abs(Number(value) || 0);
+    if (mag <= 0.08) return base;
+    const eased = Math.min(1, (mag - 0.08) / 0.32); // 80ms → 400ms
+    return Math.max(0.34, base - eased * (base - 0.34));
   }
 
   _allSamples() {
-    return this.prior ? [this.prior, ...this.samples] : this.samples;
+    const n = this.samples.length;
+    const decayed = this.samples.map((s, i) => ({
+      ...s,
+      weight: s.weight * Math.pow(0.5, (n - 1 - i) / this.recencyHalfLife),
+    }));
+    return this.prior ? [this.prior, ...decayed] : decayed;
   }
 
   _clamp(sec) {

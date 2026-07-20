@@ -142,6 +142,102 @@ export function estimateOnset(samples, sampleRate) {
 }
 
 /**
+ * Syllable attacks (seconds) inside [fromSec,toSec) — every clear energy rise,
+ * not just the one nearest a guess. Only meaningful on an isolated vocal stem,
+ * where energy IS voice; on a full mix these would be drum hits.
+ *
+ * This is what makes rubato tractable: interpolating words by syllable weight
+ * assumes constant tempo, but a singer stretches and rushes. The attacks say
+ * where the voice actually moved.
+ */
+export function detectOnsets(
+  pcm,
+  sampleRate,
+  fromSec,
+  toSec,
+  { minE = 0.008, minRise = 0.004, minGapSec = 0.08 } = {}
+) {
+  if (!pcm?.length) return [];
+  const i0 = Math.max(0, Math.floor(fromSec * sampleRate));
+  const i1 = Math.min(pcm.length, Math.ceil(toSec * sampleRate));
+  const frame = Math.max(16, Math.round(0.005 * sampleRate));
+  const hop = Math.max(8, Math.round(0.0025 * sampleRate));
+  if (i1 - i0 < frame + hop) return [];
+
+  const env = [];
+  for (let i = i0; i + frame <= i1; i += hop) {
+    let sum = 0;
+    for (let j = i; j < i + frame; j++) sum += pcm[j] * pcm[j];
+    env.push({ time: (i + frame / 2) / sampleRate, value: Math.sqrt(sum / frame) });
+  }
+  const out = [];
+  for (let k = 1; k < env.length - 1; k++) {
+    const rise = env[k].value - env[k - 1].value;
+    if (rise <= minRise || env[k].value <= minE) continue;
+    if (env[k + 1].value - env[k].value > rise) continue; // keep the crest of the rise
+    const t = env[k].time;
+    if (out.length && t - out[out.length - 1] < minGapSec) continue;
+    out.push(t);
+  }
+  return out;
+}
+
+/**
+ * Pull evenly-spread guesses onto real syllable attacks, in order. A word with no
+ * plausible attack nearby keeps its interpolated time, so this can only sharpen
+ * placement — never invent it.
+ */
+function fitToOnsets(guess, onsets, tA, tB) {
+  const n = guess.length;
+  if (!n || !onsets?.length) return guess;
+  const cand = onsets.filter((t) => t > tA + 0.02 && t < tB - 0.02);
+  const c = cand.length;
+  // Fewer attacks than words means we can't see where every word went (a slurred
+  // run, a quiet passage). Redistributing on partial evidence risks being worse
+  // than the even spread, so keep it.
+  if (c < n) return guess;
+  if (c === n) return cand.slice();
+
+  // More attacks than words (melisma — one word carried over several attacks).
+  // Choose n of them, in order, minimising total displacement from the guesses.
+  // Deliberately NOT distance-capped: rubato moves words far from an even spread,
+  // and that displacement is the signal, not noise. Order is what keeps it sane.
+  const INF = Infinity;
+  const cost = Array.from({ length: n }, () => new Float64Array(c).fill(INF));
+  const back = Array.from({ length: n }, () => new Int32Array(c).fill(-1));
+  for (let j = 0; j < c; j++) cost[0][j] = Math.abs(cand[j] - guess[0]);
+  for (let m = 1; m < n; m++) {
+    let bestPrev = INF;
+    let bestIdx = -1;
+    for (let j = 0; j < c; j++) {
+      if (j > 0 && cost[m - 1][j - 1] < bestPrev) {
+        bestPrev = cost[m - 1][j - 1];
+        bestIdx = j - 1;
+      }
+      if (bestIdx >= 0) {
+        cost[m][j] = bestPrev + Math.abs(cand[j] - guess[m]);
+        back[m][j] = bestIdx;
+      }
+    }
+  }
+  let end = -1;
+  let bestTotal = INF;
+  for (let j = 0; j < c; j++) {
+    if (cost[n - 1][j] < bestTotal) {
+      bestTotal = cost[n - 1][j];
+      end = j;
+    }
+  }
+  if (end < 0) return guess;
+  const out = new Array(n);
+  for (let m = n - 1; m >= 0 && end >= 0; m--) {
+    out[m] = cand[end];
+    end = back[m][end];
+  }
+  return out.every((v) => Number.isFinite(v)) ? out : guess;
+}
+
+/**
  * Vocal-activity intervals from an isolated vocal stem. On a stem, energy IS
  * voice (instrumental ≈ silence), so a thresholded energy envelope tells the app
  * where someone is actually singing. Returns merged [{start,end}] in seconds.
@@ -593,7 +689,12 @@ export async function refineTimelineWithAudio(
   // A clean vocal stem lets us trust more CTC words and snap onsets aggressively;
   // the raw mix keeps the conservative gates (a drum hit isn't a vocal onset).
   const tuning = fromStem
-    ? { minScore: 0.15, snap: { back: 0.12, fwd: 0.06, minE: 0.004, minRise: 0.002 } }
+    ? {
+        minScore: 0.15,
+        snap: { back: 0.12, fwd: 0.06, minE: 0.004, minRise: 0.002 },
+        // Stem only: on a full mix these 'onsets' are drum hits.
+        onset: { minE: 0.004, minRise: 0.002 },
+      }
     : { minScore: MIN_WORD_SCORE, snap: {} };
 
   // Vocal-activity map (stem only): lets the display show an instrumental state
@@ -658,9 +759,16 @@ export async function refineTimelineWithAudio(
     if (Array.isArray(result?.lines)) {
       // Snap onto the local vocal-energy onset within this window (window-relative).
       const snap = (tAbs) => snapToVocalOnset(windowPcm, TARGET_RATE, tAbs - ws, tuning.snap) + ws;
+      const onsetsIn = tuning.onset
+        ? (fromAbs, toAbs) =>
+            detectOnsets(windowPcm, TARGET_RATE, fromAbs - ws, toAbs - ws, tuning.onset).map(
+              (t) => t + ws
+            )
+        : null;
       batch.forEach(({ line }, k) => {
         if (
           applyWordSpans(line, result.lines[k]?.words, {
+            onsetsIn,
             offsetSec: ws,
             floorSec,
             snap,
@@ -777,7 +885,12 @@ export async function refineTimelineFromMic(
   // A clean stem lets us trust more CTC words and snap onsets aggressively; the raw
   // mix keeps the conservative gates (a drum hit isn't a vocal onset).
   const tuning = fromStem
-    ? { minScore: 0.15, snap: { back: 0.12, fwd: 0.06, minE: 0.004, minRise: 0.002 } }
+    ? {
+        minScore: 0.15,
+        snap: { back: 0.12, fwd: 0.06, minE: 0.004, minRise: 0.002 },
+        // Stem only: on a full mix these 'onsets' are drum hits.
+        onset: { minE: 0.004, minRise: 0.002 },
+      }
     : { minScore: MIN_WORD_SCORE, snap: {} };
   const batchLines = batchPcm
     ? candidates.map(({ line }) => ({
@@ -804,6 +917,16 @@ export async function refineTimelineFromMic(
     }
     if (Array.isArray(result?.lines)) {
       const snap = (tAbs) => snapToVocalOnset(batchPcm, TARGET_RATE, tAbs - batchStart, tuning.snap) + batchStart;
+      const onsetsIn = tuning.onset
+        ? (fromAbs, toAbs) =>
+            detectOnsets(
+              batchPcm,
+              TARGET_RATE,
+              fromAbs - batchStart,
+              toAbs - batchStart,
+              tuning.onset
+            ).map((t) => t + batchStart)
+        : null;
       for (let idx = 0; idx < candidates.length; idx++) {
         const { line } = candidates[idx];
         const al = result.lines[idx];
@@ -827,7 +950,15 @@ export async function refineTimelineFromMic(
 
         // Same refinement as the whole-file path: re-anchor + interpolate + snap,
         // and carry word.score / line.uncertain for the confidence-aware display.
-        if (applyWordSpans(line, al.words, { offsetSec: batchStart, floorSec, snap, minScore: tuning.minScore })) {
+        if (
+          applyWordSpans(line, al.words, {
+            offsetSec: batchStart,
+            floorSec,
+            snap,
+            onsetsIn,
+            minScore: tuning.minScore,
+          })
+        ) {
           aligned++;
           if (fromStem) liveSepStats.stemLines++;
           else liveSepStats.rawLines++;
@@ -996,7 +1127,7 @@ export function snapToVocalOnset(
 function applyWordSpans(
   line,
   spans,
-  { offsetSec = 0, floorSec = -Infinity, snap = null, minScore = MIN_WORD_SCORE } = {}
+  { offsetSec = 0, floorSec = -Infinity, snap = null, onsetsIn = null, minScore = MIN_WORD_SCORE } = {}
 ) {
   const words = line?.words;
   if (!line || !Array.isArray(spans) || !(words?.length > 0)) return false;
@@ -1046,9 +1177,18 @@ function applyWordSpans(
     const total = weights.reduce((a, b) => a + b, 0) || 1;
     const span = Math.max(0, tB - tA);
     let t = tA;
+    const guess = [];
     idxs.forEach((k, m) => {
-      starts[k] = t;
+      guess.push(t);
       t += (weights[m] / total) * span;
+    });
+    // The even spread above assumes constant tempo. When we can see the vocal's
+    // real syllable attacks (stem only), prefer those — that's what rubato moves.
+    // A held note pushes the following attack late, so the held word simply keeps
+    // the time instead of the spread stealing it.
+    const placed = onsetsIn ? fitToOnsets(guess, onsetsIn(tA, tB), tA, tB) : guess;
+    idxs.forEach((k, m) => {
+      starts[k] = placed[m];
     });
   };
   fillRange(0, anchors[0].i, line.start, starts[anchors[0].i]); // before first anchor

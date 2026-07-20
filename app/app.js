@@ -279,7 +279,13 @@ function ingestTimingSamples(samples) {
     updateTimingReadout();
     return;
   }
-  const next = Math.round((current + (suggestion - current) * 0.5) * 1000) / 1000;
+  // Adaptive gain: close an obvious gap almost in one move (what a listener does
+  // when it's plainly late), but ease in near zero so a noisy room can't set up
+  // an oscillation around the target.
+  const err = suggestion - current;
+  const mag = Math.abs(err);
+  const gain = mag > 0.25 ? 0.9 : mag > 0.12 ? 0.7 : 0.45;
+  const next = Math.round((current + err * gain) * 1000) / 1000;
   display.setSyncOffset(next, { source: 'auto', persistLegacy: true });
   persistCurrentTiming(next, { fromLock: true }); // mic lock → train device path
   lastAutoApplied = next;
