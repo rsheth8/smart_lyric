@@ -29,6 +29,9 @@ import {
   setVocalSeparationEnabled,
   needsVocalAlign,
   isWordSyncFormat,
+  onLiveSepStat,
+  liveSeparationStats,
+  resetLiveSeparationStats,
 } from './align.js';
 import {
   transcriptionAvailable,
@@ -104,6 +107,7 @@ const RECAL_NUDGE = 0.08; // feel-late → earlier; feel-early → later
 // is configured (SEPARATE_MODEL_PATH). Default on so it's used once available.
 let vocalIsolation = localStorage.getItem('bar4bar.vocalIsolation') !== 'off';
 setVocalSeparationEnabled(vocalIsolation);
+let sepHudEnabled = localStorage.getItem('bar4bar.sepHud') !== 'off'; // default on
 const syncEstimator = new SyncEstimator();
 let listenRaf = null;
 let lastListenResult = null;
@@ -171,6 +175,7 @@ async function loadArtwork(artist, track) {
 }
 
 async function prepareSong(query) {
+  resetLiveSeparationStats(); // fresh HUD counts per song
   const result = await session.load(query);
   // Apply the best known timing offset for this track (saved per-song, else the
   // learned device default from prior nudges). Not BPM — speaker/Spotify lag.
@@ -1282,9 +1287,13 @@ async function refreshVocalIsolationUi() {
     available = false;
   }
   row.hidden = !available;
+  const hudRow = $('sep-hud-row');
+  const hudBox = $('sep-hud-toggle');
+  if (hudRow) hudRow.hidden = !available;
   if (!available) return;
   box.checked = vocalIsolation;
   if (state) state.textContent = vocalIsolation ? 'on — cleaner alignment' : 'off';
+  if (hudBox) hudBox.checked = sepHudEnabled;
 }
 
 async function populateSyncDevices() {
@@ -1799,6 +1808,44 @@ function renderDrift(d) {
   }
 }
 
+// Live vocal-separation HUD (Phase 3a): shows the realtime factor (is MDX keeping
+// up with playback?) and how many lines aligned on a stem vs the raw mix. Stays
+// hidden until separation actually runs (Electron + a configured model).
+function renderLiveSep(s) {
+  const hud = $('live-sep-hud');
+  if (!hud) return;
+  // Toggled off in the Sync menu → never show.
+  if (!sepHudEnabled) {
+    hud.hidden = true;
+    return;
+  }
+  hud.hidden = false;
+  // Enabled but nothing separated yet → a faint "on" chip so it's confirmable at a glance.
+  if (!s || (s.sepCount === 0 && !s.separating)) {
+    hud.className = 'hud-idle';
+    hud.textContent = '◌ separation HUD on';
+    return;
+  }
+  // Immediate feedback before the first separation finishes.
+  if (s.sepCount === 0 && s.separating) {
+    hud.className = 'hud-ok';
+    hud.textContent = '◐ isolating vocal…';
+    return;
+  }
+  const rt = s.lastRealtime;
+  const avg = s.sepTotalSec > 0 ? s.sepTotalWindowSec / s.sepTotalSec : null;
+  const total = s.stemLines + s.rawLines;
+  const keepUp = rt == null || rt >= 1;
+  hud.className = keepUp ? 'hud-ok' : 'hud-warn';
+  hud.textContent =
+    (s.separating ? '◐ ' : '◉ ') +
+    `sep ${rt != null ? rt.toFixed(1) : '—'}×` +
+    (avg != null ? ` (avg ${avg.toFixed(1)}×)` : '') +
+    ` · stem ${s.stemLines}/${total}`;
+}
+onLiveSepStat(renderLiveSep);
+renderLiveSep(liveSeparationStats()); // reflect the toggle on load
+
 function applyTimingNudge(deltaSec) {
   // Manual control wins for this song; auto stops fighting the user.
   autoTimingSuspended = true;
@@ -1977,6 +2024,13 @@ $('vocal-isolation')?.addEventListener('change', (e) => {
       ? 'Vocal isolation on — re-load the song to re-align on the clean vocal'
       : 'Vocal isolation off — aligning on the full mix'
   );
+});
+
+$('sep-hud-toggle')?.addEventListener('change', (e) => {
+  sepHudEnabled = e.target.checked;
+  localStorage.setItem('bar4bar.sepHud', sepHudEnabled ? 'on' : 'off');
+  renderLiveSep(liveSeparationStats());
+  showToast(sepHudEnabled ? 'Separation HUD on' : 'Separation HUD off');
 });
 
 document.querySelector('.timing-dial')?.addEventListener('click', (e) => {

@@ -54,7 +54,10 @@ async function fetchReferenceFingerprint(recordingId, apiKey) {
     recordingid: recordingId,
   });
   const res = await fetch(`https://api.acoustid.org/v2/metadata?${params}`);
-  if (!res.ok) return null;
+  if (!res.ok) {
+    console.warn(`[vinyl] reference-fingerprint fetch failed: HTTP ${res.status} (needle-drop offset unavailable)`);
+    return null;
+  }
   const data = await res.json();
   const rec = data.recordings?.[0];
   const src = rec?.sources?.find((s) => s.fingerprint?.fingerprint);
@@ -95,8 +98,10 @@ async function identifyWav(arrayBuffer) {
       if (refFp) {
         offsetSec = alignFingerprints(parseFingerprint(fingerprint), parseFingerprint(refFp));
       }
-    } catch {
-      /* offset is best-effort */
+    } catch (err) {
+      // Offset is best-effort (needle-drop mid-record alignment); a failure just
+      // falls back to onset-from-start. Surface it so it's diagnosable.
+      console.warn(`[vinyl] fingerprint offset alignment failed: ${err.message || err}`);
     }
 
     return {

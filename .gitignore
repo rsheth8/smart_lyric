@@ -7,3 +7,7 @@ node_modules/
 public/
 .vercel/
 .vercel
+
+# Local test media (copyrighted audio/lyrics) — never commit
+*.mp3
+*.lrc

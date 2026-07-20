@@ -363,6 +363,9 @@ export async function vocalStemMono16k(fileOrBuffer, { onStatus } = {}) {
   } catch {
     return null;
   }
+  beginSeparation(); // immediate HUD feedback while the whole song separates
+  const secs = stereo.left.length / (stereo.sampleRate || 44100);
+  const t0 = nowMs();
   let res;
   try {
     res = await window.bar4bar.separateVocals({
@@ -371,15 +374,145 @@ export async function vocalStemMono16k(fileOrBuffer, { onStatus } = {}) {
       sampleRate: stereo.sampleRate,
     });
   } catch {
+    endSeparation();
     return null;
   }
-  if (!res?.left) return null;
+  if (!res?.left) {
+    endSeparation();
+    return null;
+  }
   const asF32 = (b) => (b instanceof Float32Array ? b : new Float32Array(b));
   const L = asF32(res.left);
   const R = res.right ? asF32(res.right) : L;
   const mono = new Float32Array(L.length);
   for (let i = 0; i < L.length; i++) mono[i] = 0.5 * (L[i] + (R[i] ?? L[i]));
-  return resampleTo16k(mono, res.sampleRate || 44100);
+  const stem16k = resampleTo16k(mono, res.sampleRate || 44100);
+  recordSeparation(secs, (nowMs() - t0) / 1000);
+  return stem16k;
+}
+
+// Live (mic/loopback) vocal separation, toggled independently of the file path so
+// it can be A/B'd: `localStorage.sl_live_sep = '0'` (then reload) disables it.
+let _liveSeparationEnabled = true;
+try {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('sl_live_sep') === '0') {
+    _liveSeparationEnabled = false;
+  }
+} catch {
+  /* no localStorage (tests / SSR) — default on */
+}
+export function setLiveVocalSeparationEnabled(on) {
+  _liveSeparationEnabled = !!on;
+  try {
+    localStorage.setItem('sl_live_sep', on ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+}
+export function liveVocalSeparationEnabled() {
+  return _liveSeparationEnabled;
+}
+
+// Live-separation diagnostics for an on-screen HUD (does it keep up? stem vs raw?).
+const liveSepStats = {
+  separating: false, // a separation is in flight right now (immediate HUD feedback)
+  lastRealtime: null, // × realtime of the most recent separation (<1 ⇒ falling behind)
+  lastWindowSec: null,
+  sepCount: 0,
+  sepTotalSec: 0, // wall-clock spent separating
+  sepTotalWindowSec: 0, // audio-seconds separated (for the running average)
+  stemLines: 0, // lines word-aligned on an isolated stem
+  rawLines: 0, // lines word-aligned on the raw mix
+};
+let _liveSepListener = null;
+/** Subscribe to live-separation diagnostics (one listener; for the HUD). */
+export function onLiveSepStat(fn) {
+  _liveSepListener = typeof fn === 'function' ? fn : null;
+}
+export function liveSeparationStats() {
+  return { ...liveSepStats };
+}
+export function resetLiveSeparationStats() {
+  liveSepStats.separating = false;
+  liveSepStats.lastRealtime = liveSepStats.lastWindowSec = null;
+  liveSepStats.sepCount = liveSepStats.sepTotalSec = liveSepStats.sepTotalWindowSec = 0;
+  liveSepStats.stemLines = liveSepStats.rawLines = 0;
+  _emitLiveSep();
+}
+function _emitLiveSep() {
+  try {
+    _liveSepListener?.(liveSeparationStats());
+  } catch {
+    /* a HUD error must never break alignment */
+  }
+}
+// Shared by both separation paths (file-whole-song and live mic-window) so the HUD
+// and [live-sep] logs fire for either. `beginSeparation` gives immediate feedback.
+function beginSeparation() {
+  liveSepStats.separating = true;
+  _emitLiveSep();
+}
+function recordSeparation(secs, sepSec) {
+  liveSepStats.separating = false;
+  liveSepStats.lastWindowSec = secs;
+  liveSepStats.lastRealtime = sepSec > 0 ? secs / sepSec : null;
+  liveSepStats.sepCount += 1;
+  liveSepStats.sepTotalSec += sepSec;
+  liveSepStats.sepTotalWindowSec += secs;
+  _emitLiveSep();
+  if (sepSec > 0) {
+    console.log(`[live-sep] ${secs.toFixed(1)}s → ${sepSec.toFixed(1)}s (${(secs / sepSec).toFixed(1)}× realtime)`);
+  }
+}
+function endSeparation() {
+  // Clear the in-flight flag on a failed/empty separation (no count recorded).
+  if (liveSepStats.separating) {
+    liveSepStats.separating = false;
+    _emitLiveSep();
+  }
+}
+
+const MIN_STEM_WINDOW_SEC = 2.0; // below this, MDX's fixed cost isn't worth it
+const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+
+/**
+ * Isolate the vocal from ONE live align window (mono @ sampleRate) and return it as
+ * 16 kHz mono for CTC, or null to fall back to the raw mix. Scoped to the ~2-line
+ * batch so MDX's ~1.3× realtime cost stays bounded; logs the realtime factor so we
+ * can confirm the live loop keeps up. Dense mixes align far better on the stem
+ * (measured 12%→0% line-level fallback on loopback-captured Nirvana). Phase 3a.
+ */
+async function micWindowStem(monoPcm, sampleRate, { onStatus } = {}) {
+  if (!_separationEnabled || !_liveSeparationEnabled) return null;
+  if (!(monoPcm?.length > 0)) return null;
+  const secs = monoPcm.length / sampleRate;
+  if (secs < MIN_STEM_WINDOW_SEC) return null;
+  if (!(await separationAvailable())) return null;
+  beginSeparation();
+  try {
+    onStatus?.('Isolating the vocal…');
+    // Copy into own buffers (a ring-buffer subarray shares the whole ring's buffer),
+    // and give L/R distinct buffers in case the IPC transfers them.
+    const left = Float32Array.from(monoPcm);
+    const right = Float32Array.from(monoPcm);
+    const t0 = nowMs();
+    const res = await window.bar4bar.separateVocals({ left: left.buffer, right: right.buffer, sampleRate });
+    if (!res?.left) {
+      endSeparation();
+      return null;
+    }
+    const asF32 = (b) => (b instanceof Float32Array ? b : new Float32Array(b));
+    const L = asF32(res.left);
+    const R = res.right ? asF32(res.right) : L;
+    const mono = new Float32Array(L.length);
+    for (let i = 0; i < L.length; i++) mono[i] = 0.5 * (L[i] + (R[i] ?? L[i]));
+    const stem16k = resampleTo16k(mono, res.sampleRate || 44100);
+    recordSeparation(secs, (nowMs() - t0) / 1000);
+    return stem16k;
+  } catch {
+    endSeparation();
+    return null;
+  }
 }
 
 /**
@@ -497,10 +630,15 @@ export async function refineTimelineWithAudio(
           })
         ) {
           aligned++;
+          if (fromStem) liveSepStats.stemLines++;
+          else liveSepStats.rawLines++;
         }
         floorSec = Math.max(floorSec, line.end); // keep lines ordered across batches
       });
-      if (aligned > 0) timeline.aligned = true;
+      if (aligned > 0) {
+        timeline.aligned = true;
+        _emitLiveSep();
+      }
     }
     onProgress?.(done, targets.length);
   }
@@ -583,7 +721,26 @@ export async function refineTimelineFromMic(
   );
   const bi0 = Math.max(0, Math.floor((batchStart - windowStart) * sampleRate));
   const bi1 = Math.min(pcm.length, Math.ceil((batchEnd - windowStart) * sampleRate));
-  const batchPcm = bi1 - bi0 >= 800 ? resampleTo16k(pcm.subarray(bi0, bi1), sampleRate) : null;
+  // On the word-refinement pass, isolate the vocal for this window first (dense
+  // mixes align far better on the stem); fall back to the raw mix when separation
+  // is unavailable/too-short/fails. Timing-only passes stay on the raw mix.
+  let batchPcm = null;
+  let fromStem = false;
+  if (bi1 - bi0 >= 800) {
+    const rawWin = pcm.subarray(bi0, bi1);
+    const stem16k = timingOnly ? null : await micWindowStem(rawWin, sampleRate, { onStatus });
+    if (stem16k?.length) {
+      batchPcm = stem16k;
+      fromStem = true;
+    } else {
+      batchPcm = resampleTo16k(rawWin, sampleRate);
+    }
+  }
+  // A clean stem lets us trust more CTC words and snap onsets aggressively; the raw
+  // mix keeps the conservative gates (a drum hit isn't a vocal onset).
+  const tuning = fromStem
+    ? { minScore: 0.15, snap: { back: 0.12, fwd: 0.06, minE: 0.004, minRise: 0.002 } }
+    : { minScore: MIN_WORD_SCORE, snap: {} };
   const batchLines = batchPcm
     ? candidates.map(({ line }) => ({
         // Rebase to the window; alignSong's searchPad supplies the ± search room
@@ -608,7 +765,7 @@ export async function refineTimelineFromMic(
       result = null;
     }
     if (Array.isArray(result?.lines)) {
-      const snap = (tAbs) => snapToVocalOnset(batchPcm, TARGET_RATE, tAbs - batchStart) + batchStart;
+      const snap = (tAbs) => snapToVocalOnset(batchPcm, TARGET_RATE, tAbs - batchStart, tuning.snap) + batchStart;
       for (let idx = 0; idx < candidates.length; idx++) {
         const { line } = candidates[idx];
         const al = result.lines[idx];
@@ -632,10 +789,17 @@ export async function refineTimelineFromMic(
 
         // Same refinement as the whole-file path: re-anchor + interpolate + snap,
         // and carry word.score / line.uncertain for the confidence-aware display.
-        if (applyWordSpans(line, al.words, { offsetSec: batchStart, floorSec, snap })) aligned++;
+        if (applyWordSpans(line, al.words, { offsetSec: batchStart, floorSec, snap, minScore: tuning.minScore })) {
+          aligned++;
+          if (fromStem) liveSepStats.stemLines++;
+          else liveSepStats.rawLines++;
+        }
         floorSec = Math.max(floorSec, line.end);
       }
-      if (aligned > 0) timeline.aligned = true;
+      if (aligned > 0) {
+        timeline.aligned = true;
+        _emitLiveSep();
+      }
       return aligned > 0 || timingSamples.length ? { aligned, timingSamples } : false;
     }
   }
@@ -688,11 +852,17 @@ export async function refineTimelineFromMic(
     if (timingOnly) continue;
 
     const snap = (tAbs) => snapToVocalOnset(pcm16k, TARGET_RATE, tAbs - ws) + ws;
-    if (applyWordSpans(line, al.words, { offsetSec: ws, floorSec, snap })) aligned++;
+    if (applyWordSpans(line, al.words, { offsetSec: ws, floorSec, snap })) {
+      aligned++;
+      liveSepStats.rawLines++; // legacy per-line path never separates
+    }
     floorSec = Math.max(floorSec, line.end);
   }
 
-  if (aligned > 0) timeline.aligned = true;
+  if (aligned > 0) {
+    timeline.aligned = true;
+    _emitLiveSep();
+  }
   return aligned > 0 || timingSamples.length ? { aligned, timingSamples } : false;
 }
 

@@ -90,7 +90,12 @@ createServer(async (req, res) => {
     const file = normalize(join(ROOT, path));
     if (!file.startsWith(ROOT)) { res.writeHead(403).end('Forbidden'); return; }
     const body = await readFile(file);
-    res.writeHead(200, { 'Content-Type': TYPES[extname(file)] || 'application/octet-stream' });
+    // Dev server: never cache assets, so edits show up on reload (stale cached
+    // app.js/align.js was silently running old code after edits).
+    res.writeHead(200, {
+      'Content-Type': TYPES[extname(file)] || 'application/octet-stream',
+      'Cache-Control': 'no-store',
+    });
     res.end(body);
   } catch {
     res.writeHead(404, { 'Content-Type': 'text/plain' }).end('Not found');

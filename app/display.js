@@ -244,7 +244,7 @@ export class Display {
     this.syncOffset = loadSyncOffset();
     this.syncOffsetSource = 'legacy'; // 'track' | 'device' | 'zero' | 'legacy' | 'manual'
     // Album-art-derived palette (RGB triplets). Sensible default until we have art.
-    this.palette = [[82, 229, 255], [255, 113, 91], [18, 59, 83]];
+    this.palette = [[227, 194, 122], [255, 113, 91], [58, 44, 23]];
     // Singer-aid animation state (karaoke wipe + syllable glow).
     this._curWordEl = null;
     this._peekLine = -1;
@@ -784,7 +784,7 @@ export class Display {
     const st = time * 0.55; // calm drift
     const bx = this.bx;
     bx.clearRect(0, 0, W, H);
-    bx.fillStyle = '#070c16';
+    bx.fillStyle = '#0b0908';
     bx.fillRect(0, 0, W, H);
     for (let i = 0; i < this.palette.length; i++) {
       const c = this.palette[i];

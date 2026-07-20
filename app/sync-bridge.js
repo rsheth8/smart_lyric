@@ -56,8 +56,11 @@ function serializeTimeline(lines) {
   return (lines || []).map((l) => ({
     start: l.start,
     end: l.end,
-    words: l.words.map((w) => ({ text: w.text, start: w.start, end: w.end })),
+    // Carry confidence so the overlay dims low-confidence lines/words like the
+    // main window: `uncertain` → line-level render, `score` → softened wipe.
+    uncertain: l.uncertain,
+    words: l.words.map((w) => ({ text: w.text, start: w.start, end: w.end, score: w.score })),
   }));
 }
 
-export { CHANNEL };
+export { CHANNEL, serializeTimeline };

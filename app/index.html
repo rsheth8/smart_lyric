@@ -159,11 +159,11 @@
       </div>
       <span id="drift-chip" hidden title="How closely the highlight is landing on the vocal right now"></span>
       <div class="spacer"></div>
-      <button id="btn-prev" class="transport" type="button" title="Previous" aria-label="Previous track" hidden>⏮</button>
+      <button id="btn-prev" class="transport" type="button" title="Previous" aria-label="Previous track" hidden>⏮&#xFE0E;</button>
       <button id="btn-play" type="button">Play</button>
-      <button id="btn-next" class="transport" type="button" title="Next" aria-label="Next track" hidden>⏭</button>
-      <button id="btn-timing-late" class="transport" type="button" title="Lyrics later (−25ms) · [" aria-label="Lyrics later">⏪</button>
-      <button id="btn-timing-early" class="transport" type="button" title="Lyrics earlier (+25ms) · ]" aria-label="Lyrics earlier">⏩</button>
+      <button id="btn-next" class="transport" type="button" title="Next" aria-label="Next track" hidden>⏭&#xFE0E;</button>
+      <button id="btn-timing-late" class="transport" type="button" title="Lyrics later (−25ms) · [" aria-label="Lyrics later">«</button>
+      <button id="btn-timing-early" class="transport" type="button" title="Lyrics earlier (+25ms) · ]" aria-label="Lyrics earlier">»</button>
       <button id="btn-recal-early" class="ghost" type="button" title="Lyrics feel early — nudge later and learn (E)">Feel early</button>
       <button id="btn-recal" class="ghost" type="button" title="Lyrics feel late — nudge earlier and learn (L)">Feel late</button>
       <button id="btn-practice" class="ghost" type="button" title="Practice at 0.8× (local files · S)" aria-pressed="false" hidden>0.8×</button>
@@ -189,6 +189,10 @@
         <label class="auto-timing-row" id="vocal-isolation-row" hidden>
           <input type="checkbox" id="vocal-isolation" />
           <span>Isolate the vocal before aligning <small id="vocal-isolation-state"></small></span>
+        </label>
+        <label class="auto-timing-row" id="sep-hud-row" hidden>
+          <input type="checkbox" id="sep-hud-toggle" />
+          <span>Show separation HUD <small>on-screen realtime× &amp; stem/raw count</small></span>
         </label>
         <div class="sync-panel-divider"></div>
         <b>Timing</b>
@@ -226,6 +230,8 @@
     <input id="file" type="file" accept="audio/*" hidden />
     <input id="lyrics-file" type="file" accept=".lrc,.srt,.ass,.ssa,text/plain" hidden multiple />
   </div>
+
+  <div id="live-sep-hud" hidden title="Live vocal-separation diagnostics — realtime factor and stem-vs-raw aligned lines"></div>
 
   <script type="module" src="app.js"></script>
 </body>

@@ -65,16 +65,34 @@ function localModelPath() {
   return null;
 }
 
-/** True once a model source is configured and onnxruntime-node is installed. */
-function separateAvailable() {
-  if (_failed) return false;
-  if (!process.env.SEPARATE_MODEL_PATH && !process.env.SEPARATE_MODEL_URL) return false;
+function onnxInstalled() {
   try {
     require.resolve('onnxruntime-node');
     return true;
   } catch {
     return false;
   }
+}
+
+/**
+ * True when separation can run: onnxruntime-node is installed AND a model will
+ * resolve — either present on disk now (`localModelPath()`) or a URL we can
+ * download on first use. A `SEPARATE_MODEL_PATH` pointing at a missing file with
+ * no URL is NOT available (previously reported available, then threw at use).
+ */
+function separateAvailable() {
+  if (_failed) return false;
+  if (!onnxInstalled()) return false;
+  return !!localModelPath() || !!process.env.SEPARATE_MODEL_URL;
+}
+
+/**
+ * True when the model is on disk right now (no download needed before first use).
+ * Lets the UI distinguish "ready" from "will download on first use".
+ */
+function separateReady() {
+  if (_failed || !onnxInstalled()) return false;
+  return !!localModelPath();
 }
 
 async function ort() {
@@ -225,6 +243,7 @@ async function separateVocals(payload, { throwOnError = false } = {}) {
 function separateStatus() {
   return {
     available: separateAvailable(),
+    ready: separateReady(),
     modelPath: localModelPath(),
     failed: _failed,
     reason: _failedReason,
@@ -232,4 +251,4 @@ function separateStatus() {
   };
 }
 
-module.exports = { separateVocals, separateAvailable, separateWarm, separateStatus, MODEL_RATE };
+module.exports = { separateVocals, separateAvailable, separateReady, separateWarm, separateStatus, MODEL_RATE };
