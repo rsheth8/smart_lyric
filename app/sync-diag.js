@@ -11,6 +11,9 @@
 /** Ordered most-fundamental first: if capture is dead, nothing downstream matters. */
 const STAGES = ['capture', 'audio', 'clock', 'loop', 'window', 'onset', 'samples'];
 
+/** Loop states that mean "nothing to do right now", not "something is wrong". */
+const LOOP_IDLE_REASONS = new Set(['measuring', 'idle', 'no-candidate']);
+
 const blank = () => ({
   capture: 'off', // off | starting | open | error
   captureKind: null, // loopback | mic | system
@@ -78,8 +81,12 @@ export function syncBlocker(d = state) {
     };
   }
   if (d.clock === 'none') return { stage: 'clock', detail: 'no playback position' };
-  if (d.loop !== 'measuring' && d.loop !== 'idle') return { stage: 'loop', detail: d.loop };
-  if (d.candidates === 0) return { stage: 'window', detail: 'waiting for a finished line' };
+  // 'no-candidate' is NOT a fault: the loop ticks every 700ms but a line only
+  // becomes measurable ~1.5s after it finishes, and is then excluded until it
+  // goes stale. Most ticks legitimately have nothing new to measure, so this is
+  // the normal waiting state — reporting it as a broken loop was just noise.
+  if (!LOOP_IDLE_REASONS.has(d.loop)) return { stage: 'loop', detail: d.loop };
+  if (d.candidates === 0) return { stage: 'window', detail: 'waiting for the next line' };
   if (d.onsetTried > 0 && d.accepted === 0 && d.onsetFailed === d.onsetTried) {
     return { stage: 'onset', detail: 'no vocal onset found' };
   }

@@ -149,3 +149,19 @@ test('with the preference off, the helper points at the toggle instead', () => {
   assert.match(c.title, /is available/);
   assert.match(c.lead, /Prefer a digital tap/);
 });
+
+// ---- idle vs fault --------------------------------------------------------
+// The loop ticks every 700ms but a line is only measurable ~1.5s after it ends,
+// then excluded until stale. Most ticks have nothing to do; that is not a fault.
+
+test('"no-candidate" reads as waiting, not a broken loop', () => {
+  const b = syncBlocker({ ...healthy, loop: 'no-candidate', candidates: 0, lock: 'converging' });
+  assert.equal(b.stage, 'window', 'between lines is a waiting state');
+  assert.match(b.detail, /waiting for the next line/);
+});
+
+test('a genuinely halted loop is still reported as a fault', () => {
+  for (const reason of ['no-mic', 'no-clock', 'auto-off', 'no-aligner', 'not-playing']) {
+    assert.equal(syncBlocker({ ...healthy, loop: reason }).stage, 'loop', reason);
+  }
+});
