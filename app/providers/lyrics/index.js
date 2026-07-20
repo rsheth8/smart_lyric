@@ -5,6 +5,7 @@ import { fetchFromMusixmatch } from './musixmatch.js';
 import { fetchPlain } from './plain.js';
 import { fetchTranscriptFromAudio, transcriptionAvailable } from './transcript.js';
 import { preferResult } from './match.js';
+import { isWordSyncFormat } from '../../align.js';
 
 /** @typedef {import('./types.js')} LyricsResult */
 
@@ -19,6 +20,9 @@ export class TranscriptFailedError extends Error {
 
 const CATALOG_SOURCES = ['local', 'netease', 'musixmatch', 'lrclib'];
 
+/** A provider that throws (offline, rate-limited, 5xx) counts as "no result". */
+const settle = (p) => (p ? Promise.resolve(p).catch(() => null) : Promise.resolve(null));
+
 /**
  * Exhaust every non-AI lyrics source. AI transcription must never run until this
  * returns null — synced catalogs, title-only retries, then plain text (LRCLIB /
@@ -32,9 +36,20 @@ export async function fetchCatalogLyrics(
   query,
   { sources = CATALOG_SOURCES, plain = true } = {}
 ) {
+  // A lyrics file the user explicitly picked is authoritative — return it as-is.
+  // An AUTO-PAIRED sidecar is only a filename guess, so it must not shadow a
+  // catalog's word-level timing: a line-level .lrc sitting next to the audio used
+  // to win outright, sending a rubato-heavy vocal (Adele, ballads) through the
+  // aligner to have its word timing *invented* while real per-word timing (yrc /
+  // richsync) existed. Such a sidecar is now held as a fallback and only yields
+  // to genuinely richer timing below.
+  let localFallback = null;
   if (sources.includes('local') && query.lyricsFile) {
     const result = await fetchFromLocal(query.lyricsFile);
-    if (result?.text) return result;
+    if (result?.text) {
+      if (!query.lyricsFileAuto || isWordSyncFormat(result.format)) return result;
+      localFallback = result;
+    }
   }
 
   const cleaned = {
@@ -48,10 +63,12 @@ export async function fetchCatalogLyrics(
   if (sources.includes('musixmatch')) jobs.musixmatch = fetchFromMusixmatch(cleaned);
   if (sources.includes('lrclib')) jobs.lrclib = fetchFromLRCLIB(cleaned);
 
+  // One provider being down must not discard the others' results (or a local
+  // fallback we're holding) — settle each independently.
   const [netease, musixmatch, lrclib] = await Promise.all([
-    jobs.netease,
-    jobs.musixmatch,
-    jobs.lrclib,
+    settle(jobs.netease),
+    settle(jobs.musixmatch),
+    settle(jobs.lrclib),
   ]);
 
   // Preference order = richest timing first (word-level visibly tracks the
@@ -80,9 +97,13 @@ export async function fetchCatalogLyrics(
     } else {
       titleJobs.push(Promise.resolve(null));
     }
-    const [mmOnly, lrOnly] = await Promise.all(titleJobs);
+    const [mmOnly, lrOnly] = await Promise.all(titleJobs.map(settle));
     best = preferResult([mmOnly, lrOnly], query.duration);
   }
+  // The auto-paired sidecar yields ONLY to word-level timing (the thing it can't
+  // provide). Anything else — a line-level catalog hit, a network failure, being
+  // offline — and the local file still wins, so this can never regress a match.
+  if (localFallback) return best && isWordSyncFormat(best.format) ? best : localFallback;
   if (best) return best;
 
   // Nothing synced. Fall back to plain (untimed) text — the display estimates a

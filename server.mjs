@@ -9,7 +9,13 @@ import { fetchNeteaseLyrics } from './lib/netease.mjs';
 import { fetchGeniusLyrics } from './lib/genius.mjs';
 import { fetchMusixmatchRichsync } from './lib/musixmatch.mjs';
 
-const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), 'app');
+const REPO = fileURLToPath(new URL('.', import.meta.url));
+const ROOT = join(REPO, 'app');
+// The renderer imports a few shared modules from the repo-root lib/ (e.g.
+// providers/lyrics/transcript.js → ../../../lib/transcript-text.mjs). Electron
+// resolves those on the filesystem, but they sit OUTSIDE the served app/ dir —
+// unserved they 404, which fails the whole module graph up through app.js.
+const LIB_ROOT = join(REPO, 'lib');
 const PORT = process.env.PORT || 4321;
 
 try {
@@ -19,7 +25,7 @@ try {
 }
 
 const TYPES = {
-  '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
+  '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css',
   '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png',
   '.woff2': 'font/woff2',
 };
@@ -87,8 +93,10 @@ createServer(async (req, res) => {
       return;
     }
 
-    const file = normalize(join(ROOT, path));
-    if (!file.startsWith(ROOT)) { res.writeHead(403).end('Forbidden'); return; }
+    const inLib = path === '/lib' || path.startsWith('/lib/');
+    const base = inLib ? LIB_ROOT : ROOT;
+    const file = normalize(join(base, inLib ? path.slice('/lib'.length) : path));
+    if (!file.startsWith(base)) { res.writeHead(403).end('Forbidden'); return; }
     const body = await readFile(file);
     // Dev server: never cache assets, so edits show up on reload (stale cached
     // app.js/align.js was silently running old code after edits).

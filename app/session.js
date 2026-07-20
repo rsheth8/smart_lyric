@@ -32,12 +32,17 @@ export class SongSession {
     this.activeClock = null;
     this.medium = null;
     this.lyricsFile = null;
+    this.lyricsFileAuto = false;
     this.audioFile = null;
     this.audioTags = null;
   }
 
-  setLyricsFile(file) {
+  // `auto` marks a sidecar we paired by filename rather than one the user picked.
+  // An auto-paired file is a guess, so it yields to richer catalog timing; an
+  // explicit import stays authoritative. See fetchCatalogLyrics.
+  setLyricsFile(file, { auto = false } = {}) {
     this.lyricsFile = file || null;
+    this.lyricsFileAuto = !!file && auto;
   }
 
   setAudioFile(file, tags) {
@@ -65,6 +70,7 @@ export class SongSession {
       album,
       duration,
       lyricsFile: this.lyricsFile,
+      lyricsFileAuto: this.lyricsFileAuto,
       // Never feed a leftover local file into a catalog-only (Spotify) load.
       audioFile: allowTranscript ? this.audioFile : undefined,
       onStatus: this.onStatus,

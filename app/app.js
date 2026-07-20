@@ -1103,7 +1103,7 @@ $('file').addEventListener('change', async (e) => {
     const paired = [...$('lyrics-file').files].find((f) => basenamesMatch(f.name, file.name));
     if (paired) {
       pendingLyricsFile = paired;
-      session.setLyricsFile(paired);
+      session.setLyricsFile(paired, { auto: true });
       setStatus('ok', `Audio + lyrics paired: ${file.name}`);
       return;
     }
