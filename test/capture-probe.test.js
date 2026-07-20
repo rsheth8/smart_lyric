@@ -93,3 +93,33 @@ test('a loopback that IS carrying audio is preferred (cleanest tap)', async (t) 
 test('mode "off" still returns null', async () => {
   assert.equal(await startBestCapture({ mode: 'off', sleep: noSleep }), null);
 });
+
+// ---- prefer-tap preference ------------------------------------------------
+
+test('preferTap:false skips the loopback entirely and uses the mic', async (t) => {
+  // A live BlackHole would normally win; with the preference off the mic is used
+  // instead, because only a mic hears real speaker delay.
+  await stubMicLevels(t, { bh: 0.3, 'built-in': 0.12 });
+  const res = await startBestCapture({
+    mode: 'auto',
+    probeMs: 150,
+    sleep: noSleep,
+    preferTap: false,
+  });
+  assert.equal(res.kind, 'mic');
+  assert.match(res.tapAvailable || '', /BlackHole/, 'still reports the tap exists');
+});
+
+test('a silent tap is reported as available so the UI can offer setup help', async (t) => {
+  await stubMicLevels(t, { bh: 0, 'built-in': 0.12 });
+  const res = await startBestCapture({ mode: 'auto', probeMs: 150, sleep: noSleep });
+  assert.equal(res.kind, 'mic');
+  assert.match(res.tapAvailable || '', /BlackHole/);
+});
+
+test('a working tap reports no outstanding setup', async (t) => {
+  await stubMicLevels(t, { bh: 0.3, 'built-in': 0.12 });
+  const res = await startBestCapture({ mode: 'auto', probeMs: 150, sleep: noSleep });
+  assert.equal(res.kind, 'loopback');
+  assert.ok(!res.tapAvailable, 'nothing to set up — we are on it');
+});

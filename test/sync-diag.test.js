@@ -7,6 +7,7 @@ import {
   resetSyncDiag,
   syncDiag,
   onSyncDiag,
+  tapHelpCopy,
 } from '../app/sync-diag.js';
 
 // A pipeline in perfect health, for tests to break one stage at a time.
@@ -114,4 +115,37 @@ test('a throwing listener cannot break the pipeline', () => {
   });
   assert.doesNotThrow(() => updateSyncDiag({ capture: 'open' }));
   assert.equal(syncDiag().capture, 'open');
+});
+
+// ---- digital-tap setup helper --------------------------------------------
+
+test('no helper when there is no tap installed', () => {
+  assert.equal(tapHelpCopy({ tapAvailable: null, onTap: false, preferTap: true }).show, false);
+});
+
+test('no helper when we are already ON the tap — nothing to fix', () => {
+  assert.equal(
+    tapHelpCopy({ tapAvailable: 'BlackHole 2ch', onTap: true, preferTap: true }).show,
+    false
+  );
+});
+
+test('a silent tap explains the routing problem and names the fallback', () => {
+  const c = tapHelpCopy({
+    tapAvailable: 'BlackHole 2ch',
+    onTap: false,
+    preferTap: true,
+    captureLabel: 'MacBook Pro Microphone',
+  });
+  assert.equal(c.show, true);
+  assert.match(c.title, /BlackHole 2ch is installed but silent/);
+  assert.match(c.lead, /MacBook Pro Microphone/, 'says what we fell back to');
+  assert.match(c.lead, /still hear the music/, 'addresses the "I go deaf" worry');
+});
+
+test('with the preference off, the helper points at the toggle instead', () => {
+  const c = tapHelpCopy({ tapAvailable: 'BlackHole 2ch', onTap: false, preferTap: false });
+  assert.equal(c.show, true);
+  assert.match(c.title, /is available/);
+  assert.match(c.lead, /Prefer a digital tap/);
 });

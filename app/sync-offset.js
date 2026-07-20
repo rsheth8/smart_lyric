@@ -135,14 +135,21 @@ export function resolveOffset(meta) {
  * Persist a user nudge / auto-lock for the current track and fold it into the
  * device default. `fromLock` counts toward path trust (mic-learned latency).
  */
-export function rememberOffset(meta, offsetSec, { fromLock = false } = {}) {
+export function rememberOffset(meta, offsetSec, { fromLock = false, trainsDevice = true } = {}) {
   const offset = clamp(offsetSec);
   const store = loadStore();
   const key = trackKey(meta);
   const alpha = emaAlpha(store.pathSamples || 0);
 
   // Device default tracks the user's typical latency (speakers / BT / Spotify).
-  store.deviceDefault = clamp(store.deviceDefault * (1 - alpha) + offset * alpha);
+  // `trainsDevice: false` for offsets measured through a digital tap: a loopback
+  // reads the OS mixer BEFORE the output device, so it measures ~0 speaker delay
+  // by construction. Letting that train the default would erase a real
+  // Bluetooth/soundbar lag previously learned from a microphone. The per-track
+  // offset below is still stored — that part (catalog vs audio) is genuine.
+  if (trainsDevice) {
+    store.deviceDefault = clamp(store.deviceDefault * (1 - alpha) + offset * alpha);
+  }
 
   // Count path trust once per track that mic-locks (not every converging nudge).
   if (fromLock) {

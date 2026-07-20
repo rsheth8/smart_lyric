@@ -25,6 +25,7 @@ import {
   syncDiagSummary,
   syncBlocker,
   syncDiag,
+  tapHelpCopy,
 } from './sync-diag.js';
 import { SongSession } from './session.js';
 import { readAudioTags } from './audio-tags.js';
@@ -105,6 +106,8 @@ let alignMic = null; // silent capture for Spotify/streaming vocal align
 let alignCaptureOwned = false;
 let alignCaptureLabel = ''; // human name of the active capture source
 let alignCaptureKind = null; // 'loopback' | 'mic' | 'system' — which instrument we're on
+let alignTapAvailable = null; // a digital tap exists but isn't carrying audio
+let preferDigitalTap = localStorage.getItem('bar4bar.preferTap') !== 'off';
 let alignCaptureError = ''; // last failure reason (shown in Sync panel)
 let liveAlignTimer = null;
 let liveAlignBusy = false;
@@ -285,8 +288,11 @@ function applySongTimingOffset(meta, { quiet = false } = {}) {
   }
 }
 
-function persistCurrentTiming(offset, { fromLock = false } = {}) {
-  rememberOffset(session.meta || {}, offset, { fromLock });
+/** True while we're measuring through a digital tap rather than a microphone. */
+const onDigitalTap = () => alignCaptureKind === 'loopback' || alignCaptureKind === 'system';
+
+function persistCurrentTiming(offset, { fromLock = false, trainsDevice = true } = {}) {
+  rememberOffset(session.meta || {}, offset, { fromLock, trainsDevice });
 }
 
 /**
@@ -333,7 +339,9 @@ function ingestTimingSamples(samples) {
   const gain = mag > 0.25 ? 0.9 : mag > 0.12 ? 0.7 : 0.45;
   const next = Math.round((current + err * gain) * 1000) / 1000;
   display.setSyncOffset(next, { source: 'auto', persistLegacy: true });
-  persistCurrentTiming(next, { fromLock: true }); // mic lock → train device path
+  // Only a microphone hears the speaker delay; a digital tap can't, so it must
+  // not train the device default (it would zero out a learned Bluetooth lag).
+  persistCurrentTiming(next, { fromLock: true, trainsDevice: !onDigitalTap() });
   lastAutoApplied = next;
   updateTimingReadout();
 }
@@ -636,6 +644,7 @@ async function startAlignCapture() {
     mode: alignSourceMode,
     deviceId: alignSourceDeviceId,
     seconds: 16,
+    preferTap: preferDigitalTap,
   });
   if (!res) {
     alignCaptureError = '';
@@ -653,6 +662,7 @@ async function startAlignCapture() {
   // BEFORE any output-device delay, so it measures catalog-vs-audio offset, not
   // speaker latency. Only a real mic hears what the room hears.
   alignCaptureKind = res.kind || null;
+  alignTapAvailable = res.tapAvailable || null;
   alignCaptureError = '';
   updateSyncDiag({
     capture: 'open',
@@ -682,6 +692,7 @@ function stopAlignCapture() {
   alignCaptureOwned = false;
   alignCaptureLabel = '';
   alignCaptureKind = null;
+  alignTapAvailable = null;
   updateSyncSourceUi();
 }
 
@@ -1450,12 +1461,37 @@ function restartAlignCapture() {
 }
 
 /** Reflect the current source on the now-bar button + panel status line. */
+/**
+ * Show the Multi-Output setup guide only when it would actually help: a digital
+ * tap is installed but we aren't on it, so audio isn't being routed to it.
+ */
+function renderTapHelp() {
+  const box = $('tap-help');
+  if (!box) return;
+  const prefBox = $('prefer-tap');
+  if (prefBox) prefBox.checked = preferDigitalTap;
+
+  const copy = tapHelpCopy({
+    tapAvailable: alignTapAvailable,
+    onTap: onDigitalTap(),
+    preferTap: preferDigitalTap,
+    captureLabel: alignCaptureLabel,
+  });
+  box.hidden = !copy.show;
+  if (!copy.show) return;
+  const title = $('tap-help-title');
+  const lead = $('tap-help-lead');
+  if (title) title.textContent = copy.title;
+  if (lead) lead.textContent = copy.lead;
+}
+
 function updateSyncSourceUi() {
   const btn = $('btn-sync-source');
   if (btn) {
     const mode = SYNC_MODE_LABELS[alignSourceMode] || 'Auto';
     btn.textContent = `Sync: ${alignMic || activeMic ? alignCaptureLabel || mode : mode}`;
   }
+  renderTapHelp();
   const status = $('sync-capture-status');
   if (!status) return;
 
@@ -2002,6 +2038,46 @@ $('sync-hud-toggle')?.addEventListener('change', (e) => {
   syncHudEnabled = e.target.checked;
   localStorage.setItem('bar4bar.syncHud', syncHudEnabled ? 'on' : 'off');
   renderSyncDiag(syncDiag());
+});
+
+$('prefer-tap')?.addEventListener('change', (e) => {
+  preferDigitalTap = e.target.checked;
+  localStorage.setItem('bar4bar.preferTap', preferDigitalTap ? 'on' : 'off');
+  showToast(
+    preferDigitalTap
+      ? 'Preferring a digital tap when it carries audio'
+      : 'Always listening on the microphone — it hears real speaker delay'
+  );
+  restartAlignCapture();
+});
+
+// Re-run the ladder now that the user has (presumably) fixed routing, so the tap
+// is picked up without waiting for the next song.
+$('btn-retry-tap')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  try {
+    if (!preferDigitalTap) {
+      preferDigitalTap = true;
+      localStorage.setItem('bar4bar.preferTap', 'on');
+    }
+    stopAlignCapture();
+    stopLiveAlign();
+    alignCaptureError = '';
+    const ok = await startAlignCapture();
+    if (ok && onDigitalTap()) {
+      showToast(`Now tapping ${alignCaptureLabel} — clean digital signal`);
+      scheduleLiveAlign();
+    } else if (ok) {
+      showToast(`Still silent — listening on ${alignCaptureLabel}. Check the output device.`);
+      scheduleLiveAlign();
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Use the digital tap now';
+    updateSyncSourceUi();
+  }
 });
 
 function applyTimingNudge(deltaSec) {

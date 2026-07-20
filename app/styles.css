@@ -975,6 +975,36 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .sync-panel-card label[hidden] { display: none; }
 .sync-panel-status { min-height: 15px; color: var(--muted); font-size: 12px; }
 .sync-panel-status.ok { color: #6df06d; }
+/* Digital-tap setup helper — only shown when a tap exists but isn't carrying audio. */
+.tap-help {
+  border: 1px solid rgba(227,194,122,.28);
+  background: rgba(227,194,122,.06);
+  border-radius: 12px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.tap-help[hidden] { display: none; }
+.tap-help b { font-size: 13px; color: var(--gold-soft); }
+.tap-help p { margin: 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.tap-help ol {
+  margin: 0; padding-left: 18px;
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 12px; line-height: 1.4; color: var(--ink);
+}
+.tap-help ol b { font-size: inherit; color: var(--ink); font-weight: 650; }
+.tap-help .tap-note {
+  font-size: 11.5px; color: rgba(255,196,110,.9);
+}
+.tap-retry {
+  align-self: flex-start;
+  font: inherit; font-size: 12px; font-weight: 600; color: #171106;
+  background: linear-gradient(135deg, var(--gold-soft), var(--gold));
+  border: 0; border-radius: 8px; padding: 7px 12px; cursor: pointer;
+  transition: filter .2s ease, transform .12s ease;
+}
+.tap-retry:hover { filter: brightness(1.06); }
+.tap-retry:active { transform: scale(.97); }
+.tap-retry:disabled { filter: grayscale(.5) brightness(.8); cursor: default; }
+
 .sync-panel-divider {
   height: 1px; margin: 4px 0;
   background: rgba(255,255,255,.1);
@@ -982,12 +1012,18 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .timing-dial {
   display: flex; align-items: center; gap: 6px;
 }
+/* Label on one line, hint beneath it — inline hints wrapped into the label and
+   read as one cramped run-on sentence. */
 .auto-timing-row {
-  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  display: flex; align-items: flex-start; gap: 8px; cursor: pointer;
   font-size: 12.5px; color: var(--ink);
 }
-.auto-timing-row input { width: 15px; height: 15px; accent-color: var(--gold, #e9c46a); }
-.auto-timing-row small { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+.auto-timing-row input {
+  width: 15px; height: 15px; flex: none; margin-top: 1px;
+  accent-color: var(--gold, #e9c46a);
+}
+.auto-timing-row > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.auto-timing-row small { color: var(--muted); font-size: 11.5px; margin-left: 0; line-height: 1.35; }
 .timing-dial button {
   flex: none; min-width: 44px; padding: 7px 8px;
   font: inherit; font-size: 12px; font-weight: 600; color: var(--ink);

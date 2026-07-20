@@ -210,6 +210,7 @@ export async function startBestCapture({
   seconds = 16,
   probeMs = 900,
   sleep = defaultSleep,
+  preferTap = true,
 } = {}) {
   if (mode === 'off') return null;
 
@@ -251,7 +252,9 @@ export async function startBestCapture({
   // which case it yields silence forever and auto-timing can never measure
   // anything. Make it prove it hears the music before we commit.
   let fellBackFrom = null;
-  const loop = findLoopbackDevice(devices);
+  let tapAvailable = null; // a tap exists but isn't carrying audio → offer setup help
+  const loop = preferTap ? findLoopbackDevice(devices) : null;
+  if (!preferTap) tapAvailable = findLoopbackDevice(devices)?.label || null;
   if (loop) {
     const res = await startDeviceCapture({ deviceId: loop.deviceId, seconds });
     if (res.mic) {
@@ -261,6 +264,7 @@ export async function startBestCapture({
       }
       discard(res.mic);
       fellBackFrom = loop.label || 'Loopback input';
+      tapAvailable = loop.label || 'Loopback input';
     }
   }
 
@@ -283,7 +287,7 @@ export async function startBestCapture({
       // A real mic hearing nothing is usually a quiet room, not a dead route, so
       // we keep it either way — but report the level so the UI can say so.
       const probe = await probeSignal(micRes.mic, { ms: probeMs, sleep });
-      return { mic: micRes.mic, kind: 'mic', label, ...probe, fellBackFrom };
+      return { mic: micRes.mic, kind: 'mic', label, ...probe, fellBackFrom, tapAvailable };
     }
   }
 
@@ -294,14 +298,14 @@ export async function startBestCapture({
     const alt = await startDeviceCapture({ deviceId: d.deviceId, seconds });
     if (alt.mic) {
       const probe = await probeSignal(alt.mic, { ms: probeMs, sleep });
-      return { mic: alt.mic, kind: 'mic', label: d.label || 'Microphone', ...probe, fellBackFrom };
+      return { mic: alt.mic, kind: 'mic', label: d.label || 'Microphone', ...probe, fellBackFrom, tapAvailable };
     }
   }
 
   const sys = await startSystemAudioCapture({ seconds });
   if (sys.mic) {
     const probe = await probeSignal(sys.mic, { ms: probeMs, sleep });
-    return { mic: sys.mic, kind: 'system', label: 'System audio', ...probe, fellBackFrom };
+    return { mic: sys.mic, kind: 'system', label: 'System audio', ...probe, fellBackFrom, tapAvailable };
   }
 
   return {

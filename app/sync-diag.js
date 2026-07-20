@@ -99,4 +99,27 @@ export function syncDiagSummary(d = state) {
   return `◌ sync ${b.stage}: ${b.detail}${b.stage === 'capture' || b.stage === 'audio' ? src : ''}`;
 }
 
+/**
+ * Copy for the digital-tap setup helper. Pure so the branching is testable.
+ *
+ * Only worth showing when a tap is installed but we're NOT using it — that's the
+ * case where routing is the thing standing between the user and a clean signal.
+ * @param {{tapAvailable:string|null, onTap:boolean, preferTap:boolean, captureLabel:string}} s
+ */
+export function tapHelpCopy({ tapAvailable, onTap, preferTap, captureLabel } = {}) {
+  if (!tapAvailable || onTap) return { show: false, title: '', lead: '' };
+  if (!preferTap) {
+    return {
+      show: true,
+      title: `${tapAvailable} is available`,
+      lead: 'Turn on “Prefer a digital tap” above to use it. Route output to both so you can still hear the music:',
+    };
+  }
+  return {
+    show: true,
+    title: `${tapAvailable} is installed but silent`,
+    lead: `Audio isn't routed to it, so it hears nothing — we're listening on ${captureLabel || 'the microphone'} instead. Send output to BOTH so you can still hear the music:`,
+  };
+}
+
 export { STAGES };

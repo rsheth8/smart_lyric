@@ -213,6 +213,27 @@
           <select id="sync-device" aria-label="Audio input device"></select>
         </label>
         <div id="sync-capture-status" class="sync-panel-status"></div>
+
+        <label class="auto-timing-row">
+          <input type="checkbox" id="prefer-tap" />
+          <span>Prefer a digital tap <small>cleanest signal; off = always use the mic</small></span>
+        </label>
+
+        <div id="tap-help" class="tap-help" hidden>
+          <b id="tap-help-title">Let the tap hear the music too</b>
+          <p id="tap-help-lead"></p>
+          <ol>
+            <li>Open <b>Audio MIDI Setup</b> (Applications → Utilities)</li>
+            <li>Click <b>+</b> → <b>Create Multi-Output Device</b></li>
+            <li>Tick <b>your speakers</b> and <b>BlackHole</b> — speakers listed first</li>
+            <li>Tick <b>Drift Correction</b> on BlackHole only</li>
+            <li>System Settings → Sound → Output → pick the new device</li>
+          </ol>
+          <p class="tap-note">
+            macOS disables the volume keys on a Multi-Output Device — use Spotify's own volume.
+          </p>
+          <button type="button" id="btn-retry-tap" class="tap-retry">Use the digital tap now</button>
+        </div>
         <label class="auto-timing-row" id="vocal-isolation-row" hidden>
           <input type="checkbox" id="vocal-isolation" />
           <span>Isolate the vocal before aligning <small id="vocal-isolation-state"></small></span>
