@@ -32,6 +32,9 @@ const MIN_ONSET_SCORE = 0.45;
 // the rest is still being aligned (and each IPC payload stays a few seconds of
 // audio, not the whole song).
 const ALIGN_BATCH_LINES = 6;
+// Gaps shorter than this keep the karaoke wipe continuous; longer ones are real
+// pauses and the word is allowed to end honestly instead of faking a hold.
+const GAP_TOLERANCE_SEC = 0.35;
 
 const WORD_SYNC_FORMATS = new Set(['yrc', 'richsync', 'ass']);
 const LATIN_LETTER = /[A-Za-z]/;
@@ -84,6 +87,30 @@ export function pickTimingCandidates(
       return nowSec - at >= staleAfterSec;
     })
     .slice(-maxLines);
+}
+
+// A mid-line word only gives a findable attack if it follows a real pause —
+// estimateOnset needs a quiet frame before a candidate, and continuous singing
+// never provides one.
+const PROBE_MIN_GAP_SEC = 0.28;
+const MAX_PROBES_PER_LINE = 3;
+
+/**
+ * Points in a line worth measuring latency against: the line's entrance, plus
+ * any word that starts after a real pause. Pure so the selection is testable.
+ * @returns {Array<{expected:number, kind:'line'|'word'}>}
+ */
+export function timingProbePoints(line, { minGap = PROBE_MIN_GAP_SEC, max = MAX_PROBES_PER_LINE } = {}) {
+  const words = line?.words || [];
+  const first = words[0]?.start ?? line?.start;
+  if (!Number.isFinite(first)) return [];
+  const probes = [{ expected: first, kind: 'line' }];
+  for (let i = 1; i < words.length && probes.length < max; i++) {
+    const prev = words[i - 1];
+    const gap = words[i].start - (prev.end ?? prev.start);
+    if (gap >= minGap) probes.push({ expected: words[i].start, kind: 'word' });
+  }
+  return probes;
 }
 
 /**
@@ -231,6 +258,46 @@ export function detectOnsets(
     out.push(t);
   }
   return out;
+}
+
+/**
+ * Where the voice actually stops after `fromSec`, or `limitSec` if it never does.
+ *
+ * This is what separates a genuinely HELD note from a word followed by silence.
+ * Both look identical in the timeline — one word, then a long span before the
+ * next — so without listening we'd either cut real holds short or fake a hold
+ * over an instrumental gap. Only meaningful on an isolated vocal stem, where a
+ * drop in energy really means the singer stopped.
+ */
+export function findVoiceEnd(
+  pcm,
+  sampleRate,
+  fromSec,
+  limitSec,
+  { minE = 0.008, quietSec = 0.14 } = {}
+) {
+  if (!pcm?.length || !(limitSec > fromSec)) return limitSec;
+  const i0 = Math.max(0, Math.floor(fromSec * sampleRate));
+  const i1 = Math.min(pcm.length, Math.ceil(limitSec * sampleRate));
+  const frame = Math.max(32, Math.round(0.02 * sampleRate));
+  const hop = Math.max(16, Math.round(0.01 * sampleRate));
+  if (i1 - i0 < frame + hop) return limitSec;
+
+  let quietRun = 0;
+  const needed = Math.max(1, Math.round(quietSec / 0.01));
+  for (let i = i0; i + frame <= i1; i += hop) {
+    let sum = 0;
+    for (let j = i; j < i + frame; j++) sum += pcm[j] * pcm[j];
+    const e = Math.sqrt(sum / frame);
+    if (e < minE) {
+      quietRun += 1;
+      // Report where the quiet STARTED, not where we confirmed it.
+      if (quietRun >= needed) return Math.max(fromSec, (i + frame / 2) / sampleRate - quietSec);
+    } else {
+      quietRun = 0;
+    }
+  }
+  return limitSec;
 }
 
 /**
@@ -816,10 +883,15 @@ export async function refineTimelineWithAudio(
               (t) => t + ws
             )
         : null;
+      const voiceEndIn = tuning.onset
+        ? (fromAbs, toAbs) =>
+            findVoiceEnd(windowPcm, TARGET_RATE, fromAbs - ws, toAbs - ws, tuning.onset) + ws
+        : null;
       batch.forEach(({ line }, k) => {
         if (
           applyWordSpans(line, result.lines[k]?.words, {
             onsetsIn,
+            voiceEndIn,
             offsetSec: ws,
             floorSec,
             snap,
@@ -889,24 +961,39 @@ export async function refineTimelineFromMic(
 
   if (timingOnly) {
     for (const { line } of candidates) {
-      const expectedOnset = line.words?.[0]?.start ?? line.start;
-      const center = expectedOnset - Number(expectedOffset || 0);
-      const ws = Math.max(windowStart, center - TIMING_SEARCH_PAD_SEC);
-      const we = Math.min(songNowSec, center + TIMING_SEARCH_PAD_SEC, line.end + TIMING_SEARCH_PAD_SEC);
-      const i0 = Math.max(0, Math.floor((ws - windowStart) * sampleRate));
-      const i1 = Math.min(pcm.length, Math.ceil((we - windowStart) * sampleRate));
-      if (i1 - i0 < Math.max(800, sampleRate * 0.25)) continue;
+      // Measure the line's own entrance AND any word inside it that follows a
+      // real pause. One sample per line meant the estimator needed several
+      // finished lines — tens of seconds — before it had enough agreement to
+      // lock. Mid-line words that follow a breath give a clean attack to find,
+      // so a single line can now contribute several independent measurements.
+      const probes = timingProbePoints(line);
+      let measuredAny = false;
+      for (const probe of probes) {
+        const center = probe.expected - Number(expectedOffset || 0);
+        const ws = Math.max(windowStart, center - TIMING_SEARCH_PAD_SEC);
+        const we = Math.min(
+          songNowSec,
+          center + TIMING_SEARCH_PAD_SEC,
+          line.end + TIMING_SEARCH_PAD_SEC
+        );
+        const i0 = Math.max(0, Math.floor((ws - windowStart) * sampleRate));
+        const i1 = Math.min(pcm.length, Math.ceil((we - windowStart) * sampleRate));
+        if (i1 - i0 < Math.max(800, sampleRate * 0.25)) continue;
 
-      const onset = estimateOnset(pcm.subarray(i0, i1), sampleRate);
-      if (!onset) continue;
-      const rawOnset = ws + onset.time;
-      timingSamples.push({
-        value: expectedOnset - rawOnset,
-        score: onset.score,
-        weight: 0.75,
-        source: 'onset',
-      });
-      line._timingMeasuredAt = songNowSec;
+        const onset = estimateOnset(pcm.subarray(i0, i1), sampleRate);
+        if (!onset) continue;
+        const rawOnset = ws + onset.time;
+        timingSamples.push({
+          value: probe.expected - rawOnset,
+          score: onset.score,
+          // A line entrance follows a real gap, so its attack is the cleanest
+          // thing to find; mid-line probes are useful but noisier.
+          weight: probe.kind === 'line' ? 0.75 : 0.45,
+          source: probe.kind === 'line' ? 'onset' : 'onset-word',
+        });
+        measuredAny = true;
+      }
+      if (measuredAny) line._timingMeasuredAt = songNowSec;
     }
     if (timingSamples.length) return { aligned: 0, timingSamples };
     if (!alignmentAvailable()) return false;
@@ -982,6 +1069,16 @@ export async function refineTimelineFromMic(
               tuning.onset
             ).map((t) => t + batchStart)
         : null;
+      const voiceEndIn = tuning.onset
+        ? (fromAbs, toAbs) =>
+            findVoiceEnd(
+              batchPcm,
+              TARGET_RATE,
+              fromAbs - batchStart,
+              toAbs - batchStart,
+              tuning.onset
+            ) + batchStart
+        : null;
       for (let idx = 0; idx < candidates.length; idx++) {
         const { line } = candidates[idx];
         const al = result.lines[idx];
@@ -1011,6 +1108,7 @@ export async function refineTimelineFromMic(
             floorSec,
             snap,
             onsetsIn,
+            voiceEndIn,
             minScore: tuning.minScore,
           })
         ) {
@@ -1182,7 +1280,14 @@ export function snapToVocalOnset(
 function applyWordSpans(
   line,
   spans,
-  { offsetSec = 0, floorSec = -Infinity, snap = null, onsetsIn = null, minScore = MIN_WORD_SCORE } = {}
+  {
+    offsetSec = 0,
+    floorSec = -Infinity,
+    snap = null,
+    onsetsIn = null,
+    voiceEndIn = null,
+    minScore = MIN_WORD_SCORE,
+  } = {}
 ) {
   const words = line?.words;
   if (!line || !Array.isArray(spans) || !(words?.length > 0)) return false;
@@ -1196,6 +1301,7 @@ function applyWordSpans(
   });
   if (!anchors.length) return false; // nothing trustworthy — keep existing timing
   const anchorScore = new Map(anchors.map((a) => [a.i, a.score]));
+  const anchorEnd = new Map(anchors.map((a) => [a.i, a.end]));
 
   // 2. Re-anchor the line to the real vocal (bounded by the previous line's end).
   const originalEnd = line.end;
@@ -1263,11 +1369,30 @@ function applyWordSpans(
     starts[k] = s;
     prev = s;
   }
-  // 5. Contiguous ends (last word holds the tail to line end). Per-word CTC score
-  //    rides along (interpolated words get 0) so the display can tell what it knows.
+  // 5. Word ends, from the best evidence available.
+  //
+  //    Ends used to be purely "wherever the next word starts", with the last word
+  //    stretched to line.end. That makes every pause look like a held note and
+  //    dumps all of a line's slack onto its final word — the highlight races past
+  //    a genuinely elongated word mid-verse, then the last word sits lit forever.
+  //
+  //    In order of trust: the CTC span's own end (it measures duration, and works
+  //    on a full mix); where the voice actually stops (stem only — on a full mix
+  //    energy never really drops, so this correctly no-ops); otherwise the old
+  //    contiguous behaviour. A gap smaller than GAP_TOLERANCE still stretches to
+  //    the next word so normal singing keeps one smooth continuous wipe.
   for (let k = 0; k < words.length; k++) {
-    words[k].start = starts[k];
-    words[k].end = k + 1 < words.length ? starts[k + 1] : line.end;
+    const start = starts[k];
+    const nextStart = k + 1 < words.length ? starts[k + 1] : line.end;
+    // Voice first: it's a direct measurement of when sound stops, and CTC tends
+    // to emit a token early and under-measure a sustained vowel — the exact case
+    // where a held note must keep its full length.
+    let natural = null;
+    if (voiceEndIn) natural = voiceEndIn(start, nextStart);
+    else if (anchorEnd.has(k)) natural = Math.min(anchorEnd.get(k), nextStart);
+    words[k].start = start;
+    words[k].end =
+      natural == null || nextStart - natural <= GAP_TOLERANCE_SEC ? nextStart : natural;
     if (words[k].end <= words[k].start) words[k].end = words[k].start + 0.02;
     words[k].score = anchorScore.has(k) ? anchorScore.get(k) : 0;
   }

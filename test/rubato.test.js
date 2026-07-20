@@ -112,9 +112,50 @@ test('interpolated words follow a rubato phrase instead of spreading evenly', as
     Math.abs(w[2].start - 3.2) < 0.25,
     `word 2 should land on the 3.2s attack, got ${w[2].start.toFixed(2)}`
   );
-  // The held word therefore keeps the long note instead of the spread stealing it.
-  const held = w[0].end - w[0].start;
-  assert.ok(held > 1.5, `word 0 should absorb the hold, lasted ${held.toFixed(2)}s`);
+  // Word 0's audio is a short burst followed by 2.2s of SILENCE, so it must end
+  // when the voice stops rather than being stretched across the gap. Faking a
+  // hold over a pause is the artifact that makes a line look like it skips a
+  // word and then over-holds another.
+  const dur = w[0].end - w[0].start;
+  assert.ok(dur < 0.6, `word 0 should end when its voice stops, lasted ${dur.toFixed(2)}s`);
+});
+
+test('a genuinely held note keeps its full length', async () => {
+  // Continuous voice from 0.5 all the way to word 1 at 2.9 — a real sustain, not
+  // a pause. The word must stay lit for the whole hold.
+  const held = new Float32Array(Math.round(BUF_SEC * SR));
+  const sustainFrom = Math.round((0.5 - WINDOW_START) * SR);
+  const sustainTo = Math.round((2.85 - WINDOW_START) * SR);
+  for (let i = sustainFrom; i < sustainTo; i++) held[i] = 0.4 * Math.sin((2 * Math.PI * 200 * i) / SR);
+  // …then the remaining words attack normally.
+  for (const t of [2.9, 3.2, 3.5]) {
+    const i0 = Math.round((t - WINDOW_START) * SR);
+    for (let i = i0; i < i0 + Math.round(0.18 * SR); i++) {
+      held[i] = 0.4 * Math.sin((2 * Math.PI * 200 * i) / SR);
+    }
+  }
+  const mic = { sampleRate: SR, getOrderedPcm: () => held };
+  const tl = line();
+  await refineTimelineFromMic(tl, mic, SONG_NOW, { maxLines: 2 });
+  const w = tl.lines[0].words;
+  const dur = w[0].end - w[0].start;
+  assert.ok(dur > 1.5, `a real sustain must be kept, lasted only ${dur.toFixed(2)}s`);
+});
+
+test('the last word does not stretch to the end of the line', async () => {
+  // Everything is sung early; the line's catalog end is far later. The final word
+  // must not absorb that slack (the "extra elongated last word" artifact).
+  const tl = {
+    lines: [
+      { start: 0.5, end: 9, words: [{ text: 'aa' }, { text: 'bb' }, { text: 'cc' }, { text: 'dd' }] },
+    ],
+  };
+  const mic = { sampleRate: SR, getOrderedPcm: () => atSongTimes([0.5, 2.9, 3.2, 3.5]) };
+  await refineTimelineFromMic(tl, mic, SONG_NOW, { maxLines: 2 });
+  const w = tl.lines[0].words;
+  const last = w[w.length - 1];
+  const dur = last.end - last.start;
+  assert.ok(dur < 2, `last word should end with the voice, lasted ${dur.toFixed(2)}s`);
 });
 
 test('word order and line bounds survive onset fitting', async () => {

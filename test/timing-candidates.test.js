@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickTimingCandidates } from '../app/align.js';
+import { pickTimingCandidates, timingProbePoints } from '../app/align.js';
 
 const line = (start, end) => ({ start, end, words: [{ text: 'a' }, { text: 'b' }] });
 const BUF = 16; // mic ring buffer seconds
@@ -105,4 +105,53 @@ test('with measure-once, the same song starves after the first sweep', () => {
   // but work continues as new lines are sung — the starvation in the real bug
   // came from the SCHEDULER returning without re-arming, which is now fixed.
   assert.ok(lastWorkAt > 150, 'sanity: new lines keep arriving');
+});
+
+// ---- how many latency probes a single line yields -------------------------
+// One sample per line meant the estimator needed several finished lines before
+// it had enough agreement to lock — tens of seconds of song.
+
+test('a line always offers its own entrance as a probe', () => {
+  const l = { start: 10, end: 14, words: [{ text: 'a', start: 10, end: 10.4 }] };
+  const p = timingProbePoints(l);
+  assert.equal(p.length, 1);
+  assert.equal(p[0].kind, 'line');
+  assert.equal(p[0].expected, 10);
+});
+
+test('words after a real pause add extra probes', () => {
+  const l = {
+    start: 10,
+    end: 16,
+    words: [
+      { text: 'a', start: 10, end: 10.4 },
+      { text: 'b', start: 10.45, end: 10.9 }, // no pause — not findable
+      { text: 'c', start: 11.6, end: 12.0 }, // 0.7s pause → clean attack
+      { text: 'd', start: 13.0, end: 13.4 }, // 1.0s pause → clean attack
+    ],
+  };
+  const p = timingProbePoints(l);
+  assert.equal(p.length, 3, `entrance + two paused words, got ${JSON.stringify(p)}`);
+  assert.deepEqual(
+    p.map((x) => x.expected),
+    [10, 11.6, 13.0]
+  );
+  assert.equal(p[1].kind, 'word');
+});
+
+test('continuous singing yields only the line entrance (no findable attacks)', () => {
+  const words = [];
+  for (let i = 0; i < 8; i++) words.push({ text: 'w', start: 10 + i * 0.3, end: 10 + i * 0.3 + 0.29 });
+  assert.equal(timingProbePoints({ start: 10, end: 14, words }).length, 1);
+});
+
+test('probes are capped so one line cannot flood the estimator', () => {
+  const words = [{ text: 'a', start: 10, end: 10.3 }];
+  for (let i = 1; i < 10; i++) words.push({ text: 'w', start: 10 + i, end: 10 + i + 0.3 });
+  assert.ok(timingProbePoints({ start: 10, end: 25, words }).length <= 3);
+});
+
+test('a line with no usable timing yields nothing', () => {
+  assert.deepEqual(timingProbePoints({ words: [] }), []);
+  assert.deepEqual(timingProbePoints(null), []);
 });
