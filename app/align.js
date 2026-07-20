@@ -94,6 +94,9 @@ export function pickTimingCandidates(
 // never provides one.
 const PROBE_MIN_GAP_SEC = 0.28;
 const MAX_PROBES_PER_LINE = 3;
+// A mid-line probe must land within this of its own line's entrance measurement,
+// otherwise it found something that isn't the vocal (drum hit, ad-lib).
+const WORD_PROBE_AGREE_SEC = 0.15;
 
 /**
  * Points in a line worth measuring latency against: the line's entrance, plus
@@ -1012,6 +1015,12 @@ export async function refineTimelineFromMic(
       // so a single line can now contribute several independent measurements.
       const probes = timingProbePoints(line);
       let measuredAny = false;
+      // Every probe in a line measures the SAME constant latency, so a mid-line
+      // probe that disagrees with its own line's entrance didn't find that word —
+      // it found a drum hit or an ad-lib. Corroboration is what makes the extra
+      // samples worth having: unfiltered they scatter the estimate so badly the
+      // median stops being trustworthy and the lock never happens.
+      let lineValue = null;
       for (const probe of probes) {
         const center = probe.expected - Number(expectedOffset || 0);
         const ws = Math.max(windowStart, center - TIMING_SEARCH_PAD_SEC);
@@ -1027,12 +1036,19 @@ export async function refineTimelineFromMic(
         const onset = estimateOnset(pcm.subarray(i0, i1), sampleRate);
         if (!onset) continue;
         const rawOnset = ws + onset.time;
+        const value = probe.expected - rawOnset;
+        if (probe.kind === 'line') {
+          lineValue = value;
+        } else if (lineValue == null || Math.abs(value - lineValue) > WORD_PROBE_AGREE_SEC) {
+          continue; // uncorroborated — almost certainly not this word's attack
+        }
         timingSamples.push({
-          value: probe.expected - rawOnset,
+          value,
           score: onset.score,
-          // A line entrance follows a real gap, so its attack is the cleanest
-          // thing to find; mid-line probes are useful but noisier.
-          weight: probe.kind === 'line' ? 0.75 : 0.45,
+          // A line entrance follows a real gap so its attack is the cleanest
+          // thing to find. Mid-line probes are noisier, and there can be two per
+          // line — at anything close to parity they'd outweigh the clean signal.
+          weight: probe.kind === 'line' ? 0.75 : 0.25,
           source: probe.kind === 'line' ? 'onset' : 'onset-word',
         });
         measuredAny = true;

@@ -90,3 +90,52 @@ test('regime shift keeps only the new samples', () => {
   assert.equal(est.count, 3, 'stale window dropped');
   assert.ok(Math.abs(est.value - 0.6) < 0.02, `value follows the new regime, got ${est.value}`);
 });
+
+// ---- noisy-but-consistent evidence must be usable -------------------------
+// Reported symptom: "6 samples, 34% agree" sitting on 'converging' forever.
+// Onset measurements on a dense mix scatter by more than the ±120ms agree band,
+// but they still cluster around the true offset — and the MEDIAN of six such
+// samples pins it better than two tidy ones. The old share-within-band metric
+// could only ever DROP as samples arrived, so more evidence meant less trust.
+
+test('mild scatter still locks — the median is what matters', () => {
+  const est = new SyncEstimator();
+  // Clustered at ~+0.15 with two stray probes. The strays should not veto a
+  // median that six measurements agree on.
+  for (const v of [0.15, 0.14, 0.16, 0.13, 0.35, -0.05]) {
+    est.addSample({ value: v, score: 0.9 });
+  }
+  assert.ok(Math.abs(est.value - 0.15) < 0.05, `median finds the truth, got ${est.value}`);
+  assert.ok(est.suggestion() != null, `should lock, confidence ${est.confidence.toFixed(2)}`);
+});
+
+test('more evidence increases confidence rather than eroding it', () => {
+  const values = [0.15, 0.14, 0.16, 0.13, 0.155, 0.145];
+  const few = new SyncEstimator();
+  for (const v of values.slice(0, 2)) few.addSample({ value: v, score: 0.9 });
+  const many = new SyncEstimator();
+  for (const v of values) many.addSample({ value: v, score: 0.9 });
+  assert.ok(
+    many.confidence >= few.confidence,
+    `six samples (${many.confidence.toFixed(2)}) must not score below two (${few.confidence.toFixed(2)})`
+  );
+});
+
+// The reported "6 samples, 34% agree" case. Measurements spread over ~440ms give
+// the median a standard error near the agree band itself, so REFUSING to lock is
+// correct — the fix for that case is better measurements, not a lower bar.
+test('genuinely scattered measurements are still refused', () => {
+  const est = new SyncEstimator();
+  for (const v of [0.15, 0.14, 0.34, 0.36, -0.05, -0.08]) {
+    est.addSample({ value: v, score: 0.9 });
+  }
+  assert.equal(est.suggestion(), null, 'do not apply an offset we only know to ~100ms');
+});
+
+test('genuine disagreement is still refused no matter how many samples', () => {
+  const est = new SyncEstimator();
+  for (const v of [0.9, -0.8, 0.7, -0.9, 0.85, -0.75, 0.8, -0.85]) {
+    est.addSample({ value: v, score: 0.9 });
+  }
+  assert.equal(est.suggestion(), null, 'no amount of contradictory evidence should lock');
+});

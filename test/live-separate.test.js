@@ -108,3 +108,48 @@ test('resetting per song clears the auto-pause', () => {
   assert.equal(s.sepCount, 0);
   assert.equal(s.firstSepSec, 0, 'warm-up baseline is cleared too');
 });
+
+// ---- mid-line probe corroboration ----------------------------------------
+// Every probe in a line measures the same constant latency, so a mid-line probe
+// that disagrees with its own line's entrance found a drum hit or an ad-lib, not
+// the word. Unfiltered, those scatter the estimate enough that the median stops
+// being trustworthy and the lock never happens ("6 samples, 34% agree").
+
+test('a mid-line probe that disagrees with its line entrance is discarded', async () => {
+  const SR = 16000;
+  const SONG_NOW = 12;
+  const BUF = 14;
+  const WSTART = SONG_NOW - BUF;
+  const pcm = new Float32Array(BUF * SR);
+  const burst = (songT) => {
+    const i0 = Math.round((songT - WSTART) * SR);
+    for (let i = i0; i < i0 + Math.round(0.18 * SR); i++) {
+      pcm[i] = 0.4 * Math.sin((2 * Math.PI * 200 * i) / SR);
+    }
+  };
+  // Line entrance lands on time at 1.0; the "word" at 5.0 has NO vocal there,
+  // only a stray transient far earlier — so its measurement must be rejected.
+  burst(1.0);
+  burst(3.2); // stray hit, ~1.8s away from where the word is expected
+  const mic = { sampleRate: SR, getOrderedPcm: () => pcm };
+  const tl = {
+    lines: [
+      {
+        start: 1,
+        end: 6,
+        words: [
+          { text: 'a', start: 1.0, end: 1.3 },
+          { text: 'b', start: 5.0, end: 5.3 }, // preceded by a big gap → probed
+        ],
+      },
+    ],
+  };
+  const res = await refineTimelineFromMic(tl, mic, SONG_NOW, { timingOnly: true, maxLines: 2 });
+  const samples = res?.timingSamples || [];
+  assert.ok(samples.length >= 1, `expected the line entrance sample, got ${samples.length}`);
+  const spread = Math.max(...samples.map((s) => s.value)) - Math.min(...samples.map((s) => s.value));
+  assert.ok(
+    spread <= 0.15 + 1e-9,
+    `kept samples must corroborate each other, spread was ${spread.toFixed(2)}s`
+  );
+});

@@ -198,16 +198,29 @@ export class SyncEstimator {
    * take) keeps us from auto-applying a bad value.
    */
   get confidence() {
-    if (this.samples.length < this.minSamples) return 0;
+    const n = this.samples.length;
+    if (n < this.minSamples) return 0;
     const mid = weightedMedian(this.samples);
-    const total = this.samples.reduce((sum, s) => sum + s.weight, 0);
-    if (!total) return 0;
-    const agree = this.samples
-      .filter((s) => Math.abs(s.value - mid) <= this.agreeBand)
-      .reduce((sum, s) => sum + s.weight, 0);
-    const agreement = agree / total;
-    const maturity = Math.min(1, this.samples.length / Math.max(1, this.minSamples + 1));
-    return Math.min(1, agreement * (0.75 + maturity * 0.25));
+
+    // How well do we know the MEDIAN — not what fraction of samples are tidy.
+    //
+    // This used to be "share of weight within agreeBand of the median", which
+    // meant every extra measurement could only ever lower confidence. That is
+    // backwards: the median of six noisy samples pins the true value better than
+    // the median of two tight ones, because averaging is how you beat noise. The
+    // practical effect was that adding more probes per line made the estimator
+    // LESS willing to lock, and it sat on "converging" indefinitely.
+    //
+    // So: robust spread (median absolute deviation) → standard error of the
+    // median (~1.253·σ/√n) → confident once that error sits comfortably inside
+    // the band we'd call "in sync". Scatter still hurts, but more evidence helps.
+    const devs = this.samples.map((s) => Math.abs(s.value - mid)).sort((a, b) => a - b);
+    const mad = devs[devs.length >> 1] ?? 0;
+    const sem = (1.253 * mad) / Math.sqrt(n);
+    const precision = 1 - sem / this.agreeBand;
+    // Still want a couple of measurements before treating agreement as meaningful.
+    const maturity = Math.min(1, n / Math.max(1, this.minSamples + 1));
+    return Math.max(0, Math.min(1, precision * (0.85 + 0.15 * maturity)));
   }
 
   /**
