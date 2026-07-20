@@ -149,7 +149,7 @@ export function estimateOnset(samples, sampleRate) {
  * @param {Float32Array} pcm  16 kHz mono vocal stem (song-time = index/sampleRate)
  * @param {{ mergeGapSec?: number, minDurSec?: number }} [opts]
  */
-export function computeVocalIntervals(pcm, sampleRate, { mergeGapSec = 0.35, minDurSec = 0.2 } = {}) {
+export function computeVocalIntervals(pcm, sampleRate, { mergeGapSec = 0.5, minDurSec = 0.2 } = {}) {
   const env = rmsEnvelope(pcm, sampleRate);
   if (env.length < 4) return [];
   const values = env.map((e) => e.value);
@@ -188,14 +188,52 @@ export function computeVocalIntervals(pcm, sampleRate, { mergeGapSec = 0.35, min
  * so we don't flicker at edges; `nextVocalIn` is seconds until the next interval
  * starts (null if none ahead). Pure — used by the display each frame.
  */
-export function vocalStateAt(intervals, t, { margin = 0.25 } = {}) {
+export function vocalStateAt(intervals, t, { pre = 0.2, post = 0.4 } = {}) {
   if (!intervals?.length) return { active: true, nextVocalIn: null }; // unknown → assume active
   let nextStart = null;
   for (const iv of intervals) {
-    if (t >= iv.start - margin && t <= iv.end + margin) return { active: true, nextVocalIn: 0 };
+    // Asymmetric: a held note decays slowly, so stay "singing" longer after the
+    // interval ends than before it starts — a symmetric margin cut held tails
+    // short and flashed ♪ over the end of a phrase.
+    if (t >= iv.start - pre && t <= iv.end + post) return { active: true, nextVocalIn: 0 };
     if (iv.start > t && (nextStart == null || iv.start < nextStart)) nextStart = iv.start;
   }
   return { active: false, nextVocalIn: nextStart == null ? null : nextStart - t };
+}
+
+// ---- Instrumental smoothing -------------------------------------------------
+// Raw vocal activity flips frame-to-frame on breaths and consonant dips, so
+// rendering it directly makes the ♪ stutter in and out. The display state is
+// therefore hysteretic: slow to enter (sustained quiet, and only for a gap worth
+// announcing) and quick to leave (lyrics are back before the singer is).
+export const INSTR_ENTER_SEC = 0.9; // sustained quiet before ♪ appears
+export const INSTR_MIN_GAP_SEC = 2.5; // shorter gaps aren't worth announcing
+export const INSTR_EXIT_LEAD_SEC = 0.5; // clear ♪ this long before the vocal returns
+
+/**
+ * Hysteretic instrumental state. Pure reducer — the caller keeps `prev` and
+ * feeds the raw per-frame reading.
+ * @param {{on: boolean, quietSince: number|null}|null} prev
+ * @param {{quiet: boolean, nextVocalIn: number|null, t: number}} reading
+ * @returns {{on: boolean, quietSince: number|null}}
+ */
+export function instrumentalState(prev, { quiet, nextVocalIn, t }, opts = {}) {
+  const enterAfter = opts.enterAfter ?? INSTR_ENTER_SEC;
+  const minGap = opts.minGap ?? INSTR_MIN_GAP_SEC;
+  const exitLead = opts.exitLead ?? INSTR_EXIT_LEAD_SEC;
+  const wasOn = !!prev?.on;
+
+  if (!quiet) return { on: false, quietSince: null };
+
+  const quietSince = prev?.quietSince == null ? t : prev.quietSince;
+  // The vocal is about to return — clear early so the words lead the singer in.
+  if (nextVocalIn != null && nextVocalIn <= exitLead) return { on: false, quietSince };
+  if (wasOn) return { on: true, quietSince }; // already showing: no re-entry cost
+  if (t - quietSince < enterAfter) return { on: false, quietSince };
+  // Only announce a gap long enough to matter (quiet so far + what's left).
+  const gap = nextVocalIn == null ? Infinity : t - quietSince + nextVocalIn;
+  if (gap < minGap) return { on: false, quietSince };
+  return { on: true, quietSince };
 }
 
 /**
@@ -869,6 +907,33 @@ export async function refineTimelineFromMic(
 const clampT = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 const wordWeight = (w) => 0.4 + syllableCount(w?.text || '');
 
+// Guards for back-extrapolating a line whose first word isn't a confident CTC
+// anchor (see applyWordSpans step 2). Bound the inferred pace and how far back
+// we're ever willing to drag a line start.
+const SEC_PER_WEIGHT_MIN = 0.05;
+const SEC_PER_WEIGHT_MAX = 0.5;
+const MAX_LEAD_EXTRAPOLATION_SEC = 1.2;
+
+/**
+ * Seconds per syllable-weight unit — this line's local singing pace. Measured
+ * between the outer CTC anchors when there are two (the real observed tempo for
+ * this line); otherwise spread the catalog line span across all its words.
+ */
+function secPerWeight(words, anchors, lineStart, lineEnd) {
+  const first = anchors[0];
+  const last = anchors[anchors.length - 1];
+  if (last.i > first.i && last.start > first.start) {
+    let w = 0;
+    for (let k = first.i; k < last.i; k++) w += wordWeight(words[k]);
+    if (w > 0) return clampT((last.start - first.start) / w, SEC_PER_WEIGHT_MIN, SEC_PER_WEIGHT_MAX);
+  }
+  let total = 0;
+  for (const w of words) total += wordWeight(w);
+  const span = lineEnd - lineStart;
+  if (total > 0 && span > 0) return clampT(span / total, SEC_PER_WEIGHT_MIN, SEC_PER_WEIGHT_MAX);
+  return 0.25;
+}
+
 /**
  * Find a local vocal-energy onset near `tSec` and return the adjusted time. CTC
  * tends to place a word slightly after its true acoustic onset; snapping to the
@@ -880,7 +945,7 @@ export function snapToVocalOnset(
   pcm,
   sampleRate,
   tSec,
-  { back = 0.06, fwd = 0.03, minE = 0.008, minRise = 0.004 } = {}
+  { back = 0.06, fwd = 0.03, minE = 0.008, minRise = 0.004, troughRatio = 0.55 } = {}
 ) {
   if (!pcm?.length) return tSec;
   const i0 = Math.max(0, Math.floor((tSec - back) * sampleRate));
@@ -889,22 +954,32 @@ export function snapToVocalOnset(
   const hop = Math.max(8, Math.round(0.0025 * sampleRate));
   if (i1 - i0 < frame + hop) return tSec;
 
-  let prevE = null;
-  let best = null;
+  const env = [];
   for (let i = i0; i + frame <= i1; i += hop) {
     let sum = 0;
     for (let j = i; j < i + frame; j++) sum += pcm[j] * pcm[j];
-    const e = Math.sqrt(sum / frame);
-    if (prevE != null) {
-      const rise = e - prevE;
-      if (rise > 0 && (!best || rise > best.rise)) best = { time: (i + frame / 2) / sampleRate, rise, e };
+    env.push({ time: (i + frame / 2) / sampleRate, value: Math.sqrt(sum / frame) });
+  }
+  let best = null;
+  for (let k = 1; k < env.length; k++) {
+    const rise = env[k].value - env[k - 1].value;
+    if (rise > 0 && (!best || rise > best.rise)) {
+      best = { idx: k, time: env[k].time, rise, e: env[k].value };
     }
-    prevE = e;
   }
   // Only move to a clear rise; otherwise the CTC estimate stands. On a clean vocal
   // stem the gate is relaxed (callers pass a lower minE/minRise + wider window).
-  if (best && best.e > minE && best.rise > minRise) return best.time;
-  return tSec;
+  if (!best || !(best.e > minE && best.rise > minRise)) return tSec;
+  // Gap guard: a candidate BEHIND the estimate is only the same sound if energy
+  // stays up all the way to the estimate. If it dips into a trough first, that
+  // rise belongs to an earlier, separate event (breath, drum hit, room noise) —
+  // snapping onto it would fire the word early, so keep the CTC time.
+  if (best.time < tSec) {
+    for (let k = best.idx; k < env.length && env[k].time <= tSec; k++) {
+      if (env[k].value < best.e * troughRatio) return tSec;
+    }
+  }
+  return best.time;
 }
 
 /**
@@ -938,7 +1013,25 @@ function applyWordSpans(
 
   // 2. Re-anchor the line to the real vocal (bounded by the previous line's end).
   const originalEnd = line.end;
-  line.start = clampT(anchors[0].start, floorSec, originalEnd - 0.1);
+  const originalStart = line.start;
+  let lineStart = anchors[0].start;
+  // The line's true first word often isn't a confident anchor: soft consonants
+  // (h/s/f/th) and swelling held vowels score low, so the first ANCHOR can be
+  // word 2 or 3. Anchoring the line there fires the highlight late while the
+  // singer is already on word 1 — the "late off the jump" feel. Back-extrapolate
+  // to word 0 at this line's own pace, then let the onset snap confirm it: snap
+  // only moves onto a real energy rise, so a bad guess degrades to the
+  // extrapolated time rather than inventing an onset.
+  if (anchors[0].i > 0) {
+    const pace = secPerWeight(words, anchors, originalStart, originalEnd);
+    let leadWeight = 0;
+    for (let k = 0; k < anchors[0].i; k++) leadWeight += wordWeight(words[k]);
+    const back = Math.min(leadWeight * pace, MAX_LEAD_EXTRAPOLATION_SEC);
+    let est = anchors[0].start - back;
+    if (snap) est = snap(est);
+    lineStart = est;
+  }
+  line.start = clampT(lineStart, floorSec, Math.min(anchors[0].start, originalEnd - 0.1));
   line.end = Math.max(originalEnd, anchors[anchors.length - 1].end);
 
   // 3. Place starts: anchors from CTC, gaps interpolated by syllable weight.

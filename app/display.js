@@ -6,11 +6,15 @@
 // breath gaps) are display-only — they read word.start/end and never invent
 // timing the aligner didn't provide.
 
-import { lyricGapStateAt, vocalStateAt } from './align.js';
+import { lyricGapStateAt, vocalStateAt, instrumentalState } from './align.js';
 import { syllableCount } from './providers/formats/lrc.js';
 
 // How early a word lights up so a first-time singer can react and start on time.
 export const LEADIN_WORD = 0.32;
+// The line's first word already gets the whole line's entrance (peek → prep →
+// count-in) as its cue, so the full word lead-in stacked on top of SINGER_LEAD
+// reads as firing early. Trim it — mid-line words keep the full lead.
+export const FIRST_WORD_LEAD_SCALE = 0.45;
 // Count-in runway length before a line with a real gap.
 export const LEADIN_LINE = 3.0;
 // Minimum inter-line gap (sec) before we show count-in / breath cues.
@@ -236,6 +240,7 @@ export class Display {
     this.lines = [];
     this.lineEls = [];
     this.activeLine = -1;
+    this._instrState = { on: false, quietSince: null };
     this.raf = null;
     // Manual fine-tune (seconds). Positive = lyrics lead (show earlier), which
     // counters output/network lag so highlighting lands on the beat. Starting
@@ -380,6 +385,7 @@ export class Display {
     this._setBreath(-1);
     this._setBadge(this._timingBadge({ estimated: this.estimated, source, format, wordSync, aligned }));
     this.activeLine = -1;
+    this._instrState = { on: false, quietSince: null };
     this._resize();
   }
 
@@ -582,7 +588,8 @@ export class Display {
       if (!wordLevel) continue;
       const dim = confidenceDim(word);
       if (dim > 0.35) c.add('soft');
-      const phase = wordPhase(t, word.start, word.end, wordLeadIn(word));
+      const lead = i === 0 ? wordLeadIn(word) * FIRST_WORD_LEAD_SCALE : wordLeadIn(word);
+      const phase = wordPhase(t, word.start, word.end, lead);
       if (phase === 'sung') {
         c.add('sung');
       } else if (phase === 'current') {
@@ -724,7 +731,14 @@ export class Display {
       : this.wordSync
         ? { active: true, nextVocalIn: null } // real word timing → don't infer gaps
         : lyricGapStateAt(this.lines, tAudio);
-    const inst = !vs.active && (vs.nextVocalIn == null || vs.nextVocalIn > 1.2);
+    // Hysteretic: needs sustained quiet to appear, clears early when the vocal
+    // is about to return. Keeps ♪ from stuttering on breaths / consonant dips.
+    this._instrState = instrumentalState(this._instrState, {
+      quiet: !vs.active,
+      nextVocalIn: vs.nextVocalIn,
+      t: tAudio,
+    });
+    const inst = this._instrState.on;
 
     // Count-in toward the next phrase (intro / bridge / breathy gap). Prefer this
     // over the instrumental ♪ in the final runway so the singer gets a clear "go".

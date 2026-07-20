@@ -297,7 +297,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 }
 /* Instrumental (no-vocal) stretch: soften the parked lyrics and show a ♪ pulse so
    the highlight isn't sitting on a word nobody is singing. */
-#lyrics.instrumental { filter: blur(1.5px); opacity: .5; transition: opacity .5s ease, filter .5s ease; }
+/* Recede far enough that the ♪ is unmistakably the focus — at .5/1.5px the
+   parked lyrics still fought the indicator for attention. */
+#lyrics.instrumental { filter: blur(3px); opacity: .26; transition: opacity .5s ease, filter .5s ease; }
 #lyrics.instrumental .line.active .word.current {
   color: var(--upcoming);
   -webkit-text-fill-color: var(--upcoming);
@@ -310,14 +312,24 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   z-index: 7; display: flex; flex-direction: column; align-items: center; gap: 8px;
   opacity: 0; transition: opacity .5s ease, transform .5s var(--ease); pointer-events: none;
 }
+/* Soft scrim so the note never fights a parked word behind it. */
+#instrumental-indicator::before {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  width: 340px; height: 340px; transform: translate(-50%, -50%);
+  border-radius: 50%; z-index: -1;
+  background: radial-gradient(circle, rgba(11,9,8,.92) 0%, rgba(11,9,8,.7) 45%, transparent 72%);
+}
 #instrumental-indicator.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 #instrumental-indicator .instr-note {
-  font-size: clamp(40px, 7vw, 88px); color: rgba(255,255,255,.85);
+  font-size: clamp(40px, 7vw, 88px);
+  color: var(--gold-soft);
+  text-shadow: 0 0 34px rgba(227,194,122,.32);
   animation: instr-pulse 1.8s ease-in-out infinite;
 }
 #instrumental-indicator .instr-next {
   font: 600 clamp(13px, 1.5vw, 18px)/1 "SF Pro Display", system-ui, sans-serif;
-  color: rgba(255,255,255,.55); letter-spacing: .02em; min-height: 1em;
+  color: rgba(246,240,228,.6); letter-spacing: .02em; min-height: 1em;
+  font-variant-numeric: tabular-nums;
 }
 @keyframes instr-pulse { 0%,100% { opacity: .55; transform: scale(1); } 50% { opacity: 1; transform: scale(1.08); } }
 /* Line count-in: runway fills before a phrase with a real gap; 3-2-1 in the last beats. */
