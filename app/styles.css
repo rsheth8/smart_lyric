@@ -897,6 +897,20 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 #live-sep-hud.hud-ok { color: rgba(120,230,160,.95); border: 1px solid rgba(120,230,160,.28); }
 #live-sep-hud.hud-warn { color: rgba(255,196,110,.98); border: 1px solid rgba(255,196,110,.34); }
 #live-sep-hud.hud-idle { color: rgba(246,240,228,.55); border: 1px solid rgba(246,240,228,.16); }
+/* Sync diagnostics sit under the separation HUD, same visual language. */
+#sync-hud {
+  position: fixed; left: 16px; top: 54px; z-index: 60;
+  padding: 6px 11px; border-radius: 999px; max-width: min(520px, 60vw);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 600 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .02em;
+  background: rgba(11,9,8,.62); backdrop-filter: blur(10px) saturate(1.1);
+  pointer-events: none; user-select: none;
+  animation: hud-in .3s var(--ease) both;
+}
+#sync-hud[hidden] { display: none; }
+#sync-hud.hud-ok { color: rgba(120,230,160,.95); border: 1px solid rgba(120,230,160,.28); }
+#sync-hud.hud-warn { color: rgba(255,196,110,.98); border: 1px solid rgba(255,196,110,.34); }
+#sync-hud.hud-idle { color: rgba(246,240,228,.55); border: 1px solid rgba(246,240,228,.16); }
 #nowbar .spacer { flex: 1; min-width: 16px; }
 #nowbar button {
   font: inherit; font-size: 13.5px; font-weight: 500; color: #171106; flex: none;

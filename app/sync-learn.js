@@ -37,6 +37,39 @@ export function weightedMedian(samples) {
   return weighted[weighted.length - 1].value;
 }
 
+// Manual-nudge policy. A nudge is the highest-quality signal available — a human
+// listening and saying "it's off by this much" — so it should TEACH the estimator
+// rather than switch it off. Previously one nudge suspended auto-timing for the
+// whole song, which meant the user's own correction disabled the thing that would
+// have learned from it.
+export const NUDGE_DEBOUNCE_MS = 1500; // settle before recording; teach the landing value
+export const NUDGE_HOLD_MS = 20000; // don't auto-apply over the user for a bit
+export const NUDGE_FULLY_MANUAL_AT = 3; // persistent disagreement → hand over the song
+
+/**
+ * Fold one nudge into the manual-control state.
+ * @param {{taps:number,lastDir:number,sameDirRun:number}|null} prev
+ * @param {{deltaSec:number, nowMs:number, holdMs?:number, fullyManualAt?:number}} ev
+ */
+export function manualNudgePolicy(
+  prev,
+  { deltaSec, nowMs, holdMs = NUDGE_HOLD_MS, fullyManualAt = NUDGE_FULLY_MANUAL_AT } = {}
+) {
+  const dir = Math.sign(Number(deltaSec) || 0);
+  const taps = (prev?.taps || 0) + 1;
+  const sameDirRun = dir !== 0 && dir === prev?.lastDir ? (prev?.sameDirRun || 1) + 1 : 1;
+  return {
+    taps,
+    lastDir: dir,
+    sameDirRun,
+    holdUntil: nowMs + holdMs,
+    // Pushed the same way twice: the estimator's window describes a world that no
+    // longer exists. Replace it rather than averaging the user against it.
+    anchor: sameDirRun >= 2,
+    fullyManual: taps >= fullyManualAt,
+  };
+}
+
 export class SyncEstimator {
   /**
    * @param {object} [opts]
@@ -73,6 +106,19 @@ export class SyncEstimator {
     this.prior = null;
   }
 
+  /**
+   * Replace the whole estimate with a known-good value (a user correction).
+   * Unlike `seed`, this discards the sample window — averaging a human's answer
+   * against measurements that disagreed with it just drags it back.
+   */
+  anchor(value, { weight = 3 } = {}) {
+    const v = this._clamp(value);
+    if (!Number.isFinite(v)) return false;
+    this.samples = [{ value: v, weight: Math.max(0.05, Math.min(3, weight)), score: 1, source: 'anchor', prior: false }];
+    this.prior = null;
+    return true;
+  }
+
   /** Seed with a remembered offset. It informs the estimate but cannot lock alone. */
   seed(offset, { weight = this.priorWeight } = {}) {
     const value = this._clamp(offset);
@@ -91,8 +137,11 @@ export class SyncEstimator {
       target && typeof target === 'object'
         ? target
         : { value: target, ...opts };
+    const raw = Number(input.value);
     const value = this._clamp(input.value);
-    if (!Number.isFinite(value)) return;
+    // Out-of-range measurements used to vanish without trace, so a systematically
+    // wrong reading looked identical to no reading at all. Report which it was.
+    if (!Number.isFinite(value)) return Number.isFinite(raw) ? 'clamped' : 'nan';
     const score = Number.isFinite(Number(input.score)) ? Math.max(0, Math.min(1, Number(input.score))) : 1;
     const baseWeight = Number.isFinite(Number(input.weight)) ? Number(input.weight) : 1;
     const weight = Math.max(0.05, Math.min(3, baseWeight * (0.35 + score * 0.65)));
@@ -105,6 +154,7 @@ export class SyncEstimator {
     });
     this._maybeRegimeShift();
     if (this.samples.length > this.window) this.samples.shift();
+    return 'ok';
   }
 
   /**

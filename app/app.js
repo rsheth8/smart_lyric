@@ -11,7 +11,21 @@ import {
   getDeviceDefault,
   devicePriorWeight,
 } from './sync-offset.js';
-import { SyncEstimator, syncLockState, driftReadout } from './sync-learn.js';
+import {
+  SyncEstimator,
+  syncLockState,
+  driftReadout,
+  manualNudgePolicy,
+  NUDGE_DEBOUNCE_MS,
+} from './sync-learn.js';
+import {
+  onSyncDiag,
+  updateSyncDiag,
+  resetSyncDiag,
+  syncDiagSummary,
+  syncBlocker,
+  syncDiag,
+} from './sync-diag.js';
 import { SongSession } from './session.js';
 import { readAudioTags } from './audio-tags.js';
 import { parseLyricsFilename } from './local-lyrics.js';
@@ -28,6 +42,7 @@ import {
   warmSeparationModel,
   setVocalSeparationEnabled,
   needsVocalAlign,
+  needsLatencyCalib,
   isWordSyncFormat,
   onLiveSepStat,
   liveSeparationStats,
@@ -89,16 +104,33 @@ let activeMic = null;
 let alignMic = null; // silent capture for Spotify/streaming vocal align
 let alignCaptureOwned = false;
 let alignCaptureLabel = ''; // human name of the active capture source
+let alignCaptureKind = null; // 'loopback' | 'mic' | 'system' — which instrument we're on
 let alignCaptureError = ''; // last failure reason (shown in Sync panel)
 let liveAlignTimer = null;
 let liveAlignBusy = false;
+let liveAlignStopped = true; // true = deliberately halted (not just idle this tick)
+let liveAlignReason = 'idle'; // why the last tick did nothing (diagnostics)
 // How the vocal aligner listens: 'auto' | 'system' | 'device' | 'off'.
 let alignSourceMode = localStorage.getItem('bar4bar.alignSource') || 'auto';
 let alignSourceDeviceId = localStorage.getItem('bar4bar.alignDevice') || null;
 // Auto-timing: the aligner measures latency from the audio and converges the
 // sync offset on its own. Off the moment the user nudges manually (per session).
 let autoTiming = localStorage.getItem('bar4bar.autoTiming') !== 'off';
-let autoTimingSuspended = false; // user took manual control this song
+// Manual control is a temporary HOLD that still learns, not a kill switch.
+let autoTimingHoldUntil = 0; // don't auto-apply over the user until this ms
+let autoTimingFullyManual = false; // persistent disagreement → this song is theirs
+let nudgeState = null; // manualNudgePolicy accumulator
+let nudgeDebounceTimer = null;
+const manualHoldActive = () => Date.now() < autoTimingHoldUntil;
+/** Auto may still MEASURE and learn while blocked; it just won't move the offset. */
+const autoApplyBlocked = () => autoTimingFullyManual || manualHoldActive();
+function resetManualTiming() {
+  autoTimingHoldUntil = 0;
+  autoTimingFullyManual = false;
+  nudgeState = null;
+  clearTimeout(nudgeDebounceTimer);
+  nudgeDebounceTimer = null;
+}
 let lastAutoApplied = null;
 let practiceSlow = false;
 const PRACTICE_RATE = 0.8;
@@ -176,6 +208,7 @@ async function loadArtwork(artist, track) {
 
 async function prepareSong(query) {
   resetLiveSeparationStats(); // fresh HUD counts per song
+  resetSyncDiag();
   const result = await session.load(query);
   // Apply the best known timing offset for this track (saved per-song, else the
   // learned device default from prior nudges). Not BPM — speaker/Spotify lag.
@@ -229,7 +262,7 @@ async function prepareSongOrAi(meta) {
 function applySongTimingOffset(meta, { quiet = false } = {}) {
   // New song → fresh measurements, and let auto retake control.
   syncEstimator.reset();
-  autoTimingSuspended = false;
+  resetManualTiming();
   lastAutoApplied = null;
 
   const { offset, source } = resolveOffset(meta || {});
@@ -262,8 +295,21 @@ function persistCurrentTiming(offset, { fromLock = false } = {}) {
  * it plays" loop — measured from the actual vocal, not BPM.
  */
 function ingestTimingSamples(samples) {
-  for (const s of samples) syncEstimator.addSample(s);
-  if (!autoTiming || autoTimingSuspended) {
+  let accepted = 0;
+  let clamped = 0;
+  for (const s of samples) {
+    const outcome = syncEstimator.addSample(s);
+    if (outcome === 'ok') accepted++;
+    else if (outcome === 'clamped') clamped++;
+  }
+  const d = syncDiag();
+  updateSyncDiag({
+    accepted: d.accepted + accepted,
+    clamped: d.clamped + clamped,
+    count: syncEstimator.count,
+    confidence: syncEstimator.confidence,
+  });
+  if (!autoTiming || autoApplyBlocked()) {
     updateTimingReadout();
     return;
   }
@@ -471,7 +517,7 @@ async function loadSong({ artist, track, duration }) {
     audio.play();
     // Refine word timing from the actual vocal in the background — don't hold up
     // playback. The clean audio file is the ideal input for forced alignment.
-    ensureVocalAlignment({ file: pendingAudioFile });
+    ensureVocalAlignment({ file: pendingAudioFile, capture: true });
   } else {
     session.setClock(demoClock);
     demoClock.start(0);
@@ -505,8 +551,11 @@ async function ensureVocalAlignment({ file = null, capture = false, forceCapture
   if (!session.timeline) return;
   const needs = needsVocalAlign(session.timeline, session.meta || {});
   // Auto-timing needs audio even when provider/cached word timing is already
-  // good; it measures the separate speaker/output delay.
-  if (!needs && !forceCapture && !(capture && autoTiming)) return;
+  // good; it measures the separate speaker/output delay. Note this is NOT
+  // conditioned on `capture` — the local-file path passes capture:false, which
+  // used to drop calibration entirely for word-sync and cached timelines.
+  const needsTiming = needsLatencyCalib(session.timeline, { autoTiming });
+  if (!needs && !needsTiming && !forceCapture) return;
   if (!alignmentAvailable()) {
     alignCaptureError = 'Vocal aligner needs the desktop app (npm start)';
     updateSyncSourceUi();
@@ -539,10 +588,12 @@ async function ensureVocalAlignment({ file = null, capture = false, forceCapture
     } catch {
       /* keep existing timing */
     }
-    return;
+    // Word alignment is done, but speaker/output latency is a separate
+    // measurement that still needs to listen — fall through rather than return.
+    if (!needsTiming) return;
   }
 
-  if (capture || forceCapture) {
+  if (capture || forceCapture || needsTiming) {
     if (alignSourceMode === 'off') return;
     const ok = await startAlignCapture();
     if (ok) {
@@ -573,6 +624,7 @@ async function startAlignCapture() {
   }
   if (activeMic) {
     alignCaptureLabel = 'Vinyl input';
+    alignCaptureKind = 'mic';
     alignCaptureError = '';
     return true; // vinyl mic already capturing
   }
@@ -591,12 +643,30 @@ async function startAlignCapture() {
   }
   if (res.error || !res.mic) {
     alignCaptureError = res.error || 'Could not start audio capture';
+    updateSyncDiag({ capture: 'error', captureError: alignCaptureError });
     return false;
   }
   alignMic = res.mic;
   alignCaptureOwned = true;
   alignCaptureLabel = res.label;
+  // Which instrument we ended up on matters: a loopback tap reads the OS mixer
+  // BEFORE any output-device delay, so it measures catalog-vs-audio offset, not
+  // speaker latency. Only a real mic hears what the room hears.
+  alignCaptureKind = res.kind || null;
   alignCaptureError = '';
+  updateSyncDiag({
+    capture: 'open',
+    captureKind: res.kind || null,
+    captureLabel: res.label || '',
+    captureError: '',
+    fellBackFrom: res.fellBackFrom || null,
+    peakLevel: Number(res.peakLevel) || 0,
+  });
+  if (res.fellBackFrom) {
+    showToast(
+      `${res.fellBackFrom} is silent — set macOS output to it (or a Multi-Output Device). Listening on ${res.label} instead.`
+    );
+  }
   return true;
 }
 
@@ -611,6 +681,7 @@ function stopAlignCapture() {
   alignMic = null;
   alignCaptureOwned = false;
   alignCaptureLabel = '';
+  alignCaptureKind = null;
   updateSyncSourceUi();
 }
 
@@ -618,68 +689,100 @@ function liveAlignMic() {
   return alignMic || activeMic;
 }
 
+// null (not 0) when there's no clock: 0 is a real song position, and feeding it
+// in makes windowStart negative, which silently excludes every line forever.
 function liveAlignNowSec() {
   if (activeMedium?.id === 'vinyl') return vinylClock.now();
   const streaming = getStreamingClock?.();
   if (streaming) return streaming.now();
   if (session.clock?.now) return session.clock.now();
-  return 0;
+  return null;
 }
 
 function stopLiveAlign() {
   clearTimeout(liveAlignTimer);
   liveAlignTimer = null;
   liveAlignBusy = false;
+  liveAlignStopped = true;
 }
 
-function scheduleLiveAlign() {
-  if (!session.timeline || liveAlignBusy) return;
-  if (!liveAlignMic()) return;
-  const needsWords = needsVocalAlign(session.timeline, session.meta || {});
-  // First collect a wide-window latency estimate. Once it locks, line-sync songs
-  // continue into word refinement; catalog/cached word-sync remains timing-only.
-  const autoNeedsSamples =
-    autoTiming && !autoTimingSuspended && syncEstimator.suggestion() == null;
-  const timingOnly = !needsWords || autoNeedsSamples;
-  if (!timingOnly && !alignmentAvailable()) return;
-  if (timingOnly && (!autoTiming || autoTimingSuspended)) return;
+/**
+ * Arm the next measurement tick. Idempotent — safe to call from anywhere.
+ *
+ * Previously this function BOTH decided whether to run and armed the timer, so
+ * every "nothing to do right now" check (no mic yet, no line finished yet, all
+ * lines measured once) returned without rescheduling and killed the loop for the
+ * rest of the song. Deciding now happens in the tick, which always re-arms.
+ */
+function scheduleLiveAlign(delayMs = 700) {
+  liveAlignStopped = false;
+  clearTimeout(liveAlignTimer);
+  liveAlignTimer = setTimeout(liveAlignTick, delayMs);
+}
 
-  // Word refinement and timing calibration have separate completion flags.
-  const pending = session.timeline.lines.some(
-    (l) =>
-      (l.words?.length || 0) > 0 &&
-      (timingOnly ? !l._timingMeasured : !l._vocalAligned)
-  );
-  if (!pending) {
-    if (session.timeline.aligned) persistAlignedTiming();
+async function liveAlignTick() {
+  liveAlignTimer = null;
+  if (liveAlignStopped) return;
+  // Hard stops — this song/mode is genuinely done, don't re-arm.
+  if (!session.timeline || stage.dataset.mode !== 'playing') {
+    liveAlignStopped = true;
+    liveAlignReason = 'not-playing';
     return;
   }
+  if (liveAlignBusy) return; // a previous tick is still running; it will re-arm
 
-  clearTimeout(liveAlignTimer);
-  liveAlignTimer = setTimeout(async () => {
-    liveAlignBusy = true;
-    try {
-      if (!timingOnly) await warmAlignModel();
-      const mic = liveAlignMic();
-      if (!mic || !session.timeline) return;
-      const res = await refineTimelineFromMic(session.timeline, mic, liveAlignNowSec(), {
-        timingOnly,
-        maxLines: timingOnly ? 3 : 2,
-        expectedOffset: display.syncOffset || 0,
-      });
-      if (res?.aligned) {
-        markAlignedBadge();
-        persistAlignedTiming();
-        updateSyncSourceUi();
-      }
-      if (res?.timingSamples?.length) ingestTimingSamples(res.timingSamples);
-    } catch {
-      /* keep syllable / richsync timing */
+  liveAlignBusy = true;
+  try {
+    const needsWords = needsVocalAlign(session.timeline, session.meta || {});
+    // First collect a wide-window latency estimate. Once it locks, line-sync
+    // songs continue into word refinement; catalog/cached word-sync stays
+    // timing-only (measurement, never touching good catalog word spans).
+    const autoNeedsSamples = autoTiming && syncEstimator.suggestion() == null;
+    const timingOnly = !needsWords || autoNeedsSamples;
+
+    // Soft skips: record why, then fall through to the re-arm in `finally`.
+    if (!autoTiming && timingOnly) return void updateSyncDiag({ loop: (liveAlignReason = 'auto-off') });
+    if (!timingOnly && !alignmentAvailable()) return void updateSyncDiag({ loop: (liveAlignReason = 'no-aligner') });
+    const mic = liveAlignMic();
+    if (!mic) return void updateSyncDiag({ loop: (liveAlignReason = 'no-mic') });
+    const nowSec = liveAlignNowSec();
+    if (nowSec == null) return void updateSyncDiag({ loop: (liveAlignReason = 'no-clock'), clock: 'none' });
+
+    // Once locked, keep a slow drift-tracking trickle instead of stopping dead.
+    const locked = syncEstimator.suggestion() != null;
+    const staleAfterSec = timingOnly ? (locked ? 10 : 3) : Infinity;
+
+    if (!timingOnly) await warmAlignModel();
+    liveAlignReason = 'measuring';
+    updateSyncDiag({
+      loop: 'measuring',
+      clock: 'ok',
+      lastTickMs: Date.now(),
+      peakLevel: Math.max(syncDiag().peakLevel, Number(mic.level) || 0),
+    });
+    const res = await refineTimelineFromMic(session.timeline, mic, nowSec, {
+      timingOnly,
+      maxLines: timingOnly ? 3 : 2,
+      expectedOffset: display.syncOffset || 0,
+      staleAfterSec,
+    });
+    if (res?.aligned) {
+      markAlignedBadge();
+      persistAlignedTiming();
+      updateSyncSourceUi();
     }
+    if (res?.timingSamples?.length) ingestTimingSamples(res.timingSamples);
+    else if (res === false) updateSyncDiag({ loop: (liveAlignReason = 'no-candidate'), candidates: 0 });
+    if (res?.timingSamples?.length) updateSyncDiag({ candidates: res.timingSamples.length });
+  } catch {
+    /* keep syllable / richsync timing */
+  } finally {
     liveAlignBusy = false;
-    // Keep chasing upcoming lines while this song is playing.
-    if (session.timeline && stage.dataset.mode === 'playing') scheduleLiveAlign();
-  }, 700);
+    // Always keep chasing: drift is continuous, so measurement must be too.
+    if (!liveAlignStopped && session.timeline && stage.dataset.mode === 'playing') {
+      scheduleLiveAlign();
+    }
+  }
 }
 
 // Find the selected song on Spotify, start it playing there, load its lyrics,
@@ -1269,8 +1372,10 @@ async function openSyncPanel() {
     session.timeline
   ) {
     const needs = needsVocalAlign(session.timeline, session.meta || {});
-    // Only auto-retry when alignment is still needed, or the last attempt failed.
-    if (needs || alignCaptureError) {
+    const needsTiming = needsLatencyCalib(session.timeline, { autoTiming });
+    // Retry when word alignment is still needed, latency is still unmeasured, or
+    // the last attempt failed.
+    if (needs || needsTiming || alignCaptureError) {
       await ensureVocalAlignment({ capture: true, forceCapture: true });
     }
   }
@@ -1363,7 +1468,15 @@ function updateSyncSourceUi() {
     status.classList.remove('ok');
   } else if (alignMic || activeMic) {
     const hearing = (alignMic || activeMic).level > 0.01;
-    status.textContent = `Capturing: ${alignCaptureLabel || 'input'}${hearing ? ' — hearing audio' : ' — silent so far'}`;
+    // Name the instrument: a loopback tap reads the mixer before any output
+    // delay, so it can't see speaker latency the way a mic can.
+    const via =
+      alignCaptureKind === 'loopback'
+        ? ' · digital tap'
+        : alignCaptureKind === 'system'
+          ? ' · system tap'
+          : '';
+    status.textContent = `Capturing: ${alignCaptureLabel || 'input'}${via}${hearing ? ' — hearing audio' : ' — silent so far'}`;
     status.classList.toggle('ok', hearing);
   } else if (alignCaptureError) {
     status.textContent = alignCaptureError;
@@ -1371,10 +1484,12 @@ function updateSyncSourceUi() {
   } else if (!playing) {
     status.textContent = 'Not capturing — starts when a song is playing.';
     status.classList.remove('ok');
-  } else if (wordSync && !needsVocalAlign(session.timeline, session.meta || {})) {
+  } else if (!autoTiming && wordSync && !needsVocalAlign(session.timeline, session.meta || {})) {
+    // Only true while auto-timing is OFF — with it on we still listen, to learn
+    // the output latency that catalog word timing can't tell us.
     status.textContent = 'Not capturing — this song already has catalog word sync.';
     status.classList.remove('ok');
-  } else if (alreadyAligned && !needsVocalAlign(session.timeline, session.meta || {})) {
+  } else if (!autoTiming && alreadyAligned && !needsVocalAlign(session.timeline, session.meta || {})) {
     status.textContent = 'Not capturing — timings already vocal-aligned (cached).';
     status.classList.remove('ok');
   } else {
@@ -1754,9 +1869,10 @@ function updateTimingReadout() {
   if (toggle) toggle.checked = autoTiming;
   const lock = syncLockState(syncEstimator, {
     autoOn: autoTiming,
-    suspended: autoTimingSuspended,
+    suspended: autoTimingFullyManual || manualHoldActive(),
   });
   display.setSyncLock(lock);
+  updateSyncDiag({ lock, count: syncEstimator.count, confidence: syncEstimator.confidence });
   const hint = $('auto-timing-state');
   if (hint) {
     hint.textContent =
@@ -1852,10 +1968,65 @@ function renderLiveSep(s) {
 onLiveSepStat(renderLiveSep);
 renderLiveSep(liveSeparationStats()); // reflect the toggle on load
 
+// ---- sync diagnostics HUD -------------------------------------------------
+// Auto-reveals once the lock has been stuck "listening" for a while — which is
+// exactly the situation where "Sync listening…" tells the user nothing.
+let syncHudEnabled = localStorage.getItem('bar4bar.syncHud') === 'on';
+let listeningSince = 0;
+const SYNC_HUD_AUTO_AFTER_MS = 10000;
+
+function renderSyncDiag(d) {
+  const hud = $('sync-hud');
+  if (!hud) return;
+  const stuck = d.lock === 'listening' || d.lock === 'converging';
+  if (stuck) {
+    if (!listeningSince) listeningSince = Date.now();
+  } else {
+    listeningSince = 0;
+  }
+  const stuckFor = listeningSince ? Date.now() - listeningSince : 0;
+  const show = syncHudEnabled || (stuck && stuckFor > SYNC_HUD_AUTO_AFTER_MS);
+  if (!show) {
+    hud.hidden = true;
+    return;
+  }
+  hud.hidden = false;
+  const blocker = syncBlocker(d);
+  hud.className = d.lock === 'locked' ? 'hud-ok' : blocker ? 'hud-warn' : 'hud-idle';
+  hud.textContent = syncDiagSummary(d);
+}
+onSyncDiag(renderSyncDiag);
+renderSyncDiag(syncDiag());
+
+$('sync-hud-toggle')?.addEventListener('change', (e) => {
+  syncHudEnabled = e.target.checked;
+  localStorage.setItem('bar4bar.syncHud', syncHudEnabled ? 'on' : 'off');
+  renderSyncDiag(syncDiag());
+});
+
 function applyTimingNudge(deltaSec) {
-  // Manual control wins for this song; auto stops fighting the user.
-  autoTimingSuspended = true;
+  // Manual is instant and authoritative — apply first, always.
   showSyncToast(display.nudgeSyncOffset(deltaSec, persistCurrentTiming));
+
+  nudgeState = manualNudgePolicy(nudgeState, { deltaSec, nowMs: Date.now() });
+  autoTimingHoldUntil = nudgeState.holdUntil;
+  autoTimingFullyManual = nudgeState.fullyManual;
+  if (nudgeState.fullyManual) {
+    showToast('Manual timing for this song — auto will stay out of the way');
+  }
+
+  // Debounce so a six-tap adjustment teaches ONE value: the one landed on, not
+  // the five wrong ones passed through on the way there.
+  clearTimeout(nudgeDebounceTimer);
+  nudgeDebounceTimer = setTimeout(() => {
+    const finalOffset = display.syncOffset || 0;
+    if (nudgeState?.anchor) syncEstimator.anchor(finalOffset, { weight: 3 });
+    else syncEstimator.addSample({ value: finalOffset, weight: 3, score: 1, source: 'nudge' });
+    // Train the device default too, so the NEXT song opens near this value.
+    persistCurrentTiming(finalOffset, { fromLock: true });
+    updateTimingReadout();
+  }, NUDGE_DEBOUNCE_MS);
+  updateTimingReadout();
 }
 
 /**
@@ -1866,7 +2037,7 @@ function applyTimingNudge(deltaSec) {
 function applyFeelRecal(sense) {
   const late = sense !== 'early';
   const delta = late ? RECAL_NUDGE : -RECAL_NUDGE;
-  autoTimingSuspended = false; // let auto keep refining from here
+  resetManualTiming(); // let auto keep refining from here
   const next = display.nudgeSyncOffset(delta, (v) => persistCurrentTiming(v, { fromLock: true }));
   syncEstimator.addSample({
     value: next,
@@ -2011,7 +2182,7 @@ $('auto-timing')?.addEventListener('change', (e) => {
   autoTiming = e.target.checked;
   localStorage.setItem('bar4bar.autoTiming', autoTiming ? 'on' : 'off');
   if (autoTiming) {
-    autoTimingSuspended = false; // re-enable → let it retake control
+    resetManualTiming(); // re-enable → let it retake control
     showToast('Auto-timing on — it will match the vocal as it plays');
   } else {
     showToast('Auto-timing off — using manual offset');
@@ -2047,7 +2218,7 @@ document.querySelector('.timing-dial')?.addEventListener('click', (e) => {
 $('timing-reset')?.addEventListener('click', () => {
   clearTrackOffset(session.meta || {});
   syncEstimator.reset();
-  autoTimingSuspended = false; // fresh start; auto may retake if enabled
+  resetManualTiming(); // fresh start; auto may retake if enabled
   const fallback = getDeviceDefault();
   display.setSyncOffset(fallback, { source: fallback ? 'device' : 'zero' });
   showSyncToast(fallback);
@@ -2098,7 +2269,7 @@ addEventListener('keydown', (e) => {
   else if (e.key === '\\') {
     clearTrackOffset(session.meta || {});
     syncEstimator.reset();
-    autoTimingSuspended = false;
+    resetManualTiming();
     const fallback = getDeviceDefault();
     display.setSyncOffset(fallback, { source: fallback ? 'device' : 'zero' });
     showSyncToast(fallback);

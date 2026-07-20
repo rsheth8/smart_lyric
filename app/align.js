@@ -53,6 +53,57 @@ export function needsVocalAlign(timeline, meta = {}) {
 }
 
 /**
+ * Lines eligible for a latency measurement right now. Pure so the scheduling
+ * rules are testable without audio.
+ *
+ * A line qualifies when it has words, has finished long enough ago that the
+ * delayed audio has certainly reached the capture, still sits inside the mic ring
+ * buffer, and hasn't been measured recently. `staleAfterSec` is what keeps the
+ * loop alive: with `Infinity` every line is measured once and the loop then has
+ * nothing to do for the rest of the song (no drift tracking). A finite value lets
+ * lines come up for re-measurement so the estimate keeps tracking.
+ *
+ * @param {Array} lines
+ * @param {number} nowSec song position
+ * @param {{windowStart:number, pad?:number, maxLines?:number, staleAfterSec?:number}} opts
+ */
+export function pickTimingCandidates(
+  lines,
+  nowSec,
+  { windowStart, pad = TIMING_SEARCH_PAD_SEC, maxLines = 3, staleAfterSec = Infinity } = {}
+) {
+  if (!Array.isArray(lines) || !Number.isFinite(nowSec)) return [];
+  return lines
+    .map((line, i) => ({ line, i }))
+    .filter(({ line }) => {
+      if (!(line.words?.length > 0)) return false;
+      if (!(line.end + pad <= nowSec)) return false; // not fully heard yet
+      if (!(line.start - pad >= windowStart)) return false; // scrolled out of the buffer
+      const at = line._timingMeasuredAt;
+      if (at == null) return true;
+      return nowSec - at >= staleAfterSec;
+    })
+    .slice(-maxLines);
+}
+
+/**
+ * True when auto-timing still needs to MEASURE speaker/output latency.
+ *
+ * Deliberately independent of `needsVocalAlign`. Word-level catalog timing (yrc/
+ * richsync) and a cached already-aligned timeline both mean "the words are placed
+ * correctly relative to each other" — they say nothing about how long the audio
+ * takes to reach your ears. Conflating the two is why a word-sync or replayed
+ * song measured nothing at all and the sync chip sat on "listening" forever.
+ *
+ * Hence: ignores `meta.format`, `timeline.aligned`, and `_vocalAligned`.
+ */
+export function needsLatencyCalib(timeline, { autoTiming = true } = {}) {
+  if (!autoTiming) return false;
+  if (!timeline?.lines?.length) return false;
+  return timeline.lines.some((l) => (l.words?.length || 0) > 0);
+}
+
+/**
  * Words to feed the CTC model for a line. Prefer romanization when the sung
  * text isn't Latin — wav2vec2-base-960h only knows A–Z.
  */
@@ -802,7 +853,7 @@ export async function refineTimelineFromMic(
   timeline,
   mic,
   songNowSec,
-  { maxLines = 2, timingOnly = false, expectedOffset = 0, onStatus } = {}
+  { maxLines = 2, timingOnly = false, expectedOffset = 0, staleAfterSec = Infinity, onStatus } = {}
 ) {
   if (!timeline?.lines?.length || !mic) return false;
   if (!timingOnly && !alignmentAvailable()) return false;
@@ -812,19 +863,23 @@ export async function refineTimelineFromMic(
   const windowDur = pcm.length / sampleRate;
   const windowStart = songNowSec - windowDur;
 
-  const candidates = timeline.lines
-    .map((line, i) => ({ line, i }))
-    .filter(
-      ({ line }) =>
-        // Timing calibration is independent from word refinement: catalog and
-        // cached word-sync lines still need one latency measurement.
-        (timingOnly ? !line._timingMeasured : !line._vocalAligned) &&
-        // Wait until the full delayed line should have reached the capture.
-        line.end + (timingOnly ? TIMING_SEARCH_PAD_SEC : 0) <= songNowSec &&
-        line.start - (timingOnly ? TIMING_SEARCH_PAD_SEC : ALIGN_SEARCH_PAD_SEC) >= windowStart &&
-        (line.words?.length || 0) > 0
-    )
-    .slice(-maxLines);
+  const candidates = timingOnly
+    ? pickTimingCandidates(timeline.lines, songNowSec, {
+        windowStart,
+        pad: TIMING_SEARCH_PAD_SEC,
+        maxLines,
+        staleAfterSec,
+      })
+    : timeline.lines
+        .map((line, i) => ({ line, i }))
+        .filter(
+          ({ line }) =>
+            !line._vocalAligned &&
+            line.end <= songNowSec &&
+            line.start - ALIGN_SEARCH_PAD_SEC >= windowStart &&
+            (line.words?.length || 0) > 0
+        )
+        .slice(-maxLines);
   if (!candidates.length) return false;
 
   // Lower bound for re-anchoring line starts, kept ordered (as in the whole-file path).
@@ -851,7 +906,7 @@ export async function refineTimelineFromMic(
         weight: 0.75,
         source: 'onset',
       });
-      line._timingMeasured = true;
+      line._timingMeasuredAt = songNowSec;
     }
     if (timingSamples.length) return { aligned: 0, timingSamples };
     if (!alignmentAvailable()) return false;
@@ -944,7 +999,7 @@ export async function refineTimelineFromMic(
             weight: 2.25,
             source: 'ctc',
           });
-          line._timingMeasured = true;
+          line._timingMeasuredAt = songNowSec;
         }
         if (timingOnly) continue;
 
@@ -1015,7 +1070,7 @@ export async function refineTimelineFromMic(
         weight: 2.25,
         source: 'ctc',
       });
-      line._timingMeasured = true;
+      line._timingMeasuredAt = songNowSec;
     }
 
     if (timingOnly) continue;

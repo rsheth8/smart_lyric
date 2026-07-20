@@ -160,11 +160,57 @@ export async function startDeviceCapture({ deviceId = null, seconds = 16 } = {})
 }
 
 /**
+ * Listen briefly and report whether a capture is actually carrying audio.
+ *
+ * A virtual loopback device (BlackHole, VB-Cable) opens perfectly happily while
+ * routed to nothing at all — it just yields digital silence forever. Picking one
+ * by name and trusting it is how auto-timing ends up stuck "listening": every
+ * onset check fails the amplitude gate and no measurement is ever produced. So
+ * a candidate has to prove it hears something before we commit to it.
+ *
+ * Reads the Mic's existing smoothed RMS (`mic.level`) — no extra audio graph.
+ *
+ * @param {{ level?: number }} mic
+ * @param {{ ms?: number, minLevel?: number, sleep?: (ms:number)=>Promise<void> }} [opts]
+ * @returns {Promise<{ heard: boolean, peakLevel: number }>}
+ */
+export async function probeSignal(mic, { ms = 900, minLevel = 0.01, sleep = defaultSleep } = {}) {
+  if (!mic) return { heard: false, peakLevel: 0 };
+  const step = 50;
+  let peak = 0;
+  for (let waited = 0; waited < ms; waited += step) {
+    const level = Number(mic.level) || 0;
+    if (level > peak) peak = level;
+    if (peak >= minLevel) return { heard: true, peakLevel: peak }; // early out
+    await sleep(step);
+  }
+  return { heard: peak >= minLevel, peakLevel: peak };
+}
+
+const defaultSleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Close a capture we've decided not to use. */
+function discard(mic) {
+  try {
+    mic?.stop();
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
  * Start the best capture for `mode`.
- * @returns {Promise<{ mic: import('./mic.js').Mic, kind: string, label: string }|{ error: string }|null>}
+ * @returns {Promise<{ mic: import('./mic.js').Mic, kind: string, label: string,
+ *   heard?: boolean, peakLevel?: number, fellBackFrom?: string }|{ error: string }|null>}
  *   null only for mode === 'off'
  */
-export async function startBestCapture({ mode = 'auto', deviceId = null, seconds = 16 } = {}) {
+export async function startBestCapture({
+  mode = 'auto',
+  deviceId = null,
+  seconds = 16,
+  probeMs = 900,
+  sleep = defaultSleep,
+} = {}) {
   if (mode === 'off') return null;
 
   if (mode === 'system') {
@@ -200,10 +246,22 @@ export async function startBestCapture({ mode = 'auto', deviceId = null, seconds
     }
   }
 
+  // A loopback device is the cleanest tap when it's actually carrying the audio,
+  // but it opens just as happily when the system output is routed elsewhere — in
+  // which case it yields silence forever and auto-timing can never measure
+  // anything. Make it prove it hears the music before we commit.
+  let fellBackFrom = null;
   const loop = findLoopbackDevice(devices);
   if (loop) {
     const res = await startDeviceCapture({ deviceId: loop.deviceId, seconds });
-    if (res.mic) return { mic: res.mic, kind: 'loopback', label: loop.label || 'Loopback input' };
+    if (res.mic) {
+      const probe = await probeSignal(res.mic, { ms: probeMs, sleep });
+      if (probe.heard) {
+        return { mic: res.mic, kind: 'loopback', label: loop.label || 'Loopback input', ...probe };
+      }
+      discard(res.mic);
+      fellBackFrom = loop.label || 'Loopback input';
+    }
   }
 
   const preferred = findPreferredMicDevice(devices);
@@ -220,13 +278,12 @@ export async function startBestCapture({ mode = 'auto', deviceId = null, seconds
     const label = pick?.label || preferred?.label || 'Microphone';
     // If we somehow still opened junk, reject and try unlabeled default once.
     if (isJunkInputLabel(label)) {
-      try {
-        micRes.mic.stop();
-      } catch {
-        /* ignore */
-      }
+      discard(micRes.mic);
     } else {
-      return { mic: micRes.mic, kind: 'mic', label };
+      // A real mic hearing nothing is usually a quiet room, not a dead route, so
+      // we keep it either way — but report the level so the UI can say so.
+      const probe = await probeSignal(micRes.mic, { ms: probeMs, sleep });
+      return { mic: micRes.mic, kind: 'mic', label, ...probe, fellBackFrom };
     }
   }
 
@@ -235,11 +292,17 @@ export async function startBestCapture({ mode = 'auto', deviceId = null, seconds
     if (!d.deviceId || isJunkInputLabel(d.label) || isLoopbackLabel(d.label)) continue;
     if (preferred && d.deviceId === preferred.deviceId) continue;
     const alt = await startDeviceCapture({ deviceId: d.deviceId, seconds });
-    if (alt.mic) return { mic: alt.mic, kind: 'mic', label: d.label || 'Microphone' };
+    if (alt.mic) {
+      const probe = await probeSignal(alt.mic, { ms: probeMs, sleep });
+      return { mic: alt.mic, kind: 'mic', label: d.label || 'Microphone', ...probe, fellBackFrom };
+    }
   }
 
   const sys = await startSystemAudioCapture({ seconds });
-  if (sys.mic) return { mic: sys.mic, kind: 'system', label: 'System audio' };
+  if (sys.mic) {
+    const probe = await probeSignal(sys.mic, { ms: probeMs, sleep });
+    return { mic: sys.mic, kind: 'system', label: 'System audio', ...probe, fellBackFrom };
+  }
 
   return {
     error:

@@ -221,6 +221,10 @@
           <input type="checkbox" id="sep-hud-toggle" />
           <span>Show separation HUD <small>on-screen realtime× &amp; stem/raw count</small></span>
         </label>
+        <label class="auto-timing-row">
+          <input type="checkbox" id="sync-hud-toggle" />
+          <span>Show sync diagnostics <small>names what's blocking the lock</small></span>
+        </label>
         <div class="sync-panel-divider"></div>
         <b>Timing</b>
         <p class="sync-panel-hint">If words are early or late vs the singer, shift them here. Saved <em>per song</em>, and your usual delay becomes the default for new tracks. (This is speaker lag — not BPM.)</p>
@@ -259,6 +263,7 @@
   </div>
 
   <div id="live-sep-hud" hidden title="Live vocal-separation diagnostics — realtime factor and stem-vs-raw aligned lines"></div>
+  <div id="sync-hud" hidden title="Auto-sync diagnostics — which stage is blocking the lock"></div>
 
   <script type="module" src="app.js"></script>
 </body>
