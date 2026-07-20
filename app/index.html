@@ -10,6 +10,22 @@
   <script src="https://js-cdn.music.apple.com/musickit/v3/musickit.js"></script>
 </head>
 <body>
+  <div id="splash" aria-hidden="true">
+    <div class="splash-mark">B<span>4</span>B</div>
+    <div class="splash-word">Bar<b>4</b>Bar</div>
+  </div>
+  <script>
+    // Boot splash: fades once everything is loaded (self-contained; app.js
+    // never needs to know it exists).
+    addEventListener('load', () => {
+      const el = document.getElementById('splash');
+      setTimeout(() => {
+        el.classList.add('done');
+        el.addEventListener('transitionend', () => el.remove(), { once: true });
+        setTimeout(() => el.remove(), 1200); // safety net
+      }, 250);
+    });
+  </script>
   <div id="stage" data-mode="setup">
     <canvas class="bg" id="bg"></canvas>
     <div class="vignette"></div>
@@ -61,7 +77,7 @@
 
         <div id="busy" class="busy" hidden aria-live="assertive">
           <div class="busy-card">
-            <div class="busy-spinner" aria-hidden="true"></div>
+            <div class="busy-vinyl" aria-hidden="true"><i></i></div>
             <b id="busy-title">Working…</b>
             <p id="busy-detail">Please wait</p>
           </div>
@@ -121,11 +137,22 @@
             <span class="recs-sub">Top songs right now</span>
           </div>
           <div id="chart-recs" class="recs-grid">
-            <div class="recs-empty">Loading recommendations…</div>
+            <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
+            <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
+            <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
+            <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
+            <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
+            <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
+            <span class="visually-hidden" role="status">Loading recommendations…</span>
           </div>
         </section>
       </div>
-      <div class="hint">↑↓←→ navigate · Enter select · F fullscreen · while playing, move mouse or press ? for keys</div>
+      <div class="hint">
+        <span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> navigate</span>
+        <span><kbd>Enter</kbd> select</span>
+        <span><kbd>F</kbd> fullscreen</span>
+        <span class="hint-playing">while playing, press <kbd>?</kbd> for keys</span>
+      </div>
     </div>
 
     <div id="mode-exits" aria-label="Exit active modes"></div>

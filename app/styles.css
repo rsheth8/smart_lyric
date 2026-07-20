@@ -504,10 +504,26 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   display: flex; flex-direction: column; align-items: center; gap: 10px;
   text-align: center; padding: 28px 32px; max-width: 280px;
 }
-.busy-spinner {
-  width: 36px; height: 36px; border-radius: 50%;
-  border: 3px solid rgba(227,194,122,.2); border-top-color: var(--ice);
-  animation: spin .75s linear infinite;
+/* On-brand loader: a little record spinning under a gold label. */
+.busy-vinyl {
+  position: relative; width: 48px; height: 48px; border-radius: 50%;
+  background: repeating-radial-gradient(circle at 50% 50%, #191411 0 2px, #0d0a08 2px 4px);
+  border: 1px solid rgba(246,240,228,.14);
+  animation: spin 1.6s linear infinite;
+}
+.busy-vinyl::before {
+  content: ""; position: absolute; inset: 31%; border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold-soft), var(--gold));
+}
+.busy-vinyl::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from 0deg,
+    rgba(255,255,255,.14), transparent 50deg,
+    transparent 175deg, rgba(255,255,255,.07) 205deg, transparent 250deg);
+}
+.busy-vinyl i {
+  position: absolute; inset: 44%; border-radius: 50%;
+  background: var(--bg); z-index: 1;
 }
 .busy-card b { font-size: 15px; font-weight: 650; }
 .busy-card p { font-size: 13px; color: var(--muted); line-height: 1.4; }
@@ -619,7 +635,118 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 }
 .rec .meta span { font-size: clamp(11.5px, .85vw, 14px); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.hint { font-size: clamp(12px, .9vw, 15px); letter-spacing: .3px; color: rgba(255,255,255,.32); }
+/* Keyboard hint footer: real key caps, readable at a glance. */
+.hint {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px;
+  font-size: clamp(12px, .9vw, 15px); letter-spacing: .2px;
+  color: rgba(255,255,255,.38);
+}
+.hint span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.hint kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; padding: 2px 6px;
+  font: 600 11px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: rgba(246,240,228,.72);
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.14);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+}
+@media (max-width: 700px) { .hint-playing { display: none; } }
+
+/* ============================ MENU POLISH ============================ */
+/* Boot splash: the brand mark breathes while the app loads, then hands off
+   to the setup panel's staggered entrance. Removed from the DOM on load. */
+#splash {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  background: var(--bg);
+  transition: opacity .5s ease, visibility .5s;
+}
+#splash.done { opacity: 0; visibility: hidden; pointer-events: none; }
+.splash-mark {
+  width: 76px; height: 76px; border-radius: 22px;
+  display: flex; align-items: center; justify-content: center;
+  font: 750 22px/1 -apple-system, "SF Pro Display", system-ui, sans-serif; letter-spacing: -.06em;
+  color: var(--gold-soft); background: var(--bg);
+  border: 1px solid rgba(227,194,122,.5);
+  box-shadow: 0 0 44px rgba(227,194,122,.22), inset 0 0 26px rgba(227,194,122,.07);
+  animation: splash-breathe 1.6s var(--ease) infinite;
+}
+.splash-mark span { color: var(--ember); }
+.splash-word {
+  font: 650 17px/1 -apple-system, "SF Pro Display", system-ui, sans-serif; letter-spacing: .01em;
+  color: rgba(246,240,228,.5);
+  animation: splash-fade 1.6s ease infinite;
+}
+.splash-word b { color: var(--ember); font-weight: 750; }
+@keyframes splash-breathe {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 34px rgba(227,194,122,.16), inset 0 0 22px rgba(227,194,122,.05); }
+  50% { transform: scale(1.045); box-shadow: 0 0 54px rgba(227,194,122,.3), inset 0 0 30px rgba(227,194,122,.1); }
+}
+@keyframes splash-fade { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+/* Staggered entrance: panel sections rise in one after another. */
+.setup-panel > * { animation: rise-in .5s var(--ease) both; }
+.setup-panel > *:nth-child(1) { animation-delay: .08s; }
+.setup-panel > *:nth-child(2) { animation-delay: .16s; }
+.setup-panel > *:nth-child(3) { animation-delay: .22s; }
+.setup-panel > *:nth-child(5) { animation-delay: .28s; }
+.setup-panel > *:nth-child(6) { animation-delay: .34s; }
+.setup-panel > *:nth-child(7) { animation-delay: .42s; }
+.setup-panel > *:nth-child(8) { animation-delay: .48s; }
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(10px); }
+}
+/* The busy overlay must never inherit the entrance delay. */
+.setup-panel > .busy { animation: busy-in .25s ease both; }
+/* Lit from above: a hairline gold edge along the panel top. */
+.setup-panel::before {
+  content: ""; position: absolute; top: 0; left: 24px; right: 24px; height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(227,194,122,.35), transparent);
+}
+
+/* Search field: a quiet magnifier so the primary action reads instantly.
+   (#search input sets background/padding shorthands at higher specificity,
+   so this selector must out-rank it.) */
+#search input#in-track {
+  padding-left: clamp(42px, 3.4vw, 52px);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23e3c27a' stroke-opacity='.55' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.8-3.8'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: clamp(15px, 1.3vw, 20px) center;
+}
+
+/* Source buttons: each input gets its own quiet accent so the row scans fast. */
+#btn-listen .sync-icon { color: #d9a06b; background: rgba(217,160,107,.12); }
+#btn-lyrics .sync-icon { color: rgba(246,240,228,.85); background: rgba(246,240,228,.08); }
+#btn-apple .sync-icon { color: #fa586a; background: rgba(250,88,106,.12); }
+
+/* Skeleton cards: shimmer placeholders while recommendations load. */
+.rec.skeleton { pointer-events: none; }
+.sk-art {
+  width: 100%; aspect-ratio: 1; border-radius: 10px;
+  background: rgba(246,240,228,.05);
+}
+.sk-line {
+  height: 11px; border-radius: 6px; margin-top: 6px;
+  background: rgba(246,240,228,.07);
+}
+.sk-line.sk-short { width: 60%; }
+.sk-art, .sk-line {
+  position: relative; overflow: hidden;
+}
+.sk-art::after, .sk-line::after {
+  content: ""; position: absolute; inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(246,240,228,.06), transparent);
+  animation: shimmer 1.4s ease infinite;
+}
+@keyframes shimmer { to { transform: translateX(100%); } }
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; margin: -1px;
+  clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+}
 
 @media (max-width: 560px) {
   .search-fields { flex-direction: column; }
@@ -936,8 +1063,12 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 
 @media (prefers-reduced-motion: reduce) {
   .line, .word, #lyrics, #setup, #viewport, #nowbar, #hotkeys, .rec, .sync-btn, .chip { transition-duration: .01ms !important; }
-  .setup-panel, #stage[data-mode="playing"] #nowbar,
+  .setup-panel, #stage[data-mode="playing"] #nowbar, .setup-panel > *,
   .suggestions, .sync-panel-card, .listen-card, .busy, #live-sep-hud { animation-duration: .01ms !important; }
+  .splash-mark, .splash-word { animation: none; }
+  #splash { transition-duration: .01ms; }
+  .sk-art::after, .sk-line::after { animation: none; }
+  .busy-vinyl { animation: none; }
   #setup-status[data-type="loading"]::before { animation: none; }
   .listen-pulse { animation: none; }
   .line.active .word.current {
