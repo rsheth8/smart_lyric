@@ -673,9 +673,37 @@ const liveSepStats = {
   sepCount: 0,
   sepTotalSec: 0, // wall-clock spent separating
   sepTotalWindowSec: 0, // audio-seconds separated (for the running average)
+  // The first separation pays for model load, so it is always slow and must not
+  // be counted when judging whether we can keep pace.
+  firstSepSec: 0,
+  firstWindowSec: 0,
+  paused: false, // auto-fell back to the raw mix because it couldn't keep up
   stemLines: 0, // lines word-aligned on an isolated stem
   rawLines: 0, // lines word-aligned on the raw mix
 };
+
+// Each live separation blocks the align loop while it runs, so separating slower
+// than playback starves the very measurements it's meant to improve. Past this
+// point a clean stem costs more than it's worth on the LIVE path (whole-file
+// separation is unaffected — it isn't racing anything).
+export const LIVE_SEP_MIN_REALTIME = 0.8;
+export const LIVE_SEP_MIN_SAMPLES = 3; // ignore warm-up; need a real trend
+
+/**
+ * Has live separation fallen far enough behind that we should drop to the raw
+ * mix? Judged on the steady-state average with the warm-up window discounted.
+ * Pure so the policy is testable without audio.
+ */
+export function shouldPauseLiveSeparation(
+  stats,
+  { minRealtime = LIVE_SEP_MIN_REALTIME, minSamples = LIVE_SEP_MIN_SAMPLES } = {}
+) {
+  if (!stats || stats.sepCount < minSamples) return false;
+  const secs = stats.sepTotalSec - (stats.firstSepSec || 0);
+  const windowSec = stats.sepTotalWindowSec - (stats.firstWindowSec || 0);
+  if (!(secs > 0) || !(windowSec > 0)) return false;
+  return windowSec / secs < minRealtime;
+}
 let _liveSepListener = null;
 /** Subscribe to live-separation diagnostics (one listener; for the HUD). */
 export function onLiveSepStat(fn) {
@@ -688,6 +716,10 @@ export function resetLiveSeparationStats() {
   liveSepStats.separating = false;
   liveSepStats.lastRealtime = liveSepStats.lastWindowSec = null;
   liveSepStats.sepCount = liveSepStats.sepTotalSec = liveSepStats.sepTotalWindowSec = 0;
+  liveSepStats.firstSepSec = liveSepStats.firstWindowSec = 0;
+  // Clear the auto-pause too: a new song (or a freed-up machine) deserves a
+  // fresh attempt rather than staying degraded for the rest of the session.
+  liveSepStats.paused = false;
   liveSepStats.stemLines = liveSepStats.rawLines = 0;
   _emitLiveSep();
 }
@@ -711,6 +743,16 @@ function recordSeparation(secs, sepSec) {
   liveSepStats.sepCount += 1;
   liveSepStats.sepTotalSec += sepSec;
   liveSepStats.sepTotalWindowSec += secs;
+  if (liveSepStats.sepCount === 1) {
+    liveSepStats.firstSepSec = sepSec; // warm-up: model load, not a fair sample
+    liveSepStats.firstWindowSec = secs;
+  }
+  // Self-tune: if we can't keep pace, stop separating live windows rather than
+  // blocking the align loop for longer than the audio we're analysing.
+  if (!liveSepStats.paused && shouldPauseLiveSeparation(liveSepStats)) {
+    liveSepStats.paused = true;
+    console.log('[live-sep] slower than realtime — falling back to the raw mix for live alignment');
+  }
   _emitLiveSep();
   if (sepSec > 0) {
     console.log(`[live-sep] ${secs.toFixed(1)}s → ${sepSec.toFixed(1)}s (${(secs / sepSec).toFixed(1)}× realtime)`);
@@ -736,6 +778,8 @@ const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Da
  */
 async function micWindowStem(monoPcm, sampleRate, { onStatus } = {}) {
   if (!_separationEnabled || !_liveSeparationEnabled) return null;
+  // Auto-paused after falling behind playback; the raw mix keeps alignment moving.
+  if (liveSepStats.paused) return null;
   if (!(monoPcm?.length > 0)) return null;
   const secs = monoPcm.length / sampleRate;
   if (secs < MIN_STEM_WINDOW_SEC) return null;

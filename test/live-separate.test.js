@@ -4,6 +4,8 @@ import {
   refineTimelineFromMic,
   setVocalSeparationEnabled,
   setLiveVocalSeparationEnabled,
+  liveSeparationStats,
+  resetLiveSeparationStats,
 } from '../app/align.js';
 
 // A bridge that both aligns and separates. alignSong returns fixed per-word scores;
@@ -87,4 +89,22 @@ test('short windows skip separation (below MIN_STEM_WINDOW_SEC)', async () => {
     maxLines: 2,
   });
   assert.equal(sepCalls.length, 0, 'no separation on a sub-2s window');
+});
+
+// ---- auto-fallback plumbing ----------------------------------------------
+// The pace POLICY is covered exhaustively in test/live-sep-pace.test.js; these
+// check the flag is exposed and cleared, since that is what gates the raw path.
+
+test('a fast machine is never marked paused', async () => {
+  const tl = oneLine();
+  await refineTimelineFromMic(tl, mic, 10, { maxLines: 2 });
+  assert.equal(liveSeparationStats().paused, false, 'mock separation is instant — no fallback');
+});
+
+test('resetting per song clears the auto-pause', () => {
+  resetLiveSeparationStats();
+  const s = liveSeparationStats();
+  assert.equal(s.paused, false);
+  assert.equal(s.sepCount, 0);
+  assert.equal(s.firstSepSec, 0, 'warm-up baseline is cleared too');
 });

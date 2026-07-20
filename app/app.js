@@ -1993,6 +1993,13 @@ function renderLiveSep(s) {
   const rt = s.lastRealtime;
   const avg = s.sepTotalSec > 0 ? s.sepTotalWindowSec / s.sepTotalSec : null;
   const total = s.stemLines + s.rawLines;
+  // Auto-fell back: say so plainly, otherwise the counters just quietly stop.
+  if (s.paused) {
+    hud.className = 'hud-idle';
+    hud.textContent =
+      `◌ sep paused ${avg != null ? avg.toFixed(1) : '—'}× · raw mix · stem ${s.stemLines}/${total}`;
+    return;
+  }
   const keepUp = rt == null || rt >= 1;
   hud.className = keepUp ? 'hud-ok' : 'hud-warn';
   hud.textContent =
