@@ -247,13 +247,28 @@ export class SyncEstimator {
     return Math.max(0.34, base - eased * (base - 0.34));
   }
 
-  _allSamples() {
+  _decayedSamples() {
     const n = this.samples.length;
-    const decayed = this.samples.map((s, i) => ({
+    return this.samples.map((s, i) => ({
       ...s,
       weight: s.weight * Math.pow(0.5, (n - 1 - i) / this.recencyHalfLife),
     }));
+  }
+
+  _allSamples() {
+    const decayed = this._decayedSamples();
     return this.prior ? [this.prior, ...decayed] : decayed;
+  }
+
+  /**
+   * Median of the LIVE samples only (excluding any seeded prior). Null until we
+   * have real measurements. Used to ask "does fresh evidence disagree with the
+   * remembered offset?" — which a prior-blended `value` can't answer, since the
+   * prior would pull it toward agreement by construction.
+   */
+  get liveValue() {
+    if (!this.samples.length) return null;
+    return this._clamp(weightedMedian(this._decayedSamples()));
   }
 
   _clamp(sec) {
@@ -267,12 +282,33 @@ export class SyncEstimator {
  * UI state for the mic auto-timing loop.
  * @returns {'off'|'manual'|'listening'|'converging'|'locked'}
  */
-export function syncLockState(estimator, { autoOn = true, suspended = false, lockConfidence = 0.6 } = {}) {
+// Warm start: how much live evidence, and how far off, before a trusted memory
+// is treated as contradicted. A couple of scattered samples shouldn't unseat a
+// value we tuned last time; a run of them that genuinely disagrees should.
+export const PRIOR_DISAGREE_SAMPLES = 3;
+export const PRIOR_DISAGREE_BAND = 0.15;
+
+export function syncLockState(
+  estimator,
+  { autoOn = true, suspended = false, lockConfidence = 0.6, prior = null } = {}
+) {
   if (!autoOn) return 'off';
   if (suspended) return 'manual';
   if (!estimator) return 'listening';
+  // Confirmed live: independent measurements are confident on their own.
   if (estimator.suggestion(lockConfidence) != null && estimator.confidence >= lockConfidence) {
     return 'locked';
+  }
+  // Warm start: a remembered offset we trust (this track, or a well-learned
+  // device default) counts as a provisional lock — the timing is already applied
+  // — and holds until live evidence actively contradicts it. This is what makes
+  // a song you've played before feel locked from the first line instead of
+  // sitting on "converging" while it re-earns what it already knew.
+  if (prior?.strong && Number.isFinite(prior.value)) {
+    const live = estimator.liveValue;
+    if (live == null || estimator.count < PRIOR_DISAGREE_SAMPLES) return 'locked';
+    if (Math.abs(live - prior.value) <= PRIOR_DISAGREE_BAND) return 'locked';
+    return 'converging'; // memory and reality disagree — re-earn the lock live
   }
   if (estimator.count >= 1) return 'converging';
   return 'listening';

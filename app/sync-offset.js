@@ -112,23 +112,29 @@ function emaAlpha(pathSamples) {
 export function resolveOffset(meta) {
   const store = loadStore();
   const key = trackKey(meta);
+  const paths = store.pathSamples || 0;
   if (key && store.tracks[key] && Number.isFinite(store.tracks[key].offset)) {
+    // This exact track was tuned before — the strongest prior there is.
     return {
       offset: clamp(store.tracks[key].offset),
       source: 'track',
       key,
-      pathSamples: store.pathSamples,
+      pathSamples: paths,
+      strong: true,
     };
   }
   if (store.deviceDefault) {
+    // A device default is only trustworthy once the playback path has been
+    // learned a few times; before that it's a guess, not a warm-start anchor.
     return {
       offset: store.deviceDefault,
       source: 'device',
       key,
-      pathSamples: store.pathSamples,
+      pathSamples: paths,
+      strong: paths >= PATH_TRUST_AFTER,
     };
   }
-  return { offset: 0, source: 'zero', key, pathSamples: store.pathSamples };
+  return { offset: 0, source: 'zero', key, pathSamples: paths, strong: false };
 }
 
 /**

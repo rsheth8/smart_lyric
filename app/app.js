@@ -123,6 +123,7 @@ let autoTiming = localStorage.getItem('bar4bar.autoTiming') !== 'off';
 let autoTimingHoldUntil = 0; // don't auto-apply over the user until this ms
 let autoTimingFullyManual = false; // persistent disagreement → this song is theirs
 let nudgeState = null; // manualNudgePolicy accumulator
+let currentPrior = null; // remembered offset trusted enough for a warm-start lock
 let nudgeDebounceTimer = null;
 const manualHoldActive = () => Date.now() < autoTimingHoldUntil;
 /** Auto may still MEASURE and learn while blocked; it just won't move the offset. */
@@ -268,10 +269,13 @@ function applySongTimingOffset(meta, { quiet = false } = {}) {
   resetManualTiming();
   lastAutoApplied = null;
 
-  const { offset, source } = resolveOffset(meta || {});
+  const { offset, source, strong } = resolveOffset(meta || {});
   display.setSyncOffset(offset, { source, persistLegacy: true });
   // After 1–2 songs on this output path, seed harder so song 2–3 start locked-in.
   syncEstimator.seed(offset, { weight: devicePriorWeight() });
+  // A trusted prior lets the lock show green from the first line (the offset is
+  // already applied); live measurement then confirms it or knocks it back.
+  currentPrior = strong && offset !== 0 ? { value: offset, strong: true, source } : null;
   updateTimingReadout();
   if (!quiet && source === 'track' && offset !== 0) {
     const ms = Math.round(offset * 1000);
@@ -1906,8 +1910,12 @@ function updateTimingReadout() {
   const lock = syncLockState(syncEstimator, {
     autoOn: autoTiming,
     suspended: autoTimingFullyManual || manualHoldActive(),
+    prior: currentPrior,
   });
   display.setSyncLock(lock);
+  // Locked, but live measurement hasn't independently confirmed it yet → it's
+  // riding the remembered offset. Green chip, honest detail text.
+  const lockedFromMemory = lock === 'locked' && syncEstimator.suggestion() == null;
   updateSyncDiag({ lock, count: syncEstimator.count, confidence: syncEstimator.confidence });
   const hint = $('auto-timing-state');
   if (hint) {
@@ -1917,7 +1925,9 @@ function updateTimingReadout() {
         : lock === 'manual'
           ? 'paused (you tuned it)'
           : lock === 'locked'
-            ? 'locked on'
+            ? lockedFromMemory
+              ? 'locked on (from last time)'
+              : 'locked on'
             : lock === 'converging'
               ? 'converging…'
               : 'listening…';

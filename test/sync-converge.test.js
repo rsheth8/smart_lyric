@@ -139,3 +139,85 @@ test('genuine disagreement is still refused no matter how many samples', () => {
   }
   assert.equal(est.suggestion(), null, 'no amount of contradictory evidence should lock');
 });
+
+// ---- warm start: provisional lock from a trusted prior --------------------
+import {
+  syncLockState,
+  PRIOR_DISAGREE_SAMPLES,
+  PRIOR_DISAGREE_BAND,
+} from '../app/sync-learn.js';
+
+const strongPrior = { value: 0.3, strong: true };
+
+test('liveValue reflects samples only, ignoring the seeded prior', () => {
+  const est = new SyncEstimator();
+  est.seed(0.3, { weight: 2 });
+  assert.equal(est.liveValue, null, 'no live samples yet');
+  est.addSample({ value: 0.05, score: 0.9 });
+  est.addSample({ value: 0.06, score: 0.9 });
+  assert.ok(Math.abs(est.liveValue - 0.055) < 0.03, `live median, got ${est.liveValue}`);
+});
+
+test('a trusted prior shows locked before any live sample', () => {
+  const est = new SyncEstimator();
+  est.seed(0.3, { weight: 2 });
+  assert.equal(syncLockState(est, { prior: strongPrior }), 'locked', 'warm start');
+});
+
+test('a few live samples that AGREE keep the memory lock', () => {
+  const est = new SyncEstimator();
+  est.seed(0.3, { weight: 2 });
+  for (const v of [0.28, 0.31, 0.3, 0.29]) est.addSample({ value: v, score: 0.9 });
+  assert.equal(syncLockState(est, { prior: strongPrior }), 'locked');
+});
+
+test('live evidence that CONTRADICTS the memory knocks it back to converging', () => {
+  const est = new SyncEstimator();
+  est.seed(0.3, { weight: 2 });
+  // Different latency this time (e.g. switched to Bluetooth), and scattered
+  // enough NOT to confirm on its own — but its centre is clearly not 0.3, so the
+  // memory can no longer be trusted and we must re-earn the lock live.
+  for (const v of [0.7, 0.2, 0.9, 0.45]) est.addSample({ value: v, score: 0.9 });
+  assert.equal(est.suggestion(), null, 'too scattered to confirm independently');
+  assert.ok(Math.abs(est.liveValue - 0.3) > PRIOR_DISAGREE_BAND, 'but clearly off the memory');
+  assert.equal(syncLockState(est, { prior: strongPrior }), 'converging');
+});
+
+test('one stray sample is not enough to unseat a trusted memory', () => {
+  const est = new SyncEstimator();
+  est.seed(0.3, { weight: 2 });
+  est.addSample({ value: 0.9, score: 0.9 }); // single outlier
+  assert.ok(est.count < PRIOR_DISAGREE_SAMPLES);
+  assert.equal(syncLockState(est, { prior: strongPrior }), 'locked');
+});
+
+test('a WEAK prior gives no warm start (old behaviour)', () => {
+  const est = new SyncEstimator();
+  est.seed(0.3, { weight: 1 });
+  assert.equal(syncLockState(est, { prior: { value: 0.3, strong: false } }), 'listening');
+  est.addSample({ value: 0.3, score: 0.9 });
+  assert.equal(syncLockState(est, { prior: { value: 0.3, strong: false } }), 'converging');
+});
+
+test('no prior at all behaves exactly as before', () => {
+  const est = new SyncEstimator();
+  assert.equal(syncLockState(est, {}), 'listening');
+  est.addSample({ value: 0.3, score: 0.9 });
+  assert.equal(syncLockState(est, {}), 'converging');
+});
+
+test('confirmed live measurement locks even against a disagreeing prior', () => {
+  const est = new SyncEstimator();
+  est.seed(0.3, { weight: 2 });
+  // Tight, plentiful, and NOT 0.3 → independently confident, should lock on the
+  // real value regardless of memory.
+  for (let i = 0; i < 8; i++) est.addSample({ value: 0.7, score: 0.95 });
+  assert.equal(syncLockState(est, { prior: strongPrior }), 'locked');
+  assert.ok(Math.abs(est.value - 0.7) < 0.05, 'on the freshly-measured value');
+});
+
+test('manual takeover still wins over a warm-start lock', () => {
+  const est = new SyncEstimator();
+  est.seed(0.3, { weight: 2 });
+  assert.equal(syncLockState(est, { prior: strongPrior, suspended: true }), 'manual');
+});

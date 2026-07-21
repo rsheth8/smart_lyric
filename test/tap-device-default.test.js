@@ -67,3 +67,33 @@ test('without the guard, a tap would drag the default toward zero', () => {
   const after = resolveOffset(trackB).offset;
   assert.ok(after < before / 2, `sanity: unguarded training collapses it (${before} → ${after})`);
 });
+
+// ---- warm-start prior strength -------------------------------------------
+
+test('a previously-tuned track is always a strong prior', () => {
+  rememberOffset(trackA, 0.3, { fromLock: true });
+  const r = resolveOffset(trackA);
+  assert.equal(r.source, 'track');
+  assert.equal(r.strong, true, 'this exact song was tuned — trust it');
+});
+
+test('a device default is only strong once the path is learned', () => {
+  // One lock: device default exists but the path is barely seen.
+  rememberOffset(trackA, 0.3, { fromLock: true });
+  const early = resolveOffset(trackB); // different track → falls back to device default
+  assert.equal(early.source, 'device');
+  assert.equal(early.strong, false, 'one data point is a guess, not a warm-start anchor');
+
+  // A couple more locks on other tracks train the path.
+  rememberOffset({ track: 'C', duration: 100 }, 0.3, { fromLock: true });
+  rememberOffset({ track: 'D', duration: 100 }, 0.3, { fromLock: true });
+  const trained = resolveOffset({ track: 'E', duration: 100 });
+  assert.equal(trained.source, 'device');
+  assert.equal(trained.strong, true, 'learned path → trustworthy default');
+});
+
+test('no memory at all is not strong', () => {
+  const r = resolveOffset({ track: 'Never', duration: 100 });
+  assert.equal(r.source, 'zero');
+  assert.equal(r.strong, false);
+});
