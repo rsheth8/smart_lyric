@@ -79,6 +79,14 @@ test('a gap too short to matter never turns it on', () => {
   assert.equal(s.on, false, 'short gaps stay silent — no ♪ flash');
 });
 
+test('an ordinary pause between verses stays silent (no ♪ takeover)', () => {
+  let s = { on: false, quietSince: null };
+  // 3.5s total gap: long enough to outlast the enter delay, but it's breathing
+  // room between verses, not an interlude worth counting down.
+  for (let t = 0; t <= 2.0; t += 0.25) s = step(s, true, 3.5 - t, t);
+  assert.equal(s.on, false, 'a 3.5s gap is not an instrumental break');
+});
+
 test('clears early, before the vocal actually returns', () => {
   let s = { on: false, quietSince: null };
   for (let t = 0; t <= 2.0; t += 0.25) s = step(s, true, 8 - t, t);

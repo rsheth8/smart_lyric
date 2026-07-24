@@ -1,6 +1,6 @@
 # Bar4Bar — Handoff
 
-Last updated: 2026-07-16
+Last updated: 2026-07-21
 
 Projector-ready lyric-follow / karaoke display. Clock-driven highlighting (display never reads audio directly). Multi-medium inputs, multi-format lyrics, Spotify follow, OBS/projector outputs.
 
@@ -32,8 +32,69 @@ Projector-ready lyric-follow / karaoke display. Clock-driven highlighting (displ
 | In-app transport (play/pause) | Working |
 | Apple Music | Stubbed (needs developer token) |
 | Vercel deploy | Live at https://smartlyric.vercel.app/ |
+| **Desktop-app overhaul** (hub nav, token system, art accent, native menu) | Done 2026-07-21 (see note below) |
 
-**Tests:** `npm test` → 110 passing.
+**Tests:** `npm test` → 440 passing.
+
+> **Desktop-app / UI overhaul (2026-07-21):** the whole shell was rebuilt to be a
+> real Mac app, not a web page in a frame. **Nav:** the single setup panel is gone;
+> `#stage` now carries TWO INDEPENDENT axes — `data-mode` (`setup|playing`, "is a
+> song on screen", unchanged) and `data-screen` (`home|search|library|sources|
+> settings`, only meaningful while `setup`). Keeping them separate is why no
+> working lyric CSS had to change. tvOS-style hub: full-screen home of rows, and
+> Search/Library/Sources/Settings push in as their own screens via
+> `app/ui/router.js` (`pushScreen` REWINDS when you revisit a screen, so
+> home→settings→home→settings needs one Esc, not four; `home` is the pop floor).
+> Esc ladder: popup → focus/reading/practice → leave lyrics → `router.back()`.
+> **Screens:** Search is now a full results screen (killed the fragile
+> `positionSuggestions` dropdown); Library (`app/library.js`, localStorage
+> `bar4bar.library.v1`, keyed by `timeline-cache`'s `cacheKey` so "aligned &
+> ready" is a free lookup) records every play in `enterPlaying`; Sources holds the
+> five source buttons; Settings absorbs everything from the old `#sync-panel` that
+> wasn't per-song. **Now-playing chrome:** the 9-button, two-row now-bar is down to
+> one `flex-wrap:nowrap` row (cover/meta/transport/⋯/Change song); everything
+> per-song moved into `#inspector` (the retitled sync panel) behind ⋯; the two dev
+> HUDs now DEFAULT OFF and live behind Settings ▸ Diagnostics (`bar4bar.sepHud`
+> flipped from on→off). **Theme:** `styles.css` (1192→~700 lines) was split into
+> `styles/{tokens,shell,screens}.css` (see Key paths); tokens.css is a real system
+> (surface elevation `--surface-0..3`, text `--text-1..3`, semantic ok/warn/error,
+> radii/shadows/motion, density). **Art-adaptive accent** (`app/theme.js`):
+> `--accent` is reassigned per song — `accentFromPalette()` takes only the HUE from
+> art.js's dominant colors and REBUILDS it in OKLCh at the brand's band (L≈0.82,
+> C≤0.11), falling back to `--accent-static` #e3c27a when the cover is near-grey or
+> the result misses 4.5:1 on `--surface-0`. So components MUST use `--accent`, not
+> the literal gold. `--accent`/`--accent-soft` are `@property`-registered so they
+> transition. **Native shell:** `electron/menu.cjs` (full macOS menu → renderer via
+> `webContents.send('menu', action)` → `window.bar4bar.onMenu` → the same handlers
+> a click hits), `electron/window-state.cjs` (bounds persistence in userData,
+> validated against attached displays), `titleBarStyle:'hiddenInset'` + a
+> `-webkit-app-region:drag` `#titlebar` strip (only shown under `body.is-electron`),
+> `setAboutPanelOptions`. Fixed the launch **blue flash** (`backgroundColor`
+> #070c16 → #0b0908, stale pre-Dark-Luxury navy). Milestone-2 memory/vinyl paths
+> untouched. `npm test` 393→440.
+
+> **Density is DECLARED, never detected (2026-07-21, after user hit the bug):** the
+> same renderer serves a laptop and a 10-foot projector/TV via
+> `body[data-surface="desktop"|"tv"]` (`app/ui/surface.js`) — type scale, spacing,
+> hit targets, focus ring, safe-area inset. **`resolveSurface` takes only `mode`;
+> there is deliberately no width/fullscreen heuristic and no resize listener.**
+> Rejected the original auto-detect because a viewport can't tell viewing distance:
+> a maximized 16" MBP is **1728pt** while a 4K TV mirrored from a Mac reports
+> **1920pt** (the laptop measures bigger than the TV), so no width threshold
+> separates them; and on macOS the green button IS fullscreen, so a fullscreen rule
+> resized the whole UI the instant the window went full size. TV now comes from the
+> projector/overlay window (hardcoded `data-surface="tv"` in overlay.html) or
+> Settings ▸ Display (Desktop/TV; stored `auto` is legacy = desktop).
+> test/router.test.js guards the 1728/1920 cases.
+
+> **Artwork resolution fix (2026-07-21):** catalog thumbnails were being upscaled
+> 2–3× on poster cards. iTunes chart RSS gives 170px **png**, Search gives 100px,
+> and Spotify orders album images LARGEST-first so `images[1]` was only 300px (the
+> old code literally picked the smaller one). `upgradeArtwork(url, size=600)` in
+> `app/art.js` rewrites the trailing `/<w>x<h>bb.<ext>` (the mzstatic CDN serves any
+> size) and **forces .jpg** — at 600px the same cover is ~287KB as PNG vs ~105KB as
+> JPEG, ×12 on the hub. Only the trailing rendition may be rewritten; the asset path
+> itself contains `.jpg`. `recommendations.js` uses `upgradeArtwork`/`spotifyArt`.
 
 > **Forced alignment implemented (CTC, 2026-07-16):** the last timing step —
 > per-word timings from the *actual vocal*. Line start/end anchors (richsync/LRC)
@@ -247,7 +308,9 @@ npm test
 
 Vinyl also needs: `brew install chromaprint` (`fpcalc` on PATH).
 
-**Keys:** ↑↓←→ = navigate (setup) · Enter = select · Esc = back to menu · F = fullscreen · Space = play/pause · T = language aid (pronunciation/English) · P = plain reading mode · `]` `[` `\` = sync nudge
+**Keys:** ↑↓←→ = navigate (scoped to the active screen) · Enter = select · Esc = peel one layer (popup → focus/reading/practice → leave lyrics → back up the screen stack) · F = fullscreen · Space = play/pause · T = language aid (pronunciation/English) · P = reading mode · O = focus · `]` `[` `\` = sync nudge · `?` = keyboard guide
+
+**Native menu (Electron):** ⌘, Settings · ⌘F Search · ⌘O Open Audio · ⌘⇧O Import Lyrics · ⌘L Change Song · ⌘1/2/3 Home/Library/Sources · ⌘⇧F Focus · ⌘⇧R Reading · ⌘T Language aid · ⌘] ⌘[ nudge · ⌘0 reset timing. Every item just sends an action to the renderer (`onMenu`) — no duplicated logic. (Play/Pause has NO accelerator: a bare `Space` accelerator would swallow spaces typed into the search field.)
 
 ---
 
@@ -264,19 +327,34 @@ Render                 →  Display (RAF loop: clock.now() → highlight)
 
 ```
 app/
-  app.js                 UI wiring + busy overlay + Spotify connect + transport + resetSongState()
+  app.js                 UI wiring + hub nav wiring + busy overlay + Spotify connect + transport + resetSongState()
+  index.html             #titlebar + #screens (5 <section data-screen-panel>) + #nowbar + #inspector
   session.js             SongSession orchestrator
   clock.js               MediaClock · PredictiveClock · StreamingClock · PassiveClock
   display.js             Keyword: do not put medium logic here
-  recommendations.js     iTunes charts + search suggestions + Spotify recent API
+  theme.js               accentFromPalette() — art→accent, OKLCh-clamped, contrast-safe (unit-tested)
+  library.js             Recently-played store (bar4bar.library.v1, keyed by cacheKey) (unit-tested)
+  recommendations.js     iTunes charts + search suggestions + Spotify recent API + upgradeArtwork
+  art.js                 Album palette (dominantColors) + upgradeArtwork(url,size) → bigger .jpg
+  ui/router.js           Screen router: go/back/home, rewind stack, focus restore (unit-tested)
+  ui/surface.js          Density switch — DECLARED not detected (mode only) (unit-tested)
+  ui/focus.js            Screen-scoped D-pad focus — wraps the unchanged pickNext() in tv-nav.js
+  tv-nav.js              Pure spatial nav geometry (pickNext); initTvNav now accepts a FUNCTION root
+  styles/tokens.css      Design tokens + density ([data-surface]) + base + focus rings
+  styles/shell.css       Titlebar + screen stack + screen transitions
+  styles/screens.css     Hub · search · library · sources · settings
+  styles.css             Lyric stage + now-bar + inspector ONLY (overlay.html links tokens+this)
   providers/lyrics/      local → (NetEase yrc ∥ Musixmatch richsync ∥ LRCLIB) — see "Lyrics fetch"
   providers/formats/     LRC · SRT · ASS · YRC · richsync (word-level) → timeline
   mediums/               manual · audioFile · vinyl · spotify · appleMusic
   streaming/             PKCE auth, Spotify play + follow-polling, Apple Music stub
   sync-bridge.js         BroadcastChannel for overlay
-  overlay.html / .js     OBS / projector lyric surface
+  overlay.html / .js     OBS / projector lyric surface (data-surface="tv", links tokens.css + styles.css)
 electron/
-  main.cjs               Window + projector + Spotify loopback OAuth server (127.0.0.1:18923). CJS on purpose (see note).
+  main.cjs               Window + menu install + window-state + projector + Spotify loopback OAuth (127.0.0.1:18923). CJS on purpose.
+  menu.cjs               Native macOS menu → renderer via webContents.send('menu', action)
+  window-state.cjs       Bounds/maximized persistence in userData, validated vs attached displays
+  preload.cjs            window.bar4bar bridge (+ onMenu(cb) for the native menu)
   acrcloud.cjs           ACRCloud ambient recognition (live vinyl/mic) — HMAC-signed Identify API
   fingerprint.cjs        fpcalc + AcoustID + offset alignment
   align.cjs              Forced alignment: wav2vec2 CTC (Transformers.js) → per-word vocal timing
@@ -355,14 +433,17 @@ artist only) before hitting either provider.
 
 ---
 
-## UX surface (setup)
+## UX surface (hub)
 
-- Wider search panel with live suggestions
-- Sync tiles: Spotify · Vinyl · Audio file · Lyrics file
-- Recommended (iTunes charts)
-- From Spotify (recently played / now playing) when connected — hidden when empty
-- Busy overlay during Spotify connect
-- In-app transport controls (play/pause) on the playing screen
+tvOS-style hub; screens push in via `app/ui/router.js` (`window.__sl.router`).
+
+- **Home** — search field · Continue shelf (recents, hidden when empty) · source tiles (link to Sources) · From Spotify (when connected) · Recommended (iTunes charts)
+- **Search** — full-screen results (artwork · artist · duration); typing ≥2 chars on the hub jumps here
+- **Library** — Recent list with an "aligned" badge for cached vocal alignments
+- **Sources** — Spotify · Vinyl/mic · Audio file · Lyrics file · Apple Music (token)
+- **Settings** — Audio & sync · Timing · Display (Desktop/TV layout) · Diagnostics (HUD toggles, clear library) · About
+- **Now playing** — slim one-row now-bar (cover · title · transport · ⋯ · Change song); ⋯ opens `#inspector` (timing, Feel early/late, Focus/Reading/Practice, Language, → Settings)
+- Busy overlay during Spotify connect · in-app transport (play/pause)
 
 ---
 
@@ -383,6 +464,11 @@ artist only) before hitting either provider.
       alignment (align the last few seconds as audio arrives, not the whole song).
 - [ ] Consider a quantized dtype (`{ dtype: 'q8' }`) for faster CPU inference.
 - [ ] Optional: transfer playback to Web Playback SDK device for louder control apps
+- [x] **Desktop-app overhaul** — hub nav, token system, art accent, native menu, window state (2026-07-21).
+- [ ] **Verify the native shell visually** on a real Mac (`npm start`): menu bar present, ⌘, → Settings, ⌘O picker, About, no blue launch flash, window position survives restart. Tested for startup/no-crash only.
+- [ ] App Store packaging (electron-builder, codesign, notarize, sandbox entitlements) — explicitly out of scope this pass; needs the Apple Developer account.
+- [ ] TV-layout polish: if `--card-w` in TV mode ever exceeds ~300px, bump `CARD_ART` (recommendations.js) above 600.
+- [ ] Optional light mode / theme picker (deferred; a lyric display is near-always used dark).
 
 ---
 
@@ -423,6 +509,12 @@ Integration point exists: timelines are `{ lines:[{start,end,words:[{text,start,
 - Timeline shape: `{ lines: [{ start, end, words: [{ text, start, end }] }], duration }`
 - Prefer provider/medium plugs over new hardcoded paths in `app.js`
 - Never commit `.env` (secrets). Client ID is public in `/config.js` by design.
+- **Use `--accent`, never the literal gold** — it's reassigned per song from album art. Static brand gold is `--accent-static`. Colors come from tokens (`--surface-*`, `--text-*`), not raw rgba.
+- **Density is declared, not detected** — never re-add a width/fullscreen heuristic to `surface.js`. A maximized laptop is wider (1728pt) than a mirrored 4K TV (1920pt).
+- **Never transition `visibility`** on the screen panels — a paused/interrupted transition (backgrounded window) strands an off-stage screen hit-testable. Use a 0s change with `transition-delay` (see shell.css).
+- **The now-bar is `flex-wrap:nowrap` on purpose** — a new control there must go in `#inspector`, not the bar.
+- `initSurface` must be created AFTER `display`, and must not fire `onChange` on its first apply (TDZ).
+- Menu items send an action to `onMenu`; don't reimplement logic in the menu. No bare `Space` accelerator.
 
 ---
 

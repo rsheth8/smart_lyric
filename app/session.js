@@ -12,6 +12,7 @@ import {
   applyCachedTiming,
   putCachedTimeline,
 } from './timeline-cache.js';
+import { needsVocalAlign } from './align.js';
 
 const WORD_SYNC_FORMATS = new Set(['yrc', 'richsync', 'ass']);
 
@@ -35,6 +36,9 @@ export class SongSession {
     this.lyricsFileAuto = false;
     this.audioFile = null;
     this.audioTags = null;
+    // Bumped on every load/apply so in-flight fetches/alignments from a previous
+    // song can detect they're stale and discard their results.
+    this.loadGeneration = 0;
   }
 
   // `auto` marks a sidecar we paired by filename rather than one the user picked.
@@ -62,6 +66,7 @@ export class SongSession {
     // Local audio may opt into file transcription after catalogs miss.
     allowTranscript = true,
   }) {
+    const gen = ++this.loadGeneration;
     this.onStatus('loading', `Searching for “${track}”…`);
     let result;
     const lyricsQuery = {
@@ -78,6 +83,7 @@ export class SongSession {
     try {
       result = await fetchLyrics(lyricsQuery, { allowTranscript });
     } catch (err) {
+      if (gen !== this.loadGeneration) return false;
       if (err instanceof TranscriptFailedError || err?.code === 'TRANSCRIPT_FAILED') {
         if (!quietMiss) {
           this.onError(
@@ -90,6 +96,8 @@ export class SongSession {
       return false;
     }
 
+    if (gen !== this.loadGeneration) return false;
+
     if (!result) {
       if (!quietMiss) {
         const hint = transcriptSkipHint(lyricsQuery);
@@ -101,14 +109,18 @@ export class SongSession {
       return false;
     }
 
-    return this.applyResult(result, { artist, track, album, duration, id, spotifyId });
+    return this.applyResult(result, { artist, track, album, duration, id, spotifyId, gen });
   }
 
   /**
    * Install an already-fetched lyrics result (catalog or AI transcript).
    * Used by Spotify capture transcription after catalogs miss.
    */
-  applyResult(result, { artist, track, album, duration, id, spotifyId } = {}) {
+  applyResult(result, { artist, track, album, duration, id, spotifyId, gen } = {}) {
+    if (gen != null && gen !== this.loadGeneration) return false;
+    // Fresh apply from outside load() (e.g. Spotify AI) still needs a generation
+    // bump so older in-flight work can't overwrite this install.
+    if (gen == null) gen = ++this.loadGeneration;
     if (!result) {
       this.onError(`No lyrics found for “${track || 'this track'}”.`);
       return false;
@@ -172,7 +184,7 @@ export class SongSession {
       aligned: !!timeline.aligned,
       fromCache,
       cacheKey: this.cacheKey,
-      needsAlign: !wordSync && !timeline.aligned,
+      needsAlign: needsVocalAlign(timeline, this.meta),
     };
   }
 

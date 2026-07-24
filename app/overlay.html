@@ -5,16 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bar4Bar overlay</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <!-- The projector surface needs the tokens and the lyric stage — and nothing
+       else. It deliberately does NOT link shell.css or screens.css: the hub, the
+       titlebar and the settings chrome have no business on a projector. -->
+  <link rel="stylesheet" href="styles/tokens.css" />
   <link rel="stylesheet" href="styles.css" />
   <style>
     html, body { background: transparent !important; }
     #stage { background: transparent !important; }
     #stage[data-mode="setup"] { display: none; }
-    #nowbar, #setup, .vignette { display: none !important; }
+    #nowbar, #screens, .vignette { display: none !important; }
     #viewport { opacity: 1; }
   </style>
 </head>
-<body>
+<body data-surface="tv">
   <div id="stage" data-mode="playing">
     <canvas class="bg" id="bg"></canvas>
     <div id="viewport"><div id="lyrics" aria-live="off"></div></div>

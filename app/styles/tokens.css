@@ -1,0 +1,245 @@
+/* ============================================================================
+   BAR4BAR DESIGN TOKENS
+   ----------------------------------------------------------------------------
+   One place for color, elevation, type and density. Two rules:
+
+   1. Nothing below this file hard-codes a color. If you're typing rgba(255,255,
+      255,.08) into a component, the token you want is --surface-2.
+   2. Anything that must change between a laptop at arm's length and a projector
+      across the room is a density token, switched by [data-surface] at the
+      bottom of this file — never a media query in a component.
+
+   Identity is "Dark Luxury": champagne gold on warm espresso. --accent is
+   REASSIGNED PER SONG from the album artwork (see app/theme.js), which is why
+   components must use --accent and not the literal gold.
+   ========================================================================== */
+
+/* Registered so the per-song accent can transition rather than snap. An
+   unregistered custom property is a raw token to the animation system and jumps
+   instantly; @property gives it a type, which makes it interpolable. */
+@property --accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #e3c27a;
+}
+@property --accent-soft {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #f4e3bd;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* ---- motion ---- */
+  --ease: cubic-bezier(.22,.61,.36,1);
+  --ease-out: cubic-bezier(.16,1,.3,1);
+  --dur-fast: .14s;
+  --dur: .28s;
+  --dur-slow: .55s;
+
+  /* ---- brand ---- */
+  --accent: #e3c27a;        /* champagne gold — overwritten per song */
+  --accent-static: #e3c27a; /* the brand constant; never overwritten */
+  --accent-soft: #f4e3bd;
+  --accent-ink: #171106;    /* text ON an accent fill */
+  --ember: #ff715b;         /* the brand "4" */
+
+  /* ---- surfaces (elevation) ----
+     0 = the room, 3 = the thing floating closest to you. */
+  --surface-0: #0b0908;
+  --surface-1: rgba(255,255,255,.035);
+  --surface-2: rgba(255,255,255,.065);
+  --surface-3: rgba(255,255,255,.10);
+  --surface-solid-1: #100d0b;  /* opaque — for anything over a backdrop-filter */
+  --surface-solid-2: #16120f;
+  --scrim: rgba(11,9,8,.76);
+
+  /* ---- hairlines ---- */
+  --line-1: rgba(255,255,255,.08);
+  --line-2: rgba(255,255,255,.14);
+  --line-3: rgba(255,255,255,.22);
+
+  /* ---- text ---- */
+  --text-1: #f6f0e4;                /* primary ink */
+  --text-2: rgba(246,240,228,.62);  /* secondary */
+  --text-3: rgba(246,240,228,.38);  /* faint / captions */
+
+  /* ---- semantic ---- */
+  --ok: #78e6a0;
+  --warn: #ffc46e;
+  --error: var(--ember);
+  --spotify: #1ed760;
+
+  /* ---- lyric word states ---- */
+  --dim: rgba(246,240,228,.28);
+  --upcoming: rgba(246,240,228,.42);
+  --sung: var(--text-1);
+  --current: var(--accent);
+
+  /* ---- radii ---- */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+  --r-2xl: 28px;
+  --r-pill: 999px;
+
+  /* ---- shadows ---- */
+  --shadow-1: 0 8px 22px rgba(0,0,0,.28);
+  --shadow-2: 0 18px 50px rgba(0,0,0,.55);
+  --shadow-3: 0 30px 80px rgba(0,0,0,.55);
+
+  /* ---- fonts ---- */
+  --font-ui: -apple-system, "SF Pro Text", system-ui, sans-serif;
+  --font-display: -apple-system, "SF Pro Display", system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ---- chrome ---- */
+  --titlebar-h: 38px;
+
+  /* Legacy aliases. The pre-overhaul stylesheet is ~1100 lines deep in these
+     names; pointing them at the new tokens lets both coexist while components
+     migrate, with no flag day. Do not use them in new code. */
+  --bg: var(--surface-0);
+  --ink: var(--text-1);
+  --muted: var(--text-2);
+  --ice: var(--accent);
+  --ice-soft: var(--accent-soft);
+  --gold: var(--accent);
+  --gold-soft: var(--accent-soft);
+}
+
+/* ============================ DENSITY ============================
+   Desktop: a laptop at ~50cm. TV: a projector or television at ~3m, where
+   everything needs to roughly double and touch targets stop mattering but
+   focus visibility becomes everything. */
+
+body[data-surface="desktop"] {
+  --fs-xs: 11.5px;
+  --fs-sm: 13px;
+  --fs-base: 15px;
+  --fs-md: 17px;
+  --fs-lg: 21px;
+  --fs-xl: 28px;
+  --fs-2xl: 38px;
+
+  --row-h: 36px;
+  --control-h: 44px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 18px;
+  --space-5: 26px;
+  --space-6: 38px;
+
+  --card-w: 168px;      /* poster card in a shelf */
+  --ring-w: 2px;
+  --ring-lift: -2px;
+  --safe-x: 24px;       /* screen edge padding */
+  --safe-y: 20px;
+  --screen-max: 1080px; /* content column */
+}
+
+body[data-surface="tv"] {
+  --fs-xs: 15px;
+  --fs-sm: 18px;
+  --fs-base: 24px;
+  --fs-md: 28px;
+  --fs-lg: 34px;
+  --fs-xl: 46px;
+  --fs-2xl: 62px;
+
+  --row-h: 64px;
+  --control-h: 72px;
+  --space-1: 6px;
+  --space-2: 12px;
+  --space-3: 20px;
+  --space-4: 30px;
+  --space-5: 44px;
+  --space-6: 64px;
+
+  --card-w: 260px;
+  --ring-w: 4px;
+  --ring-lift: -6px;
+  /* TV overscan: broadcast-safe inset so nothing lands off the panel edge. */
+  --safe-x: 5vw;
+  --safe-y: 4vh;
+  --screen-max: 1600px;
+}
+
+/* Fallback: if JS hasn't set data-surface yet (first paint), assume desktop
+   rather than rendering with no scale at all. */
+body:not([data-surface]) {
+  --fs-xs: 11.5px; --fs-sm: 13px; --fs-base: 15px; --fs-md: 17px;
+  --fs-lg: 21px; --fs-xl: 28px; --fs-2xl: 38px;
+  --row-h: 36px; --control-h: 44px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px;
+  --space-4: 18px; --space-5: 26px; --space-6: 38px;
+  --card-w: 168px; --ring-w: 2px; --ring-lift: -2px;
+  --safe-x: 24px; --safe-y: 20px; --screen-max: 1080px;
+}
+
+/* ============================ BASE ============================ */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  height: 100vh;
+  overflow: hidden;
+  color: var(--text-1);
+  background: var(--surface-0);
+  font-family: var(--font-ui);
+  font-size: var(--fs-base);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-synthesis: none;
+}
+
+::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--text-1); }
+
+/* Thin, dark scrollbars everywhere a surface scrolls — the stock bar reads as
+   unfinished on this UI. */
+* { scrollbar-width: thin; scrollbar-color: var(--line-3) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: var(--r-pill); }
+::-webkit-scrollbar-thumb:hover { background: var(--line-3); }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; }
+
+/* ============================ FOCUS ============================
+   One focus treatment for the whole app, scaled by density. On a TV this is the
+   ONLY way the user knows where they are, so it's deliberately loud there. */
+
+:where(button, input, select, [tabindex="0"]):focus-visible {
+  outline: var(--ring-w) solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Cards and tiles get the tvOS treatment: ring, halo and a lift. */
+:where(.rec, .sync-btn, .chip, .tile, .lib-row, .result-row, .set-row):focus-visible {
+  outline: var(--ring-w) solid var(--accent);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 calc(var(--ring-w) * 3) color-mix(in srgb, var(--accent) 18%, transparent),
+              var(--shadow-2);
+  transform: translateY(var(--ring-lift));
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; margin: -1px;
+  clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+}

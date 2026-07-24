@@ -2,6 +2,13 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('bar4bar', {
   toggleFullscreen: () => ipcRenderer.invoke('toggle-fullscreen'),
+  // Native menu → renderer. The listener is wrapped so the raw IpcRendererEvent
+  // never reaches app code across the context bridge.
+  onMenu: (cb) => {
+    const handler = (_e, action) => cb(action);
+    ipcRenderer.on('menu', handler);
+    return () => ipcRenderer.off('menu', handler);
+  },
   identify: (wavArrayBuffer) => ipcRenderer.invoke('identify', wavArrayBuffer),
   identifyAmbient: (wavArrayBuffer) => ipcRenderer.invoke('identify-ambient', wavArrayBuffer),
   getDisplays: () => ipcRenderer.invoke('get-displays'),

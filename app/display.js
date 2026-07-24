@@ -143,6 +143,33 @@ export function countInWindowForGap(gapSec) {
 }
 
 /**
+ * Which lyric line should be active at cue time `t`.
+ *
+ * Catalog timestamps alone promote the newest line whose start has passed —
+ * even while the singer is still holding the previous phrase across a gap.
+ * When we know the vocal is quiet, hold the previous line through that gap and
+ * advance only once singing resumes (or when lines are continuous / no vocal
+ * map is available).
+ *
+ * @param {Array<{start:number}>} lines
+ * @param {number} t  cue time (clock + sync + singer lead)
+ * @param {{ prevLi?: number, vocalActive?: boolean }} [opts]
+ *   `vocalActive` false = detected quiet/gap; true/unknown = allow immediate advance.
+ */
+export function resolveActiveLine(lines, t, { prevLi = -1, vocalActive = true } = {}) {
+  let catalogLi = -1;
+  if (!lines?.length || !Number.isFinite(t)) return -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (t >= lines[i].start) catalogLi = i;
+    else break;
+  }
+  if (catalogLi <= prevLi) return catalogLi;
+  // Catalog wants to advance. Hold through a detected quiet gap.
+  if (!vocalActive && prevLi >= 0) return prevLi;
+  return catalogLi;
+}
+
+/**
  * Count-in toward the next line that hasn't started, only when there's a real
  * gap (or the song intro). Returns null when the cue shouldn't show.
  */
@@ -440,6 +467,12 @@ export class Display {
 
   // Toggle the instrumental (no-vocal) state and update its indicator. `nextIn` is
   // seconds until the next vocal entry (for a countdown), or null.
+  //
+  // The countdown draws a filling bar as well as the "next line in Ns" text, so
+  // the wait reads as a runway you can time your entrance against rather than a
+  // number you have to watch. Progress needs a denominator the indicator itself
+  // has to remember: `nextIn` only says how much is LEFT, so the first reading
+  // after the ♪ appears is captured as the span the bar fills across.
   _setInstrumental(on, nextIn = null) {
     if (on !== this._instrumental) {
       this._instrumental = on;
@@ -447,16 +480,75 @@ export class Display {
       if (on && !this._instrEl) {
         this._instrEl = document.createElement('div');
         this._instrEl.id = 'instrumental-indicator';
-        this._instrEl.innerHTML = '<span class="instr-note">♪</span><span class="instr-next"></span>';
+        this._instrEl.innerHTML =
+          '<span class="instr-note">♪</span>' +
+          '<span class="instr-secs" aria-hidden="true"></span>' +
+          '<div class="instr-track"><div class="instr-fill"></div></div>' +
+          '<span class="instr-next"></span>';
         this.stage.appendChild(this._instrEl);
+        this._instrFill = this._instrEl.querySelector('.instr-fill');
+        this._instrSecs = this._instrEl.querySelector('.instr-secs');
+        this._instrNext = this._instrEl.querySelector('.instr-next');
       }
       if (this._instrEl) this._instrEl.classList.toggle('show', on);
+      // A fresh gap gets a fresh runway — never carry the last gap's span over.
+      this._instrSpan = on && Number.isFinite(nextIn) && nextIn > 0 ? nextIn : null;
     }
-    if (on && this._instrEl) {
-      const label = Number.isFinite(nextIn) && nextIn > 0 ? `next line in ${Math.ceil(nextIn)}s` : '';
-      const next = this._instrEl.querySelector('.instr-next');
-      if (next && next.textContent !== label) next.textContent = label;
+    if (!on || !this._instrEl) return;
+
+    const known = Number.isFinite(nextIn) && nextIn > 0;
+    // A gap whose length we only learn later (or that grew) still gets an honest
+    // denominator: track the largest remaining time seen for this gap.
+    if (known && (this._instrSpan == null || nextIn > this._instrSpan)) this._instrSpan = nextIn;
+
+    const label = known ? 'until next line' : '';
+    if (this._instrNext && this._instrNext.textContent !== label) this._instrNext.textContent = label;
+
+    const secsLabel = known ? String(Math.max(1, Math.ceil(nextIn))) : '';
+    if (this._instrSecs && this._instrSecs.textContent !== secsLabel) {
+      this._instrSecs.textContent = secsLabel;
     }
+
+    // Unknown remaining time (outro, no next line) → no bar to fill.
+    const progress = known && this._instrSpan > 0 ? 1 - nextIn / this._instrSpan : 0;
+    const pct = `${Math.round(Math.min(1, Math.max(0, progress)) * 1000) / 10}%`;
+    this._instrEl.classList.toggle('counting', known);
+    if (this._instrFill && this._instrFill.style.width !== pct) this._instrFill.style.width = pct;
+  }
+
+  /**
+   * Hide every transient playback overlay. Called when leaving a song — these
+   * live on `stage` (not `#viewport`), so the rule that fades the lyrics out in
+   * setup mode never reached them and they hung over the menu.
+   */
+  clearOverlays() {
+    this._setInstrumental(false);
+    this._hideCountIn();
+    this._applyCurrentWord(null);
+    this._setPeek(-1);
+    this._setBreath(-1);
+    if (this._lockEl) this._lockEl.classList.remove('show');
+    this._instrState = { on: false, quietSince: null };
+  }
+
+  /**
+   * Full teardown when returning to the menu: overlays + lyric DOM + clock so
+   * the RAF loop has nothing left to follow (and can't re-show ♪ / peek).
+   */
+  clearPlayback() {
+    this.clearOverlays();
+    this.clock = null;
+    this.lines = [];
+    this.lineEls = [];
+    this.activeLine = -1;
+    this.vocalIntervals = null;
+    this.wordSync = false;
+    if (this.lyricsEl) {
+      this.lyricsEl.innerHTML = '';
+      this.lyricsEl.classList.remove('instrumental', 'show-sub');
+      this.lyricsEl.style.transform = '';
+    }
+    this._lastY = null;
   }
 
   _ensureCountIn() {
@@ -688,6 +780,11 @@ export class Display {
   }
 
   _frame(rafTime) {
+    // Menu is up — don't follow a leftover timeline or resurrect stage overlays.
+    if (this.stage?.dataset?.mode === 'setup') {
+      this._drawBg(rafTime / 1000, 0);
+      return;
+    }
     if (!this.clock || !this.lines.length) {
       this._drawBg(rafTime / 1000, 0);
       return;
@@ -705,12 +802,19 @@ export class Display {
     const lead = this._reduceMotion ? 0 : this.singerLead || 0;
     const t = tAudio + lead;
 
-    // Which line are we on? -1 before the first line begins.
-    let li = -1;
-    for (let i = 0; i < this.lines.length; i++) {
-      if (t >= this.lines[i].start) li = i;
-      else break;
-    }
+    // Instrumental / vocal activity first — line choice may hold through a gap.
+    const vs = this.vocalIntervals?.length
+      ? vocalStateAt(this.vocalIntervals, tAudio)
+      : this.wordSync
+        ? { active: true, nextVocalIn: null } // real word timing → don't infer gaps
+        : lyricGapStateAt(this.lines, tAudio);
+
+    // Which line are we on? -1 before the first line begins. Hold the current
+    // line through a detected vocal gap; advance immediately on continuous lines.
+    const li = resolveActiveLine(this.lines, t, {
+      prevLi: this.activeLine,
+      vocalActive: vs.active,
+    });
     const shown = Math.max(0, li);
 
     if (li !== this.activeLine) {
@@ -725,12 +829,6 @@ export class Display {
     // (window resize, projector connect, or a briefly zero-height viewport).
     this._centerOn(shown);
 
-    // Instrumental state uses tAudio so ♪ matches real silence, not the cue lead.
-    const vs = this.vocalIntervals?.length
-      ? vocalStateAt(this.vocalIntervals, tAudio)
-      : this.wordSync
-        ? { active: true, nextVocalIn: null } // real word timing → don't infer gaps
-        : lyricGapStateAt(this.lines, tAudio);
     // Hysteretic: needs sustained quiet to appear, clears early when the vocal
     // is about to return. Keeps ♪ from stuttering on breaths / consonant dips.
     this._instrState = instrumentalState(this._instrState, {

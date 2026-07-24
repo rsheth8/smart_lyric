@@ -77,7 +77,11 @@ describe('align helpers', () => {
     const tl = { lines: [{ words: [{ text: 'a' }] }] };
     assert.equal(needsVocalAlign(tl, { format: 'lrc' }), true);
     assert.equal(needsVocalAlign(tl, { format: 'yrc' }), false);
-    assert.equal(needsVocalAlign({ ...tl, aligned: true }, { format: 'lrc' }), false);
+    const done = {
+      lines: [{ words: [{ text: 'a' }], _vocalAligned: true }],
+      aligned: true,
+    };
+    assert.equal(needsVocalAlign(done, { format: 'lrc' }), false);
   });
 
   test('alignableWordTexts prefers romanization for non-Latin lines', () => {

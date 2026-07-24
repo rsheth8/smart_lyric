@@ -63,14 +63,20 @@ export function pickNext(rects, fromIdx, dir) {
 
 /**
  * Wire arrow-key navigation over the focusable controls inside `root`.
+ * `root` may be an element or a function returning one — the hub resolves it per
+ * keystroke so navigation is scoped to whichever screen is currently showing.
  * `isActive(e)` gates each keystroke (mode checks, letting inputs keep their
  * caret / suggestion-list keys). Returns a disposer.
  */
 export function initTvNav({ root, isActive = () => true }) {
-  const focusables = () =>
-    [...root.querySelectorAll('button, input, select, [tabindex="0"]')].filter(
-      (el) => !el.disabled && el.offsetParent !== null
+  const resolveRoot = () => (typeof root === 'function' ? root() : root);
+  const focusables = () => {
+    const host = resolveRoot();
+    if (!host) return [];
+    return [...host.querySelectorAll('button, input, select, [tabindex="0"]')].filter(
+      (el) => !el.disabled && el.offsetParent !== null && !el.hidden
     );
+  };
 
   const onKey = (e) => {
     const dir = DIRS[e.key];

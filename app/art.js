@@ -51,6 +51,27 @@ export function colorDist(a, b) {
   return Math.sqrt(dr * dr + dg * dg + db * db);
 }
 
+/**
+ * Ask iTunes for a bigger rendition of an artwork URL.
+ *
+ * Every iTunes artwork URL ends in `/<w>x<h>bb.<ext>` and the CDN will serve any
+ * size and either extension you name. The catalog APIs hand back 100–170px
+ * thumbnails, which look fine in a list row and visibly mushy on a poster card —
+ * a 170px source in a 260px card on a 2× display is a 3× upscale.
+ *
+ * The extension is forced to .jpg because the chart RSS hands out .png URLs, and
+ * at 600px the same cover is ~287KB as PNG vs ~105KB as JPEG. Album art is
+ * photographic; PNG buys nothing here and the hub loads twelve of them.
+ *
+ * @param {string} url
+ * @param {number} [size] - square edge in pixels
+ * @returns {string} the resized URL, or the input unchanged if it isn't iTunes
+ */
+export function upgradeArtwork(url, size = 600) {
+  if (!url) return '';
+  return url.replace(/\/\d+x\d+bb\.(?:png|jpg|jpeg)$/i, `/${size}x${size}bb.jpg`);
+}
+
 // --- browser: find a cover art URL for a track via the iTunes Search API ---
 export async function fetchArtworkUrl({ artist, track }) {
   const term = encodeURIComponent([artist, track].filter(Boolean).join(' '));
@@ -62,8 +83,7 @@ export async function fetchArtworkUrl({ artist, track }) {
     const data = await res.json();
     const hit = data.results && data.results[0];
     if (!hit || !hit.artworkUrl100) return null;
-    // Upgrade the thumbnail to a larger version.
-    return hit.artworkUrl100.replace(/\/\d+x\d+bb\./, '/600x600bb.');
+    return upgradeArtwork(hit.artworkUrl100);
   } catch (e) {
     console.warn('artwork lookup failed:', e);
     return null;

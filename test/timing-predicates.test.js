@@ -49,3 +49,14 @@ test('plain line-level lyrics still need both', () => {
   assert.equal(needsVocalAlign(tl, { format: 'lrc' }), true);
   assert.equal(needsLatencyCalib(tl, { autoTiming: true }), true);
 });
+
+test('one aligned line does NOT stop the rest of the song needing CTC', () => {
+  const tl = {
+    aligned: true, // stale whole-timeline flag from the old bug
+    lines: [
+      { start: 0, end: 2, words: [{ text: 'a' }], _vocalAligned: true },
+      { start: 2, end: 4, words: [{ text: 'b' }] },
+    ],
+  };
+  assert.equal(needsVocalAlign(tl, { format: 'lrc' }), true, 'pending lines still need work');
+});

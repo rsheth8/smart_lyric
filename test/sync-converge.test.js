@@ -132,6 +132,18 @@ test('genuinely scattered measurements are still refused', () => {
   assert.equal(est.suggestion(), null, 'do not apply an offset we only know to ~100ms');
 });
 
+test('lock chip matches suggestion — eased bar is not overridden by a hard 0.6', () => {
+  // Mid scatter around a real lag: suggestion() accepts via requiredConfidence
+  // (~0.46) but raw confidence sits at ~0.58. The chip used to stay on
+  // "converging" forever while the offset was already applying.
+  const est = new SyncEstimator();
+  for (const v of [0.2, 0.28, 0.12, 0.25]) est.addSample({ value: v, score: 0.9 });
+  assert.ok(est.suggestion() != null, 'offset is ready to apply');
+  assert.ok(est.confidence < 0.6, `precondition: conf ${est.confidence.toFixed(2)} < 0.6`);
+  assert.ok(est.confidence >= est.requiredConfidence(est.value), 'but clears the eased bar');
+  assert.equal(syncLockState(est), 'locked', 'UI lock must follow suggestion()');
+});
+
 test('genuine disagreement is still refused no matter how many samples', () => {
   const est = new SyncEstimator();
   for (const v of [0.9, -0.8, 0.7, -0.9, 0.85, -0.75, 0.8, -0.85]) {

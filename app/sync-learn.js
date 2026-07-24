@@ -70,6 +70,16 @@ export function manualNudgePolicy(
   };
 }
 
+// How many multiples of the observed spread (MAD) a run of new samples must
+// clear before it counts as a genuine change of playback path rather than noise.
+export const REGIME_MAD_K = 2;
+
+// Cheap energy-onset probes, demoted once true CTC alignment evidence is in the
+// window (see _decayedSamples). Not zero: before any CTC sample arrives these
+// are the ONLY measurements available, and they still corroborate afterwards.
+export const ONSET_SOURCES = new Set(['onset', 'onset-word']);
+export const ONSET_DEMOTE = 0.25;
+
 export class SyncEstimator {
   /**
    * @param {object} [opts]
@@ -171,7 +181,20 @@ export class SyncEstimator {
     const recent = this.samples.slice(-run);
     const older = this.samples.slice(0, -run);
     const oldMid = weightedMedian(older);
-    const far = 2 * this.agreeBand;
+    // The bar has to scale with how noisy the measurements actually are.
+    //
+    // A fixed `2 * agreeBand` (240ms) is a big jump for a clean signal but pure
+    // chance for a dirty one: with raw-mix onset probes scattering ~900ms, three
+    // consecutive samples landing the same side of the median happens constantly.
+    // Each false trigger threw away the whole window and kept the 3 samples that
+    // — by the trigger's own definition — agree with each other, so the spread
+    // collapsed, confidence spiked, and the loop "locked" onto a local run of
+    // wrong readings. Measured on a real song: 9 spurious shifts in 240s and 0%
+    // of locked frames within 80ms of truth. Scaling by the observed spread
+    // keeps genuine device changes detectable while noise no longer qualifies.
+    const olderDevs = older.map((s) => Math.abs(s.value - oldMid)).sort((a, b) => a - b);
+    const olderMad = olderDevs[olderDevs.length >> 1] ?? 0;
+    const far = Math.max(2 * this.agreeBand, REGIME_MAD_K * olderMad);
     const allAbove = recent.every((s) => s.value - oldMid > far);
     const allBelow = recent.every((s) => oldMid - s.value > far);
     if (allAbove || allBelow) {
@@ -214,6 +237,13 @@ export class SyncEstimator {
     // So: robust spread (median absolute deviation) → standard error of the
     // median (~1.253·σ/√n) → confident once that error sits comfortably inside
     // the band we'd call "in sync". Scatter still hurts, but more evidence helps.
+    // Deliberately an UNWEIGHTED MAD over the raw window, even though `value`
+    // is recency-weighted and source-demoted. Matching them was tried and
+    // reverted: a weighted MAD around a weighted median collapses on bimodal
+    // data (alternating ±0.8s samples produced MAD 0.15s and a confident, wrong
+    // lock) because it measures the spread of whichever cluster carries the
+    // most weight rather than the disagreement between clusters. Sources
+    // disagreeing IS uncertainty, and confidence has to keep reporting it.
     const devs = this.samples.map((s) => Math.abs(s.value - mid)).sort((a, b) => a - b);
     const mad = devs[devs.length >> 1] ?? 0;
     const sem = (1.253 * mad) / Math.sqrt(n);
@@ -249,10 +279,19 @@ export class SyncEstimator {
 
   _decayedSamples() {
     const n = this.samples.length;
-    return this.samples.map((s, i) => ({
-      ...s,
-      weight: s.weight * Math.pow(0.5, (n - 1 - i) / this.recencyHalfLife),
-    }));
+    // Energy-onset probes and CTC alignment are not interchangeable evidence.
+    // Measured against a known injected latency, CTC lands ~2x closer with ~2x
+    // less scatter (err 0.195s / MAD 0.279s vs 0.417s / 0.630s). But onset
+    // probes are far more numerous, so at the shipped per-sample weights the
+    // two sources carried near-identical TOTAL weight (36x0.75 vs 11x2.25) —
+    // the worse measurement got an equal vote. Once real alignment evidence
+    // exists, demote the cheap proxy instead of averaging it in as an equal.
+    const hasCtc = this.samples.some((s) => s.source === 'ctc');
+    return this.samples.map((s, i) => {
+      const recency = Math.pow(0.5, (n - 1 - i) / this.recencyHalfLife);
+      const demote = hasCtc && ONSET_SOURCES.has(s.source) ? ONSET_DEMOTE : 1;
+      return { ...s, weight: s.weight * recency * demote };
+    });
   }
 
   _allSamples() {
@@ -295,8 +334,10 @@ export function syncLockState(
   if (!autoOn) return 'off';
   if (suspended) return 'manual';
   if (!estimator) return 'listening';
-  // Confirmed live: independent measurements are confident on their own.
-  if (estimator.suggestion(lockConfidence) != null && estimator.confidence >= lockConfidence) {
+  // Confirmed live: suggestion() already applies the eased confidence bar
+  // (large lags need less agreement). A second hard `confidence >= 0.6` check
+  // used to keep the chip on "converging" while the offset was already applying.
+  if (estimator.suggestion(lockConfidence) != null) {
     return 'locked';
   }
   // Warm start: a remembered offset we trust (this track, or a well-learned

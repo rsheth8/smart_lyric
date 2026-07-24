@@ -1,0 +1,178 @@
+/* ============================================================================
+   APP SHELL — titlebar, screen stack, screen transitions
+   ----------------------------------------------------------------------------
+   The stage carries two independent axes:
+     [data-mode]   setup | playing     — is a song on screen
+     [data-screen] home | search | …   — which hub screen (only while setup)
+   ========================================================================== */
+
+/* ---------------------------------------------------------------- titlebar */
+/* Electron runs with titleBarStyle:'hiddenInset', so the traffic lights float
+   over our own content. This strip reserves room for them and gives the window
+   something to be dragged by. In the browser (no Electron) it collapses away. */
+
+#titlebar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 60;
+  height: var(--titlebar-h);
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: 82px; /* clears the traffic lights */
+  padding-right: var(--space-3);
+  -webkit-app-region: drag;
+  user-select: none;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  transition: opacity var(--dur) ease;
+}
+/* Only shown in the desktop Electron shell. */
+body.is-electron #titlebar { display: flex; }
+body.is-electron { --titlebar-offset: var(--titlebar-h); }
+body:not(.is-electron) { --titlebar-offset: 0px; }
+
+#titlebar button { -webkit-app-region: no-drag; }
+
+/* A titlebar over full-bleed lyrics or a 10-foot layout is just clutter. */
+body.is-electron[data-surface="tv"] #titlebar,
+body.is-electron.is-fullscreen #titlebar { opacity: 0; pointer-events: none; }
+body.is-electron[data-surface="tv"],
+body.is-electron.is-fullscreen { --titlebar-offset: 0px; }
+
+#titlebar .tb-back {
+  -webkit-app-region: no-drag;
+  display: none;
+  align-items: center; gap: 6px;
+  padding: 3px 10px 3px 7px;
+  border-radius: var(--r-pill);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  text-transform: none; letter-spacing: 0;
+  background: var(--surface-2);
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+#titlebar .tb-back:hover { background: var(--surface-3); color: var(--text-1); }
+/* The back affordance only exists when there's somewhere to go back to.
+   #titlebar precedes #stage in the DOM, so this has to reach up to <body> and
+   back down — a sibling combinator would never match. */
+body:has(#stage:not([data-screen="home"])) #titlebar .tb-back { display: inline-flex; }
+body:has(#stage[data-mode="playing"]) #titlebar .tb-back { display: none; }
+
+/* ------------------------------------------------------------ screen stack */
+
+/* No padding here: #screens is the containing block for the absolutely
+   positioned .screen panels, whose `inset: 0` resolves against its PADDING box.
+   Padding on both would offset the content twice under the titlebar. */
+#screens {
+  position: absolute; inset: 0; z-index: 6;
+  overflow: hidden;
+  transition: opacity .45s ease, transform .6s var(--ease);
+}
+/* Cinematic push: the hub drifts forward as the lyric view takes over. */
+#stage[data-mode="playing"] #screens {
+  opacity: 0; transform: scale(1.02); pointer-events: none;
+}
+
+.screen {
+  position: absolute; inset: 0;
+  padding-top: var(--titlebar-offset);
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transform: translateX(3%);
+  /* `visibility` is switched with a zero-duration transition that's DELAYED
+     until the fade finishes — never interpolated. Transitioning visibility
+     itself means an interrupted or throttled transition (a backgrounded window
+     pauses them) strands a screen at the wrong value, which is how an off-stage
+     screen ends up hit-testable. A 0s change can't be left half-applied. */
+  transition:
+    opacity .32s ease,
+    transform .42s var(--ease-out),
+    visibility 0s linear .42s;
+}
+
+/* Only the active screen is visible, focusable, or hit-testable. Inactive
+   screens keep their layout boxes, so without this D-pad focus and clicks would
+   reach them. (app/ui/focus.js also scopes focus to the active panel — this is
+   the second lock on the same door.) */
+#stage[data-screen="home"]     .screen[data-screen-panel="home"],
+#stage[data-screen="search"]   .screen[data-screen-panel="search"],
+#stage[data-screen="library"]  .screen[data-screen-panel="library"],
+#stage[data-screen="sources"]  .screen[data-screen-panel="sources"],
+#stage[data-screen="settings"] .screen[data-screen-panel="settings"] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+  /* Becoming visible must be immediate — no delay, or the incoming screen
+     fades in while still invisible. */
+  transition:
+    opacity .32s ease,
+    transform .42s var(--ease-out),
+    visibility 0s;
+}
+
+/* Pop transitions come from the other side, so back feels like back. */
+#stage[data-nav="pop"] .screen { transform: translateX(-3%); }
+#stage[data-nav="pop"] .screen[data-screen-panel] { }
+
+.screen-inner {
+  width: 100%;
+  max-width: var(--screen-max);
+  margin: 0 auto;
+  padding: var(--safe-y) var(--safe-x) var(--space-6);
+  display: flex; flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* Screens other than home lead with a title row: Back, then the title beside it.
+   (space-between would fling the title to the opposite edge of the window.) */
+.screen-head {
+  display: flex; align-items: center; justify-content: flex-start;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.screen-head .head-copy { flex: 1; }
+.screen-head h1 {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -.02em;
+}
+.screen-head p {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  line-height: 1.45;
+}
+.head-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+/* Back button rendered inside each pushed screen — the remote's Esc has a
+   visible twin, which is what makes the hub navigable with a mouse too. */
+.btn-back {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 0 var(--space-3);
+  height: var(--row-h);
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--line-1);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 550;
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.btn-back:hover { background: var(--surface-3); color: var(--text-1); }
+.btn-back::before { content: "‹"; font-size: 1.35em; line-height: 0; margin-top: -2px; }
+
+/* --------------------------------------------------------------- app chrome */
+
+/* App chrome shouldn't text-select like a web page — inputs stay selectable. */
+#nowbar, #hotkeys, .chip, .rec, #mode-badge, #sync-lock, #mode-exits,
+.timing-dial, #live-sep-hud, .brand, .tile, .screen-head, #titlebar {
+  user-select: none;
+  -webkit-user-select: none;
+}

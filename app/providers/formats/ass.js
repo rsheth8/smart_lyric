@@ -15,19 +15,49 @@ function stripAssTags(text) {
     .trim();
 }
 
-function parseKaraokeWords(text, lineStart) {
+/**
+ * Parse ASS karaoke overrides into word spans.
+ * `{\k100}hello world` is ONE 1.0s karaoke chunk split across its tokens —
+ * not 1.0s per whitespace token, and never with a leftover `}` in the text.
+ */
+export function parseKaraokeWords(text, lineStart, lineEnd = Infinity) {
   const words = [];
-  const re = /\\k(\d+)([^{\\]*)/g;
-  let m;
+  // {\kN} / {\kfN} / {\koN} then text until the next override block.
+  const re = /\{\\k(?:f|o)?(\d+)\}([^{]*)/gi;
   let t = lineStart;
+  let m;
   while ((m = re.exec(text)) !== null) {
-    const centis = parseInt(m[1], 10);
-    const dur = centis / 100;
-    const raw = m[2].trim();
-    if (!raw) continue;
-    for (const token of raw.split(/\s+/).filter(Boolean)) {
-      words.push({ text: token, start: t, end: t + dur });
+    const dur = parseInt(m[1], 10) / 100;
+    const raw = m[2].replace(/\\N/gi, ' ').replace(/\\n/g, ' ').trim();
+    if (!raw) {
       t += dur;
+      continue;
+    }
+    const tokens = raw.split(/\s+/).filter(Boolean);
+    const weight = tokens.reduce((s, tok) => s + Math.max(1, tok.length), 0) || 1;
+    let remain = dur;
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+      const tokDur =
+        i === tokens.length - 1 ? remain : dur * (Math.max(1, token.length) / weight);
+      words.push({ text: token, start: t, end: t + tokDur });
+      remain -= tokDur;
+      t += tokDur;
+    }
+  }
+  if (!words.length) return words;
+  const cap = Number.isFinite(lineEnd) && lineEnd > lineStart ? lineEnd : null;
+  if (cap != null) {
+    for (const w of words) {
+      w.start = Math.min(w.start, cap - 0.02);
+      w.end = Math.min(w.end, cap);
+      if (!(w.end > w.start)) w.end = w.start + 0.02;
+    }
+    // Only stretch the last word to the dialogue end when karaoke overran it
+    // (or landed essentially on it). Don't invent a held tail to fill unused
+    // dialogue span — that belongs to silence / the next line.
+    if (words[words.length - 1].end > cap - 0.001) {
+      words[words.length - 1].end = cap;
     }
   }
   return words;
@@ -42,7 +72,7 @@ export function parseASS(ass) {
     const start = parseAssTime(parts[1]);
     const end = parseAssTime(parts[2]);
     const body = parts.slice(9).join(',').trim();
-    const karaokeWords = parseKaraokeWords(body, start);
+    const karaokeWords = parseKaraokeWords(body, start, end);
     const plain = stripAssTags(body);
     if (!plain) continue;
 

@@ -6,7 +6,7 @@
 // undefined"). CJS main is the supported, reliable path. The two lyric helpers
 // live in ESM (.mjs) modules and are loaded here via dynamic import().
 
-const { app, BrowserWindow, ipcMain, screen, shell, session, desktopCapturer } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, screen, shell, session, desktopCapturer } = require('electron');
 const { join } = require('node:path');
 const { createHash, randomBytes } = require('node:crypto');
 const http = require('node:http');
@@ -16,6 +16,8 @@ const { alignSong, alignAvailable, alignModelLoaded, alignWarm } = require('./al
 const { separateVocals, separateAvailable, separateWarm } = require('./separate.cjs');
 const { transcribeAudio, transcribeAvailable } = require('./transcribe.cjs');
 const { cleanLyricLines, guessSongLanguage, anthropicConfigured } = require('./anthropic.cjs');
+const { buildMenu } = require('./menu.cjs');
+const { restoreState, trackState } = require('./window-state.cjs');
 
 // ESM-only helpers — pulled in lazily since this module is CommonJS.
 const fetchNeteaseLyrics = (...args) =>
@@ -250,20 +252,45 @@ function createWindow() {
     { useSystemPicker: false }
   );
 
+  const saved = restoreState(app);
+
   mainWindow = new BrowserWindow({
     title: 'Bar4Bar',
     icon: join(__dirname, '..', 'app', 'icon.svg'),
-    width: 1280,
-    height: 800,
-    backgroundColor: '#070c16',
+    width: saved.width,
+    height: saved.height,
+    x: saved.x,
+    y: saved.y,
+    minWidth: 760,
+    minHeight: 520,
+    // Espresso, matching --surface-0. This was #070c16 — navy left over from the
+    // pre-"Dark Luxury" palette — so every launch flashed blue before the app
+    // painted over it.
+    backgroundColor: '#0b0908',
+    // The renderer draws its own titlebar strip and reserves room for the
+    // traffic lights (body.is-electron in app/styles/shell.css).
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 16, y: 12 },
     fullscreenable: true,
-    autoHideMenuBar: true,
+    show: false, // avoid a white/!themed frame before the first paint
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+
+  if (saved.maximized) mainWindow.maximize();
+  mainWindow.once('ready-to-show', () => mainWindow.show());
+  trackState(app, mainWindow);
+
+  // Native menu items are routed to the renderer, which handles them with the
+  // same code paths as the on-screen controls.
+  Menu.setApplicationMenu(
+    buildMenu({
+      send: (action) => mainWindow?.webContents.send('menu', action),
+    })
+  );
 
   injectConfig(mainWindow);
   mainWindow.loadFile(join(__dirname, '..', 'app', 'index.html'));
@@ -426,6 +453,12 @@ function createWindow() {
     }
   });
 }
+
+app.setAboutPanelOptions({
+  applicationName: 'Bar4Bar',
+  applicationVersion: app.getVersion(),
+  copyright: 'Word-by-word lyrics that follow every bar, in sync.',
+});
 
 app.whenReady().then(() => {
   createWindow();

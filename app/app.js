@@ -34,7 +34,12 @@ import { basenamesMatch } from './providers/lyrics/local.js';
 import { createSyncPublisher } from './sync-bridge.js';
 import { translateLines, romanizeLines, needsRomanization } from './providers/translate.js';
 import { getMedium } from './mediums/index.js';
-import { initTvNav } from './tv-nav.js';
+import { createRouter } from './ui/router.js';
+import { initScreenFocus } from './ui/focus.js';
+import { initSurface } from './ui/surface.js';
+import { accentFromPalette, applyAccent } from './theme.js';
+import { loadLibrary, recordPlay, clearLibrary, relativeWhen, updateArt } from './library.js';
+import { cacheKey, getCachedTimeline } from './timeline-cache.js';
 import {
   refineTimelineWithAudio,
   refineTimelineFromMic,
@@ -89,8 +94,32 @@ if (location.hostname === 'localhost') {
 const $ = (id) => document.getElementById(id);
 const stage = $('stage');
 
+// The desktop shell exposes window.bar4bar via preload; the plain dev browser
+// doesn't. The class is what turns on the custom titlebar and the traffic-light
+// inset, so the same markup stays correct in both.
+const isElectron = !!window.bar4bar;
+document.body.classList.toggle('is-electron', isElectron);
+
+
 const display = new Display({ stage, lyricsEl: $('lyrics'), bgCanvas: $('bg') });
 display.start();
+
+// --------------------------- screens / density ----------------------------
+// Must come after `display` — initSurface applies the density synchronously and
+// anything its onChange touches has to already exist.
+const router = createRouter({
+  stage,
+  onEnter: (name) => {
+    if (name === 'library') renderLibrary();
+    if (name === 'settings') refreshSyncSettings();
+    if (name === 'sources') refreshSpotifyPanel();
+  },
+});
+
+const surface = initSurface({ onChange: () => syncSurfaceUi() });
+addEventListener('fullscreenchange', () => {
+  document.body.classList.toggle('is-fullscreen', !!document.fullscreenElement);
+});
 
 const audio = $('audio');
 const mediaClock = new MediaClock(audio);
@@ -143,7 +172,10 @@ const RECAL_NUDGE = 0.08; // feel-late → earlier; feel-early → later
 // is configured (SEPARATE_MODEL_PATH). Default on so it's used once available.
 let vocalIsolation = localStorage.getItem('bar4bar.vocalIsolation') !== 'off';
 setVocalSeparationEnabled(vocalIsolation);
-let sepHudEnabled = localStorage.getItem('bar4bar.sepHud') !== 'off'; // default on
+// Diagnostic HUD — a developer overlay, so it defaults OFF and is opted into
+// from Settings ▸ Diagnostics. (It used to default on and shipped on top of the
+// lyrics for every user.)
+let sepHudEnabled = localStorage.getItem('bar4bar.sepHud') === 'on';
 const syncEstimator = new SyncEstimator();
 let listenRaf = null;
 let lastListenResult = null;
@@ -198,14 +230,26 @@ const syncPublisher = createSyncPublisher({
 });
 syncPublisher.start();
 
+let currentArtUrl = null;
+
 async function loadArtwork(artist, track) {
   $('cover').style.backgroundImage = '';
+  currentArtUrl = null;
+  // Back to brand gold until this song's own palette arrives, so the previous
+  // song's accent never bleeds into the next one.
+  applyAccent(stage, null);
   const url = await fetchArtworkUrl({ artist, track });
   if (!url) return;
+  currentArtUrl = url;
   $('cover').style.backgroundImage = `url("${url}")`;
+  if (session.meta?.track) updateArt(session.meta, url);
   const palette = await paletteFromUrl(url);
   if (palette?.length) {
     display.setPalette(palette);
+    // Same palette, two jobs: the ambient background glow (which can be any
+    // brightness) and the accent (which cannot). accentFromPalette borrows only
+    // the hue and rebuilds it at the brand's lightness — see app/theme.js.
+    applyAccent(stage, accentFromPalette(palette));
     syncPublisher.publishFull();
   }
 }
@@ -355,6 +399,16 @@ function enterSetup() {
   clearTimeout(idleTimer);
   $('nowbar').classList.remove('hide');
   $('hotkeys')?.classList.add('hide');
+  $('inspector').hidden = true;
+  $('btn-more')?.setAttribute('aria-expanded', 'false');
+  // Coming back from a song, the hub should reflect that it was just played.
+  renderContinueShelf();
+  // The ♪ / count-in / peek overlays hang off `stage`, not `#viewport`, so
+  // fading the lyric viewport out doesn't take them with it — without this they
+  // sit on top of the menu after a song change. Also drop the old timeline so
+  // the RAF loop can't resurrect them while the menu is up.
+  display.clearPlayback();
+  hideSuggestions();
   stopActiveMedium();
   updateTransport();
   if (!audio.paused) audio.pause();
@@ -366,7 +420,13 @@ function enterPlaying() {
   stage.dataset.mode = 'playing';
   updateTransport();
   updatePlayBtn();
-  // First reveal a bit longer so the key guide is discoverable.
+  syncInspectorUi();
+  // Every path into the lyric view lands here, so this is the one place a play
+  // needs recording. Artwork is still in flight — loadArtwork patches it in.
+  if (session.meta?.track) {
+    recordPlay(session.meta, { art: currentArtUrl, source: activeMedium?.id || null });
+  }
+  // First reveal a bit longer so the bar is discoverable.
   poke(5200);
 }
 
@@ -500,6 +560,7 @@ async function loadSong({ artist, track, duration }) {
   stopActiveMedium();
   hideSuggestions();
   $('in-track').value = track || '';
+  $('in-track-2').value = track || '';
   $('in-artist').value = artist || '';
   if (!track) {
     setStatus('error', 'Enter a song title.');
@@ -542,7 +603,7 @@ function markAlignedBadge() {
     source: session.meta?.source,
     format: session.meta?.format,
     wordSync: isWordSyncFormat(session.meta?.format),
-    aligned: true,
+    aligned: !!session.timeline?.aligned,
   });
 }
 
@@ -747,6 +808,7 @@ async function liveAlignTick() {
   if (liveAlignBusy) return; // a previous tick is still running; it will re-arm
 
   liveAlignBusy = true;
+  const alignGen = session.loadGeneration;
   try {
     const needsWords = needsVocalAlign(session.timeline, session.meta || {});
     // First collect a wide-window latency estimate. Once it locks, line-sync
@@ -768,6 +830,7 @@ async function liveAlignTick() {
     const staleAfterSec = timingOnly ? (locked ? 10 : 3) : Infinity;
 
     if (!timingOnly) await warmAlignModel();
+    if (alignGen !== session.loadGeneration) return;
     liveAlignReason = 'measuring';
     updateSyncDiag({
       loop: 'measuring',
@@ -781,6 +844,7 @@ async function liveAlignTick() {
       expectedOffset: display.syncOffset || 0,
       staleAfterSec,
     });
+    if (alignGen !== session.loadGeneration) return;
     if (res?.aligned) {
       markAlignedBadge();
       persistAlignedTiming();
@@ -789,11 +853,17 @@ async function liveAlignTick() {
     if (res?.timingSamples?.length) ingestTimingSamples(res.timingSamples);
     else if (res === false) updateSyncDiag({ loop: (liveAlignReason = 'no-candidate'), candidates: 0 });
     if (res?.timingSamples?.length) updateSyncDiag({ candidates: res.timingSamples.length });
+
+    // Live rubato retiming is disabled until it uses a stable capture→clock
+    // transform and confidence-gated token/onset matching. The current path can
+    // shove unreached words mid-line from a false onset match.
   } catch {
     /* keep syllable / richsync timing */
   } finally {
     liveAlignBusy = false;
     // Always keep chasing: drift is continuous, so measurement must be too.
+    // Don't re-arm if this tick belonged to a song the user already left.
+    if (alignGen !== session.loadGeneration) return;
     if (!liveAlignStopped && session.timeline && stage.dataset.mode === 'playing') {
       scheduleLiveAlign();
     }
@@ -1042,33 +1112,59 @@ $('search').addEventListener('submit', (e) => {
 });
 
 // ----------------------- live search suggestions -------------------------
+// ------------------------------ search screen ------------------------------
+// Search used to be a dropdown pinned under the field with hand-computed
+// viewport coordinates (it had to escape the panel's backdrop-filter). It's now
+// a full screen, which deletes all that measurement code and gives each result
+// a real row — far easier to hit with a remote than a 40px dropdown line.
+
 function hideSuggestions() {
   const box = $('suggestions');
-  box.hidden = true;
+  if (!box) return;
   box.innerHTML = '';
   suggestionItems = [];
   suggestionIndex = -1;
 }
 
+function formatDuration(sec) {
+  if (!Number.isFinite(sec) || sec <= 0) return '';
+  const m = Math.floor(sec / 60);
+  const s = Math.round(sec % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 function renderSuggestions(items) {
   const box = $('suggestions');
-  suggestionItems = items;
+  suggestionItems = items || [];
   suggestionIndex = -1;
-  if (!items.length) {
-    hideSuggestions();
+  const summary = $('search-summary');
+
+  if (!suggestionItems.length) {
+    box.innerHTML = `
+      <div class="empty-state">
+        <b>No songs found</b>
+        <p>Try the artist name as well, or check the spelling. You can also import a lyrics file from Sources.</p>
+      </div>`;
+    if (summary) summary.textContent = 'No matches';
     return;
   }
-  box.hidden = false;
-  box.innerHTML = items
+
+  if (summary) {
+    summary.textContent = `${suggestionItems.length} result${suggestionItems.length === 1 ? '' : 's'}`;
+  }
+  box.innerHTML = suggestionItems
     .map(
       (s, i) => `
-    <button type="button" class="suggestion" role="option" data-i="${i}" aria-selected="false">
-      ${s.artwork ? `<img src="${s.artwork}" alt="" width="40" height="40" loading="lazy" />` : '<span class="sync-icon">♪</span>'}
+    <button type="button" class="result-row" role="option" data-i="${i}" aria-selected="false">
+      ${s.artwork
+        ? `<img src="${s.artwork}" alt="" loading="lazy" />`
+        : '<span class="art">♪</span>'}
       <span class="t"><b>${escapeHtml(s.track)}</b><span>${escapeHtml(s.artist)}</span></span>
+      <span class="dur">${formatDuration(s.duration)}</span>
     </button>`
     )
     .join('');
-  box.querySelectorAll('.suggestion').forEach((btn) => {
+  box.querySelectorAll('.result-row').forEach((btn) => {
     btn.addEventListener('click', () => {
       const s = suggestionItems[+btn.dataset.i];
       if (s) loadSong({ artist: s.artist, track: s.track, duration: s.duration });
@@ -1079,28 +1175,51 @@ function renderSuggestions(items) {
 function scheduleSuggest() {
   clearTimeout(suggestTimer);
   suggestTimer = setTimeout(async () => {
-    const q = [$('in-track').value, $('in-artist').value].filter(Boolean).join(' ').trim();
+    const q = searchQuery();
     if (q.length < 2) {
       hideSuggestions();
       return;
     }
     const items = await searchSuggestions(q);
-    if (document.activeElement === $('in-track') || document.activeElement === $('in-artist')) {
-      renderSuggestions(items);
-    }
+    renderSuggestions(items);
   }, 220);
 }
 
-$('in-track').addEventListener('input', scheduleSuggest);
+/** The hub and the search screen each have a title field; whichever the user
+ *  last typed in wins, and the artist field only exists on the search screen. */
+function searchQuery() {
+  const track = ($('in-track-2').value || $('in-track').value || '').trim();
+  const artist = ($('in-artist').value || '').trim();
+  return [track, artist].filter(Boolean).join(' ').trim();
+}
+
+/** Move to the search screen, carrying whatever was typed on the hub. */
+function openSearch(seed) {
+  const field = $('in-track-2');
+  if (seed != null) field.value = seed;
+  else if (!field.value && $('in-track').value) field.value = $('in-track').value;
+  router.go('search');
+  scheduleSuggest();
+}
+
+$('in-track').addEventListener('input', () => {
+  // Typing on the hub is the intent to search — jump once there's something
+  // to search for, rather than making the user find a second field.
+  if ($('in-track').value.trim().length >= 2) openSearch();
+});
+$('in-track-2').addEventListener('input', scheduleSuggest);
 $('in-artist').addEventListener('input', scheduleSuggest);
-$('in-track').addEventListener('keydown', onSuggestKey);
+$('in-track-2').addEventListener('keydown', onSuggestKey);
 $('in-artist').addEventListener('keydown', onSuggestKey);
-document.addEventListener('click', (e) => {
-  if (!$('search').contains(e.target)) hideSuggestions();
+
+$('search-refine').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const track = $('in-track-2').value.trim();
+  if (track) loadSong({ artist: $('in-artist').value.trim(), track });
 });
 
 function onSuggestKey(e) {
-  if ($('suggestions').hidden || !suggestionItems.length) return;
+  if (!suggestionItems.length) return;
   if (e.key === 'ArrowDown') {
     e.preventDefault();
     suggestionIndex = Math.min(suggestionItems.length - 1, suggestionIndex + 1);
@@ -1109,28 +1228,32 @@ function onSuggestKey(e) {
     e.preventDefault();
     suggestionIndex = Math.max(0, suggestionIndex - 1);
     highlightSuggestion();
-  } else if (e.key === 'Escape') {
-    hideSuggestions();
+  } else if (e.key === 'Enter' && suggestionIndex >= 0) {
+    e.preventDefault();
+    const s = suggestionItems[suggestionIndex];
+    if (s) loadSong({ artist: s.artist, track: s.track, duration: s.duration });
   }
 }
 
 function highlightSuggestion() {
-  $('suggestions').querySelectorAll('.suggestion').forEach((el, i) => {
+  const rows = $('suggestions').querySelectorAll('.result-row');
+  rows.forEach((el, i) => {
     el.setAttribute('aria-selected', i === suggestionIndex ? 'true' : 'false');
+    if (i === suggestionIndex) el.scrollIntoView({ block: 'nearest' });
   });
 }
 
 // --------------------------- recommendations -----------------------------
 function renderRecGrid(el, items, emptyMsg) {
   if (!items?.length) {
-    el.innerHTML = `<div class="recs-empty">${emptyMsg}</div>`;
+    el.innerHTML = `<div class="shelf-empty">${emptyMsg}</div>`;
     return;
   }
   el.innerHTML = items
     .map(
       (s, i) => `
     <button type="button" class="rec" data-i="${i}">
-      ${s.artwork ? `<img src="${s.artwork}" alt="" width="42" height="42" loading="lazy" />` : '<span class="sync-icon">♪</span>'}
+      ${s.artwork ? `<img src="${s.artwork}" alt="" loading="lazy" />` : '<span class="art">♪</span>'}
       <span class="meta"><b>${escapeHtml(s.track)}</b><span>${escapeHtml(s.artist)}</span></span>
     </button>`
     )
@@ -1139,6 +1262,77 @@ function renderRecGrid(el, items, emptyMsg) {
     btn.addEventListener('click', () => {
       const s = items[+btn.dataset.i];
       if (s) loadSong({ artist: s.artist, track: s.track, duration: s.duration });
+    });
+  });
+}
+
+// ------------------------------- library ---------------------------------
+
+function renderLibrary() {
+  const host = $('library-list');
+  const entries = loadLibrary();
+  const count = $('library-count');
+  if (count) {
+    count.textContent = entries.length
+      ? `${entries.length} song${entries.length === 1 ? '' : 's'}`
+      : '';
+  }
+
+  if (!entries.length) {
+    host.innerHTML = `
+      <div class="empty-state">
+        <b>Nothing here yet</b>
+        <p>Songs you follow show up here, with the ones already vocal-aligned marked for instant replay.</p>
+      </div>`;
+    return;
+  }
+
+  host.innerHTML = entries
+    .map(
+      (e, i) => `
+    <button type="button" class="lib-row" data-i="${i}">
+      ${e.art ? `<img src="${e.art}" alt="" loading="lazy" />` : '<span class="art"></span>'}
+      <span class="t"><b>${escapeHtml(e.track)}</b><span>${escapeHtml(e.artist)}</span></span>
+      ${getCachedTimeline(e) ? '<span class="badge-ready">aligned</span>' : ''}
+      <span class="when">${relativeWhen(e.lastPlayedAt)}</span>
+    </button>`
+    )
+    .join('');
+
+  host.querySelectorAll('.lib-row').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const e = entries[+btn.dataset.i];
+      if (e) loadSong({ artist: e.artist, track: e.track, duration: e.duration || undefined });
+    });
+  });
+}
+
+/** The hub's "Continue" shelf — the same store, shown as posters. */
+function renderContinueShelf() {
+  const row = $('row-continue');
+  const shelf = $('continue-shelf');
+  const entries = loadLibrary().slice(0, 12);
+  row.hidden = entries.length === 0;
+  if (!entries.length) return;
+
+  shelf.innerHTML = entries
+    .map(
+      (e, i) => `
+    <button type="button" class="rec" data-i="${i}">
+      ${e.art ? `<img src="${e.art}" alt="" loading="lazy" />` : '<span class="art">♪</span>'}
+      <span class="meta">
+        <b>${escapeHtml(e.track)}</b>
+        <span class="${getCachedTimeline(e) ? 'ready' : ''}">${
+          getCachedTimeline(e) ? 'Aligned · instant' : escapeHtml(e.artist)
+        }</span>
+      </span>
+    </button>`
+    )
+    .join('');
+  shelf.querySelectorAll('.rec').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const e = entries[+btn.dataset.i];
+      if (e) loadSong({ artist: e.artist, track: e.track, duration: e.duration || undefined });
     });
   });
 }
@@ -1153,10 +1347,21 @@ async function refreshSpotifyPanel() {
   const btn = $('btn-spotify');
   const token = loadToken('spotify');
 
+  // The Spotify entry point exists twice — as a tile on the hub and as the real
+  // button on the Sources screen — so both labels move together.
+  const setSpotifyCopy = (label, hint) => {
+    $('spotify-label').textContent = label;
+    $('spotify-hint').textContent = hint;
+    $('hub-spotify-label').textContent = label;
+    $('hub-spotify-hint').textContent = hint;
+    document
+      .querySelectorAll('.tile.spotify')
+      .forEach((el) => el.classList.toggle('connected', !!token));
+  };
+
   if (token) {
     btn.classList.add('connected');
-    $('spotify-label').textContent = 'Spotify connected';
-    $('spotify-hint').textContent = 'Tap to follow playback';
+    setSpotifyCopy('Spotify connected', 'Tap to follow playback');
     const [recent, now] = await Promise.all([
       fetchSpotifyRecentlyPlayed(token.access_token),
       fetchSpotifyNowPlaying(token.access_token),
@@ -1176,8 +1381,7 @@ async function refreshSpotifyPanel() {
     }
   } else {
     btn.classList.remove('connected');
-    $('spotify-label').textContent = 'Connect Spotify';
-    $('spotify-hint').textContent = 'Follow what’s playing';
+    setSpotifyCopy('Connect Spotify', 'Follow what’s playing');
     panel.hidden = true;
   }
 }
@@ -1330,34 +1534,48 @@ function closePanel(id) {
 
 /** Close whichever dismissible popup is open. Returns true if one closed. */
 function closeAnyOpenPopup() {
-  if (!$('suggestions').hidden) {
-    hideSuggestions();
-    return true;
-  }
-  return closePanel('sync-panel') || closePanel('listen-panel');
+  return closePanel('inspector') || closePanel('listen-panel');
 }
 
 document.addEventListener('click', (e) => {
   const closer = e.target.closest?.('[data-close]');
   if (closer) {
     closePanel(closer.dataset.close);
+    if (closer.dataset.close === 'inspector') $('btn-more').setAttribute('aria-expanded', 'false');
     return;
   }
-  // Click outside the sync panel (and not on its toggle button) dismisses it.
-  const syncPanel = $('sync-panel');
-  if (!syncPanel.hidden && !syncPanel.contains(e.target) && e.target !== $('btn-sync-source')) {
-    syncPanel.hidden = true;
+  // Click outside the inspector (and not on its toggle) dismisses it.
+  const inspector = $('inspector');
+  if (!inspector.hidden && !inspector.contains(e.target) && !$('btn-more').contains(e.target)) {
+    inspector.hidden = true;
+    $('btn-more').setAttribute('aria-expanded', 'false');
   }
 });
 
-$('btn-sync-source').addEventListener('click', () => {
-  const panel = $('sync-panel');
-  if (panel.hidden) openSyncPanel();
-  else panel.hidden = true;
+// ⋯ — the now-bar's single overflow. Everything per-song that used to live as a
+// separate button on the bar is inside.
+$('btn-more').addEventListener('click', () => {
+  const panel = $('inspector');
+  const open = panel.hidden;
+  panel.hidden = !open;
+  $('btn-more').setAttribute('aria-expanded', String(open));
+  if (open) {
+    syncInspectorUi();
+    poke(9000); // keep the bar awake while the panel is up
+  }
 });
 
-async function openSyncPanel() {
-  const panel = $('sync-panel');
+// Global preferences live on the Settings screen, which is reachable with or
+// without a song playing — the sync panel used to be the only way in.
+$('btn-sync-source').addEventListener('click', () => {
+  $('inspector').hidden = true;
+  $('btn-more').setAttribute('aria-expanded', 'false');
+  enterSetup();
+  router.go('settings');
+});
+
+/** Populate the Settings screen's audio controls. Called on entering Settings. */
+async function refreshSyncSettings() {
   const sourceSel = $('sync-source');
   sourceSel.innerHTML = '';
   for (const [id, label] of Object.entries(SYNC_MODE_LABELS)) {
@@ -1375,7 +1593,7 @@ async function openSyncPanel() {
     sourceSel.appendChild(opt);
   }
   await populateSyncDevices();
-  panel.hidden = false;
+  syncSurfaceUi();
   // If a song is already playing and we're not capturing, start now (don't wait
   // for the next track) — this is the usual "why isn't it capturing?" fix.
   if (
@@ -1490,10 +1708,10 @@ function renderTapHelp() {
 }
 
 function updateSyncSourceUi() {
-  const btn = $('btn-sync-source');
-  if (btn) {
+  const value = $('insp-source-value');
+  if (value) {
     const mode = SYNC_MODE_LABELS[alignSourceMode] || 'Auto';
-    btn.textContent = `Sync: ${alignMic || activeMic ? alignCaptureLabel || mode : mode}`;
+    value.textContent = alignMic || activeMic ? alignCaptureLabel || mode : mode;
   }
   renderTapHelp();
   const status = $('sync-capture-status');
@@ -1538,9 +1756,10 @@ function updateSyncSourceUi() {
   }
 }
 
-// Keep the status line honest while the panel is open.
+// Keep the status line honest while it's actually on screen.
 setInterval(() => {
-  if (!$('sync-panel')?.hidden) updateSyncSourceUi();
+  const onSettings = stage.dataset.mode === 'setup' && router.current === 'settings';
+  if (onSettings || !$('inspector')?.hidden) updateSyncSourceUi();
 }, 1200);
 
 // ----------------------------- vinyl listen --------------------------------
@@ -1904,6 +2123,12 @@ function updateTimingReadout() {
         : ms > 0
           ? 'Lyrics show earlier (helps when highlight feels late)'
           : 'Lyrics show later (helps when highlight feels early)';
+    // The inspector shows the same number while a song is up.
+    const insp = $('insp-timing-readout');
+    if (insp) {
+      insp.textContent = el.textContent;
+      insp.title = el.title;
+    }
   }
   const toggle = $('auto-timing');
   if (toggle) toggle.checked = autoTiming;
@@ -2003,11 +2228,12 @@ function renderLiveSep(s) {
   const rt = s.lastRealtime;
   const avg = s.sepTotalSec > 0 ? s.sepTotalWindowSec / s.sepTotalSec : null;
   const total = s.stemLines + s.rawLines;
-  // Auto-fell back: say so plainly, otherwise the counters just quietly stop.
+  // Auto-skipped: say so plainly, otherwise the counters just quietly stop.
+  // Retries after a cool-down — not a permanent pause for the song.
   if (s.paused) {
     hud.className = 'hud-idle';
     hud.textContent =
-      `◌ sep paused ${avg != null ? avg.toFixed(1) : '—'}× · raw mix · stem ${s.stemLines}/${total}`;
+      `◌ stem skipped · too slow${avg != null ? ` (${avg.toFixed(1)}×)` : ''} · raw mix · stem ${s.stemLines}/${total}`;
     return;
   }
   const keepUp = rt == null || rt >= 1;
@@ -2319,25 +2545,27 @@ $('timing-reset')?.addEventListener('click', () => {
 });
 
 // ------------------- D-pad / remote navigation (10-foot UI) ----------------
-// Arrow keys move focus tvOS-style across the setup screen; Enter activates.
-// Inputs keep their own keys: ←/→ move the caret, ↑/↓ drive the suggestion
-// list while it's open, and ↑ stays in the field so typing is never hijacked.
-initTvNav({
-  root: $('setup'),
-  isActive: (e) => {
-    if (stage.dataset.mode !== 'setup') return false;
+// Arrow keys move focus tvOS-style; Enter activates. Scoped to the ACTIVE screen
+// (or the now-playing chrome) so focus can't walk into a screen that's off-stage
+// — see app/ui/focus.js. The geometry is still pickNext() in tv-nav.js.
+initScreenFocus({
+  stage,
+  router,
+  isTyping: (e) => {
     const t = document.activeElement;
-    if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT')) {
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp') return false;
-      if (!$('suggestions').hidden) return false; // ↑/↓ belong to the list
+    // ↑/↓ drive the results list while it has entries; ↑ otherwise stays in the
+    // field so typing is never hijacked.
+    if (t?.tagName === 'INPUT' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      return suggestionItems.length > 0 || e.key === 'ArrowUp';
     }
-    return true;
+    return false;
   },
 });
 
 // -------------------- fullscreen + auto-hiding bar -------------------------
 addEventListener('keydown', (e) => {
-  // Esc peels layers: popup → focus/reading/practice → leave lyric view.
+  // Esc peels layers: popup → focus/reading/practice → leave lyric view → back
+  // up the screen stack. Each rung returns, so one press undoes exactly one thing.
   if (e.key === 'Escape') {
     if (closeAnyOpenPopup()) return;
     if (stage.dataset.mode === 'playing' && exitTopOverlayMode()) return;
@@ -2345,6 +2573,7 @@ addEventListener('keydown', (e) => {
       $('btn-change').click();
       return;
     }
+    if (router.back()) return;
   }
   if (e.key.toLowerCase() === 'f') {
     if (window.bar4bar?.toggleFullscreen) window.bar4bar.toggleFullscreen();
@@ -2370,9 +2599,7 @@ addEventListener('keydown', (e) => {
   else if (e.key.toLowerCase() === 't') {
     cycleAid();
   } else if (e.key.toLowerCase() === 'p') {
-    const on = display.toggleReadingMode();
-    updateModeExits();
-    showToast(on ? 'Reading mode — Esc to leave' : 'Follow mode');
+    toggleReading();
   } else if (e.key.toLowerCase() === 'o') {
     const on = display.toggleFocusMode();
     syncFocusUi();
@@ -2385,24 +2612,36 @@ addEventListener('keydown', (e) => {
     if (!haveAudio) showToast('Practice slowdown needs a local audio file');
     else setPracticeSlow(!practiceSlow);
   } else if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
-    // Hold the guide a little longer when asked for explicitly.
-    poke(10000);
+    showKeys();
   }
 });
 
 let idleTimer;
 let lastPokeMove = 0;
-/** Wake nowbar + hotkey guide; they fade after idle. `holdMs` overrides the hide delay. */
+/**
+ * Wake the now-bar; it fades after idle. `holdMs` overrides the hide delay.
+ *
+ * The keyboard guide is deliberately NOT woken here. It used to appear on every
+ * mouse move, which meant a 12-row reference card sat over the lyrics whenever
+ * the pointer twitched. It's now summoned explicitly with `?` (showKeys), which
+ * is what the hint on the hub advertises.
+ */
 function poke(holdMs = 3500) {
   if (stage.dataset.mode !== 'playing') return;
   $('nowbar')?.classList.remove('hide');
-  $('hotkeys')?.classList.remove('hide');
   clearTimeout(idleTimer);
   const ms = typeof holdMs === 'number' && holdMs > 0 ? holdMs : 3500;
   idleTimer = setTimeout(() => {
     $('nowbar')?.classList.add('hide');
     $('hotkeys')?.classList.add('hide');
   }, ms);
+}
+
+/** Summon the keyboard reference (the `?` key / Help menu). */
+function showKeys(holdMs = 10000) {
+  if (stage.dataset.mode !== 'playing') return;
+  $('hotkeys')?.classList.remove('hide');
+  poke(holdMs);
 }
 // Mouse wake — lightly throttled so tiny jitter doesn't thrash the fade.
 addEventListener('mousemove', () => {
@@ -2418,6 +2657,134 @@ addEventListener('keydown', (e) => {
   poke();
 });
 
+// ======================== hub navigation + chrome ==========================
+
+// One delegated listener handles every navigation affordance: `data-go="screen"`
+// pushes, `data-back` pops. Adding a link to a screen is now markup-only.
+document.addEventListener('click', (e) => {
+  const go = e.target.closest?.('[data-go]');
+  if (go) {
+    router.go(go.dataset.go);
+    return;
+  }
+  if (e.target.closest?.('[data-back]')) router.back();
+});
+$('tb-back')?.addEventListener('click', () => router.back());
+
+// The hub's source tiles are shortcuts to the real controls on the Sources
+// screen — click those rather than duplicating each handler.
+$('hub-sources').addEventListener('click', (e) => {
+  const tile = e.target.closest?.('[data-source]');
+  if (!tile) return;
+  const target = { spotify: 'btn-spotify', listen: 'btn-listen', audio: 'btn-audio' }[
+    tile.dataset.source
+  ];
+  $(target)?.click();
+});
+
+// ---- inspector (the ⋯ panel) ----
+
+function toggleReading(force) {
+  const on = display.toggleReadingMode(force);
+  updateModeExits();
+  syncInspectorUi();
+  showToast(on ? 'Reading mode — Esc to leave' : 'Follow mode');
+  return on;
+}
+
+/** Keep the inspector's toggles honest with the display's actual state. */
+function syncInspectorUi() {
+  $('btn-reading')?.setAttribute('aria-pressed', display.readingMode ? 'true' : 'false');
+  $('btn-focus')?.setAttribute('aria-pressed', display.focusMode ? 'true' : 'false');
+  $('btn-practice')?.setAttribute('aria-pressed', practiceSlow ? 'true' : 'false');
+  const aid = $('btn-aid');
+  if (aid) aid.setAttribute('aria-pressed', (display.aidMode || 'off') !== 'off' ? 'true' : 'false');
+  const readout = $('insp-timing-readout');
+  if (readout) readout.textContent = $('timing-readout')?.textContent || '0 ms';
+}
+
+$('btn-reading')?.addEventListener('click', () => toggleReading());
+$('btn-aid')?.addEventListener('click', async () => {
+  await cycleAid();
+  syncInspectorUi();
+});
+
+// ---- settings: layout density ----
+
+function syncSurfaceUi() {
+  // 'auto' is the stored default and now behaves exactly as 'desktop', so both
+  // light the Desktop button — there's no third state to show.
+  const shown = surface.mode === 'tv' ? 'tv' : 'desktop';
+  document.querySelectorAll('[data-surface-mode]').forEach((btn) => {
+    btn.setAttribute('aria-pressed', btn.dataset.surfaceMode === shown ? 'true' : 'false');
+  });
+}
+$('surface-mode')?.addEventListener('click', (e) => {
+  const btn = e.target.closest?.('[data-surface-mode]');
+  if (!btn) return;
+  surface.setMode(btn.dataset.surfaceMode);
+  syncSurfaceUi();
+  showToast(
+    surface.mode === 'tv'
+      ? 'TV layout — sized for a screen across the room'
+      : 'Desktop layout'
+  );
+});
+
+$('btn-clear-library')?.addEventListener('click', () => {
+  clearLibrary();
+  renderLibrary();
+  renderContinueShelf();
+  showToast('Library cleared');
+});
+
+// ---- native menu bar ----
+// Menu items in the Electron shell send an action name here rather than
+// duplicating any logic — every one of these is the same path a click takes.
+window.bar4bar?.onMenu?.((action) => {
+  switch (action) {
+    case 'settings':
+      if (stage.dataset.mode === 'playing') enterSetup();
+      router.go('settings');
+      break;
+    case 'library':
+      if (stage.dataset.mode === 'playing') enterSetup();
+      router.go('library');
+      break;
+    case 'sources':
+      if (stage.dataset.mode === 'playing') enterSetup();
+      router.go('sources');
+      break;
+    case 'search':
+      if (stage.dataset.mode === 'playing') enterSetup();
+      openSearch('');
+      break;
+    case 'home':
+      if (stage.dataset.mode === 'playing') enterSetup();
+      router.home();
+      break;
+    case 'open-audio': $('btn-audio')?.click(); break;
+    case 'open-lyrics': $('btn-lyrics')?.click(); break;
+    case 'change-song': if (stage.dataset.mode === 'playing') $('btn-change').click(); break;
+    case 'play-pause': togglePlay(); break;
+    case 'nudge-earlier': applyTimingNudge(0.025); break;
+    case 'nudge-later': applyTimingNudge(-0.025); break;
+    case 'reset-timing': $('timing-reset')?.click(); break;
+    case 'feel-early': applyFeelRecal('early'); break;
+    case 'feel-late': applyFeelRecal('late'); break;
+    case 'focus-mode':
+      display.toggleFocusMode();
+      syncFocusUi();
+      syncInspectorUi();
+      break;
+    case 'reading-mode': toggleReading(); break;
+    case 'language-aid': cycleAid().then(syncInspectorUi); break;
+    case 'projector': $('btn-projector')?.click(); break;
+    case 'keys': showKeys(); break;
+    default: break;
+  }
+});
+
 async function bootSetup() {
   if (window.bar4bar?.getConfig) {
     window.__SL_CONFIG__ = await window.bar4bar.getConfig();
@@ -2431,10 +2798,15 @@ async function bootSetup() {
   updateTimingReadout();
   syncSingerLeadUi();
   syncFocusUi();
+  syncSurfaceUi();
+  syncInspectorUi();
+  renderContinueShelf();
   setPracticeSlow(false, { quiet: true });
   await Promise.all([loadChartRecs(), refreshSpotifyPanel()]);
 }
 
 bootSetup();
-$('in-track').focus();
-window.__sl = { display, demoClock, enterPlaying, stage, session };
+// preventScroll: focusing the search field otherwise scrolls it into view,
+// which pushes the brand header off the top of the hub on first paint.
+$('in-track').focus({ preventScroll: true });
+window.__sl = { display, demoClock, enterPlaying, stage, session, router, surface };

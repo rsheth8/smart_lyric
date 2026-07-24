@@ -14,6 +14,7 @@ import {
   wordLeadIn,
   confidenceDim,
   inBreathGap,
+  resolveActiveLine,
   LEADIN_WORD,
   SINGER_LEAD,
 } from '../app/display.js';
@@ -142,4 +143,21 @@ test('confidenceDim softens low CTC scores and trusts null', () => {
 test('countInWindowForGap grows for long instrumentals', () => {
   assert.ok(countInWindowForGap(12) > countInWindowForGap(2));
   assert.ok(countInWindowForGap(0) >= 5);
+});
+
+test('resolveActiveLine holds through a vocal gap, advances when singing resumes', () => {
+  const lines = [
+    { start: 0, end: 2 },
+    { start: 2.2, end: 4 },
+  ];
+  assert.equal(resolveActiveLine(lines, 2.5, { prevLi: 0, vocalActive: false }), 0, 'hold in gap');
+  assert.equal(resolveActiveLine(lines, 2.5, { prevLi: 0, vocalActive: true }), 1, 'advance when active');
+});
+
+test('resolveActiveLine advances immediately on continuous lines', () => {
+  const lines = [
+    { start: 0, end: 2 },
+    { start: 2, end: 4 },
+  ];
+  assert.equal(resolveActiveLine(lines, 2.01, { prevLi: 0, vocalActive: true }), 1);
 });

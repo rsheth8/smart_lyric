@@ -1,68 +1,11 @@
-:root {
-  /* Native controls (selects, scrollbars) render dark to match the app. */
-  color-scheme: dark;
-  --ease: cubic-bezier(.22,.61,.36,1);
-  /* Dark Luxury: champagne gold on warm espresso black — premium on a projector,
-     never brassy. (--ice/--ice-soft are legacy names; they now hold the gold.) */
-  --bg: #0b0908;
-  --ink: #f6f0e4;
-  --muted: rgba(246,240,228,.55);
-  --ice: #e3c27a;
-  --ice-soft: #f4e3bd;
-  --ember: #ff715b;
-  --accent: var(--ice);
-  --accent-soft: var(--ice-soft);
-  --gold: var(--accent);
-  --gold-soft: var(--accent-soft);
-  /* lyric word states */
-  --dim: rgba(246,240,228,.28);
-  --upcoming: rgba(246,240,228,.42);
-  --sung: var(--ink);
-  --current: var(--ice);
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; }
-body {
-  height: 100vh; overflow: hidden; color: var(--ink);
-  background: var(--bg);
-  font-family: -apple-system, "SF Pro Text", system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  font-synthesis: none;
-}
-::selection { background: rgba(227,194,122,.30); color: var(--ink); }
-/* Thin, dark scrollbars everywhere a surface scrolls (setup, suggestions,
-   reading mode, sync panel) — the stock bar reads as unfinished on this UI. */
-* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.18) transparent; }
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,.16); border-radius: 999px;
-  border: 2px solid transparent; background-clip: padding-box;
-}
-::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,.28); }
-button { font-family: inherit; cursor: pointer; }
-/* App chrome shouldn't text-select like a web page — inputs stay selectable. */
-#nowbar, #hotkeys, .sync-strip, .chip, .rec, #mode-badge, #sync-lock,
-#mode-exits, .timing-dial, #live-sep-hud, .brand, .or-divider {
-  -webkit-user-select: none; user-select: none;
-}
-button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-
-/* 10-foot focus: on the setup screen the focused control pops like tvOS — a
-   bright ring, a soft halo, and a slight lift you can track from the couch. */
-#setup :is(button, input, select):focus-visible {
-  outline: 3px solid var(--ice);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 7px rgba(227,194,122,.14), 0 14px 34px rgba(0,0,0,.5);
-}
-#setup :is(.rec, .sync-btn, .chip):focus-visible {
-  transform: translateY(-3px) scale(1.045);
-  background: rgba(255,255,255,.09);
-  border-color: rgba(227,194,122,.5);
-  z-index: 2;
-}
+/* ============================================================================
+   LYRIC VIEW + NOW-PLAYING CHROME
+   ----------------------------------------------------------------------------
+   Design tokens, the app shell and the hub screens live in styles/. This file
+   is the lyric stage itself: the depth-of-field type, the karaoke wipe, the
+   instrumental/count-in overlays, the now-playing bar and its inspector.
+   app/overlay.html links tokens.css + this file only.
+   ========================================================================== */
 
 #stage { position: relative; height: 100vh; width: 100vw; overflow: hidden; }
 .bg {
@@ -281,6 +224,16 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 }
 /* Mic auto-timing lock chip (top-right). Quiet status for listening → locked. */
 #stage[data-mode="setup"] #sync-lock { display: none; }
+/* Playback overlays live on #stage (not #viewport), so the viewport fade that
+   hides the lyrics in setup mode leaves them floating over the menu. They are
+   also above #setup (z-index 6), which is why a lingering ♪ / count-in covered
+   everything after "change song". JS clears them too (display.clearOverlays);
+   this is the backstop that keeps the menu clean regardless of state. */
+#stage[data-mode="setup"] :is(#instrumental-indicator, #count-in) { display: none; }
+/* The diagnostic HUDs are pinned to <body>, not #stage, so they need their own
+   rule — top-left is free of chrome while playing, but in setup it's exactly
+   where the panel's brand/title sits. They only describe live playback anyway. */
+body:has(#stage[data-mode="setup"]) :is(#live-sep-hud, #sync-hud) { display: none; }
 #sync-lock {
   position: absolute; top: 18px; right: 18px; z-index: 7;
   padding: 5px 11px; border-radius: 999px;
@@ -309,27 +262,51 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 }
 #instrumental-indicator {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(.9);
-  z-index: 7; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  z-index: 7; display: flex; flex-direction: column; align-items: center; gap: 10px;
   opacity: 0; transition: opacity .5s ease, transform .5s var(--ease); pointer-events: none;
 }
 /* Soft scrim so the note never fights a parked word behind it. */
 #instrumental-indicator::before {
   content: ""; position: absolute; left: 50%; top: 50%;
-  width: 340px; height: 340px; transform: translate(-50%, -50%);
+  width: 380px; height: 380px; transform: translate(-50%, -50%);
   border-radius: 50%; z-index: -1;
   background: radial-gradient(circle, rgba(11,9,8,.92) 0%, rgba(11,9,8,.7) 45%, transparent 72%);
 }
 #instrumental-indicator.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 #instrumental-indicator .instr-note {
-  font-size: clamp(40px, 7vw, 88px);
+  font-size: clamp(36px, 6vw, 72px);
   color: var(--gold-soft);
   text-shadow: 0 0 34px rgba(227,194,122,.32);
   animation: instr-pulse 1.8s ease-in-out infinite;
 }
+#instrumental-indicator .instr-secs {
+  font: 700 clamp(42px, 8vw, 96px)/.9 "SF Pro Display", system-ui, sans-serif;
+  color: rgba(246,240,228,.92); letter-spacing: -.04em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 40px rgba(227,194,122,.22);
+  min-height: .9em;
+}
 #instrumental-indicator .instr-next {
   font: 600 clamp(13px, 1.5vw, 18px)/1 "SF Pro Display", system-ui, sans-serif;
-  color: rgba(246,240,228,.6); letter-spacing: .02em; min-height: 1em;
-  font-variant-numeric: tabular-nums;
+  color: rgba(246,240,228,.55); letter-spacing: .04em; min-height: 1em;
+  text-transform: lowercase;
+}
+/* Countdown runway: fills across the gap so the wait is a shape you can time an
+   entrance against, not just a number. Hidden when the remaining time is
+   unknown (outro), where a bar would imply a certainty we don't have. */
+#instrumental-indicator .instr-track {
+  width: min(320px, 55vw); height: 6px; border-radius: 999px;
+  background: rgba(255,255,255,.12); overflow: hidden;
+  opacity: 0; transition: opacity .3s ease;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+}
+#instrumental-indicator.counting .instr-track { opacity: 1; }
+#instrumental-indicator.counting .instr-secs { opacity: 1; }
+#instrumental-indicator .instr-fill {
+  height: 100%; width: 0%; border-radius: inherit;
+  background: linear-gradient(90deg, rgba(227,194,122,.45), var(--gold));
+  box-shadow: 0 0 16px rgba(227,194,122,.45);
+  transition: width .18s linear;
 }
 @keyframes instr-pulse { 0%,100% { opacity: .55; transform: scale(1); } 50% { opacity: 1; transform: scale(1.08); } }
 /* Line count-in: runway fills before a phrase with a real gap; 3-2-1 in the last beats. */
@@ -372,414 +349,21 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   text-shadow: none;
 }
 
-/* ============================ SETUP SCREEN ============================ */
-#setup {
-  position: absolute; inset: 0; z-index: 6;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 16px; padding: 20px;
-  overflow: auto;
-  transition: opacity .45s ease, transform .6s var(--ease);
-}
-/* Cinematic push: the menu drifts slightly forward as the lyric view takes over. */
-#stage[data-mode="playing"] #setup { opacity: 0; transform: scale(1.02); pointer-events: none; }
-
-/* Sized for the couch: wider panel, and every label scales with the screen so a
-   projector at 3 m reads like a laptop at arm's length. */
-.setup-panel {
-  position: relative;
-  width: min(1020px, 94vw);
-  background: rgba(7, 12, 22, .76);
-  border: 1px solid rgba(255,255,255,.1);
-  border-radius: 28px;
-  padding: clamp(22px, 2.4vw, 40px) clamp(22px, 2.4vw, 40px) clamp(18px, 2vw, 32px);
-  backdrop-filter: blur(28px) saturate(1.15);
-  box-shadow: 0 30px 80px rgba(0,0,0,.55);
-  display: flex; flex-direction: column; gap: clamp(16px, 1.8vw, 26px);
-  animation: panel-in .7s var(--ease) both;
-}
-@keyframes panel-in {
-  from { opacity: 0; transform: translateY(16px) scale(.99); }
-}
-.setup-header {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
-}
-.brand { display: flex; align-items: center; gap: 14px; text-align: left; }
-.mark {
-  width: 44px; height: 44px; border-radius: 13px; flex: none;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 750; letter-spacing: -.06em;
-  color: var(--ice-soft); background: var(--bg);
-  border: 1px solid rgba(227,194,122,.46);
-  box-shadow: 0 0 24px rgba(227,194,122,.2), inset 0 0 18px rgba(227,194,122,.06);
-}
-.mark span { color: var(--ember); }
-.brand h1 { font-size: clamp(22px, 1.9vw, 32px); font-weight: 700; letter-spacing: -.02em; line-height: 1.15; }
-.brand-four { color: var(--ember); font-weight: 800; }
-.tagline { font-size: clamp(13px, 1vw, 17px); color: var(--muted); line-height: 1.4; margin-top: 2px; }
-
-.chip {
-  font: inherit; font-size: clamp(12.5px, .95vw, 16px); font-weight: 550; color: #171106;
-  background: var(--gold-soft); border: 0; border-radius: 999px;
-  padding: 8px 14px; white-space: nowrap;
-  transition: filter .2s ease, transform .12s ease;
-}
-.chip:hover { filter: brightness(1.06); }
-.chip:active { transform: scale(.97); }
-.chip.ghost {
-  color: var(--ink); background: rgba(255,255,255,.08);
-  border: 1px solid rgba(255,255,255,.1);
-}
-.chip.ghost:hover { background: rgba(255,255,255,.14); filter: none; }
-
-#search { position: relative; display: flex; flex-direction: column; gap: 0; }
-.search-row { display: flex; gap: 10px; align-items: stretch; }
-.search-fields { flex: 1; display: flex; gap: 8px; min-width: 0; }
-#search input {
-  font: inherit; font-size: clamp(15px, 1.2vw, 20px); color: var(--ink);
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius: 14px; padding: clamp(13px, 1.2vw, 18px) clamp(15px, 1.3vw, 20px); width: 100%;
-  transition: border-color .2s ease, background .2s ease;
-}
-#in-track { flex: 1.4; }
-#in-artist { flex: 1; }
-#search input::placeholder { color: rgba(246,240,228,.4); }
-#search input:hover { border-color: rgba(255,255,255,.22); }
-#search input:focus { border-color: var(--gold); background: rgba(255,255,255,.09); }
-#btn-load {
-  font: inherit; font-size: clamp(15px, 1.2vw, 20px); font-weight: 600; color: #171106; flex: none;
-  background: linear-gradient(135deg, var(--gold-soft), var(--gold));
-  border: 0; border-radius: 14px; padding: 0 clamp(22px, 2vw, 32px); min-width: 88px;
-  transition: transform .12s ease, filter .2s ease;
-}
-#btn-load:hover { filter: brightness(1.06); }
-#btn-load:active { transform: scale(.985); }
-#btn-load:disabled { filter: grayscale(.4) brightness(.8); cursor: default; }
-
-.suggestions {
-  position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 8;
-  background: rgba(14,11,9,.97);
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: 0 18px 50px rgba(0,0,0,.55);
-  max-height: 280px; overflow-y: auto;
-  animation: pop-in .18s var(--ease) both;
-  transform-origin: top center;
-}
-@keyframes pop-in {
-  from { opacity: 0; transform: translateY(-4px) scale(.995); }
-}
-.suggestion {
-  display: flex; align-items: center; gap: 12px; width: 100%;
-  padding: 10px 12px; text-align: left; border: 0; background: transparent;
-  color: var(--ink); font: inherit; cursor: pointer;
-  border-bottom: 1px solid rgba(255,255,255,.06);
-  transition: background .15s ease;
-}
-.suggestion:last-child { border-bottom: 0; }
-.suggestion:hover, .suggestion[aria-selected="true"] { background: rgba(255,255,255,.07); }
-.suggestion img {
-  width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex: none;
-  background: rgba(255,255,255,.08);
-}
-.suggestion .t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.suggestion .t b { font-size: clamp(13.5px, 1.05vw, 17px); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.suggestion .t span { font-size: clamp(12px, .9vw, 15px); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-#setup-status {
-  min-height: 16px; font-size: clamp(13px, 1vw, 16px); line-height: 1.4; text-align: left;
-  color: var(--muted); transition: color .2s ease;
-}
-#setup-status[data-type="error"] { color: var(--ember); }
-#setup-status[data-type="ok"] { color: #8fe0b0; }
-#setup-status[data-type="loading"] { color: var(--gold-soft); }
-#setup-status[data-type="loading"]::before {
-  content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 8px;
-  vertical-align: -1px; border-radius: 50%;
-  border: 2px solid rgba(227,194,122,.25); border-top-color: var(--ice);
-  animation: spin .7s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.busy {
-  position: absolute; inset: 0; z-index: 20;
-  display: grid; place-items: center;
-  background: rgba(11,9,8,.76);
-  backdrop-filter: blur(8px);
-  border-radius: 22px;
-  animation: busy-in .25s ease both;
-}
-@keyframes busy-in { from { opacity: 0; } }
-.busy[hidden] { display: none !important; }
-.busy-card {
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-  text-align: center; padding: 28px 32px; max-width: 280px;
-}
-/* On-brand loader: a little record spinning under a gold label. */
-.busy-vinyl {
-  position: relative; width: 48px; height: 48px; border-radius: 50%;
-  background: repeating-radial-gradient(circle at 50% 50%, #191411 0 2px, #0d0a08 2px 4px);
-  border: 1px solid rgba(246,240,228,.14);
-  animation: spin 1.6s linear infinite;
-}
-.busy-vinyl::before {
-  content: ""; position: absolute; inset: 31%; border-radius: 50%;
-  background: linear-gradient(135deg, var(--gold-soft), var(--gold));
-}
-.busy-vinyl::after {
-  content: ""; position: absolute; inset: 0; border-radius: 50%;
-  background: conic-gradient(from 0deg,
-    rgba(255,255,255,.14), transparent 50deg,
-    transparent 175deg, rgba(255,255,255,.07) 205deg, transparent 250deg);
-}
-.busy-vinyl i {
-  position: absolute; inset: 44%; border-radius: 50%;
-  background: var(--bg); z-index: 1;
-}
-.busy-card b { font-size: 15px; font-weight: 650; }
-.busy-card p { font-size: 13px; color: var(--muted); line-height: 1.4; }
-.sync-btn:disabled { opacity: .55; cursor: wait; }
-.sync-btn.busy-pulse { border-color: var(--gold); }
-
-.or-divider {
-  display: flex; align-items: center; gap: 12px;
-  margin: -2px 2px;
-  font-size: clamp(11px, .85vw, 14px); font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
-  color: rgba(246,240,228,.42);
-}
-.or-divider::before, .or-divider::after {
-  content: ""; flex: 1; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,.14), transparent);
-}
-
-.sync-strip {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-@media (min-width: 640px) {
-  .sync-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  /* Apple Music is optional. When it's shown there are five sources, so widen
-     the grid to five columns and keep them on a single row instead of leaving
-     the last button orphaned on its own line. */
-  .sync-strip:has(#btn-apple:not([hidden])) { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-}
-.sync-btn {
-  display: flex; align-items: center; gap: clamp(10px, 1vw, 14px);
-  text-align: left; font: inherit; color: var(--ink);
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.1);
-  border-radius: 16px; padding: clamp(11px, 1.1vw, 16px) clamp(12px, 1.2vw, 18px);
-  transition: background .25s ease, border-color .25s ease, transform .3s var(--ease), box-shadow .3s ease;
-}
-.sync-btn:hover {
-  background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.18);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 22px rgba(0,0,0,.28);
-}
-.sync-btn:active { transform: scale(.985); box-shadow: none; }
-.sync-btn.spotify { border-color: rgba(30, 215, 96, .35); }
-.sync-btn.spotify.connected {
-  background: rgba(30, 215, 96, .1);
-  border-color: rgba(30, 215, 96, .5);
-}
-.sync-icon {
-  width: clamp(28px, 2.4vw, 38px); height: clamp(28px, 2.4vw, 38px); border-radius: 9px; flex: none;
-  display: grid; place-items: center;
-  background: rgba(255,255,255,.08);
-  font-size: clamp(13px, 1.1vw, 17px); color: var(--gold-soft);
-}
-.sync-btn.spotify .sync-icon { color: #1ed760; background: rgba(30, 215, 96, .12); }
-.sync-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.sync-copy b { font-size: clamp(12.5px, 1.05vw, 17px); font-weight: 650; line-height: 1.15; }
-.sync-copy small {
-  font-size: clamp(11px, .9vw, 14px); color: var(--muted); line-height: 1.25;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-}
-
-.recs-section { display: flex; flex-direction: column; gap: 10px; }
-/* `display: flex` above beats the UA [hidden] rule, so hiding via the attribute
-   is a no-op without this — that's what left an empty "From Spotify" section. */
-.recs-section[hidden] { display: none !important; }
-.recs-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.recs-head h2 { font-size: clamp(13px, 1vw, 17px); font-weight: 650; letter-spacing: .02em; text-transform: uppercase; color: rgba(246,240,228,.7); }
-.recs-sub { font-size: clamp(12px, .9vw, 15px); color: rgba(255,255,255,.35); }
-
-/* TV shelf: one horizontal row of poster cards, remote-scrollable. The row
-   scrolls sideways (snap per card) instead of wrapping into a dense grid —
-   the Apple TV pattern, readable from the couch. */
-.recs-grid {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: clamp(128px, 11vw, 200px);
-  gap: clamp(10px, 1vw, 16px);
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x proximity;
-  /* Breathing room so the focused card's lift + ring aren't clipped by the scroll box. */
-  padding: 8px 4px 10px;
-  scrollbar-width: none;
-}
-.recs-grid::-webkit-scrollbar { display: none; }
-.recs-empty { font-size: clamp(13px, 1vw, 16px); color: var(--muted); padding: 8px 2px; }
-.rec {
-  display: flex; flex-direction: column; align-items: stretch; gap: 8px;
-  width: 100%; text-align: left; font: inherit; color: var(--ink);
-  background: rgba(255,255,255,.035);
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: 14px; padding: 8px 8px 10px;
-  cursor: pointer;
-  scroll-snap-align: start;
-  transition: background .25s ease, border-color .25s ease, transform .3s var(--ease), box-shadow .3s ease;
-}
-.rec:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.16); transform: translateY(-2px); }
-.rec:active { transform: scale(.98); }
-.rec img, .rec .sync-icon {
-  width: 100%; height: auto; aspect-ratio: 1; border-radius: 10px; object-fit: cover; flex: none;
-  background: linear-gradient(135deg, #3a2c17, #6e5528 55%, var(--ember));
-}
-.rec .sync-icon { display: grid; place-items: center; font-size: 28px; color: rgba(246,240,228,.7); }
-.rec .meta { min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 0 2px; }
-.rec .meta b {
-  font-size: clamp(12.5px, 1vw, 16px); font-weight: 600; line-height: 1.25;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-}
-.rec .meta span { font-size: clamp(11.5px, .85vw, 14px); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* Keyboard hint footer: real key caps, readable at a glance. */
-.hint {
-  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px;
-  font-size: clamp(12px, .9vw, 15px); letter-spacing: .2px;
-  color: rgba(255,255,255,.38);
-}
-.hint span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-.hint kbd {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 20px; padding: 2px 6px;
-  font: 600 11px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: rgba(246,240,228,.72);
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.14);
-  border-bottom-width: 2px;
-  border-radius: 5px;
-}
-@media (max-width: 700px) { .hint-playing { display: none; } }
-
-/* ============================ MENU POLISH ============================ */
-/* Boot splash: the brand mark breathes while the app loads, then hands off
-   to the setup panel's staggered entrance. Removed from the DOM on load. */
-#splash {
-  position: fixed; inset: 0; z-index: 100;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
-  background: var(--bg);
-  transition: opacity .5s ease, visibility .5s;
-}
-#splash.done { opacity: 0; visibility: hidden; pointer-events: none; }
-.splash-mark {
-  width: 76px; height: 76px; border-radius: 22px;
-  display: flex; align-items: center; justify-content: center;
-  font: 750 22px/1 -apple-system, "SF Pro Display", system-ui, sans-serif; letter-spacing: -.06em;
-  color: var(--gold-soft); background: var(--bg);
-  border: 1px solid rgba(227,194,122,.5);
-  box-shadow: 0 0 44px rgba(227,194,122,.22), inset 0 0 26px rgba(227,194,122,.07);
-  animation: splash-breathe 1.6s var(--ease) infinite;
-}
-.splash-mark span { color: var(--ember); }
-.splash-word {
-  font: 650 17px/1 -apple-system, "SF Pro Display", system-ui, sans-serif; letter-spacing: .01em;
-  color: rgba(246,240,228,.5);
-  animation: splash-fade 1.6s ease infinite;
-}
-.splash-word b { color: var(--ember); font-weight: 750; }
-@keyframes splash-breathe {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 34px rgba(227,194,122,.16), inset 0 0 22px rgba(227,194,122,.05); }
-  50% { transform: scale(1.045); box-shadow: 0 0 54px rgba(227,194,122,.3), inset 0 0 30px rgba(227,194,122,.1); }
-}
-@keyframes splash-fade { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
-
-/* Staggered entrance: panel sections rise in one after another. */
-.setup-panel > * { animation: rise-in .5s var(--ease) both; }
-.setup-panel > *:nth-child(1) { animation-delay: .08s; }
-.setup-panel > *:nth-child(2) { animation-delay: .16s; }
-.setup-panel > *:nth-child(3) { animation-delay: .22s; }
-.setup-panel > *:nth-child(5) { animation-delay: .28s; }
-.setup-panel > *:nth-child(6) { animation-delay: .34s; }
-.setup-panel > *:nth-child(7) { animation-delay: .42s; }
-.setup-panel > *:nth-child(8) { animation-delay: .48s; }
-@keyframes rise-in {
-  from { opacity: 0; transform: translateY(10px); }
-}
-/* The busy overlay must never inherit the entrance delay. */
-.setup-panel > .busy { animation: busy-in .25s ease both; }
-/* Lit from above: a hairline gold edge along the panel top. */
-.setup-panel::before {
-  content: ""; position: absolute; top: 0; left: 24px; right: 24px; height: 1px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, transparent, rgba(227,194,122,.35), transparent);
-}
-
-/* Search field: a quiet magnifier so the primary action reads instantly.
-   (#search input sets background/padding shorthands at higher specificity,
-   so this selector must out-rank it.) */
-#search input#in-track {
-  padding-left: clamp(42px, 3.4vw, 52px);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23e3c27a' stroke-opacity='.55' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.8-3.8'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: clamp(15px, 1.3vw, 20px) center;
-}
-
-/* Source buttons: each input gets its own quiet accent so the row scans fast. */
-#btn-listen .sync-icon { color: #d9a06b; background: rgba(217,160,107,.12); }
-#btn-lyrics .sync-icon { color: rgba(246,240,228,.85); background: rgba(246,240,228,.08); }
-#btn-apple .sync-icon { color: #fa586a; background: rgba(250,88,106,.12); }
-
-/* Skeleton cards: shimmer placeholders while recommendations load. */
-.rec.skeleton { pointer-events: none; }
-.sk-art {
-  width: 100%; aspect-ratio: 1; border-radius: 10px;
-  background: rgba(246,240,228,.05);
-}
-.sk-line {
-  height: 11px; border-radius: 6px; margin-top: 6px;
-  background: rgba(246,240,228,.07);
-}
-.sk-line.sk-short { width: 60%; }
-.sk-art, .sk-line {
-  position: relative; overflow: hidden;
-}
-.sk-art::after, .sk-line::after {
-  content: ""; position: absolute; inset: 0;
-  transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(246,240,228,.06), transparent);
-  animation: shimmer 1.4s ease infinite;
-}
-@keyframes shimmer { to { transform: translateX(100%); } }
-.visually-hidden {
-  position: absolute; width: 1px; height: 1px; margin: -1px;
-  clip-path: inset(50%); overflow: hidden; white-space: nowrap;
-}
-
-@media (max-width: 560px) {
-  .search-fields { flex-direction: column; }
-  /* Stack the Load button under the fields — stretched beside two stacked
-     inputs it becomes a giant block. */
-  .search-row { flex-direction: column; }
-  #btn-load { width: 100%; padding: 14px 0; }
-  .suggestions { right: 0; }
-  .setup-panel { padding: 20px 16px 16px; }
-}
-
-/* ============================ NOW-PLAYING BAR ============================ */
+/* ============================ NOW-PLAYING BAR ============================
+   Deliberately a SINGLE row. The bar previously carried nine controls and wrapped
+   onto two rows over the lyrics; everything that isn't identity, transport or
+   sync health now lives in #inspector behind the ⋯ button. `nowrap` is load-
+   bearing — it's what makes a new button here an obvious mistake rather than a
+   silent second row. */
 #nowbar {
-  position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 5;
-  display: none; align-items: center; gap: 8px 10px;
-  flex-wrap: wrap; justify-content: center;
-  max-width: min(820px, 94vw);
-  padding: 10px 12px 10px 12px;
+  position: absolute; left: 50%; bottom: var(--space-5); transform: translateX(-50%); z-index: 5;
+  display: none; align-items: center; gap: var(--space-2);
+  flex-wrap: nowrap;
+  max-width: min(760px, 94vw);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-2);
   background: rgba(14,11,9,.68);
-  border: 1px solid rgba(255,255,255,.1);
-  border-radius: 16px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-lg);
   backdrop-filter: blur(20px) saturate(1.2);
   box-shadow: 0 16px 50px rgba(0,0,0,.45);
   transition: opacity .4s ease, transform .4s ease;
@@ -810,10 +394,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 }
 #stage[data-mode="setup"] #hotkeys { display: none; }
 #stage.focus-mode #hotkeys:not(.hide) { opacity: .85; }
-/* The sync panel opens in the same corner — the hotkey card yields to it. */
-#stage:has(#sync-panel:not([hidden])) #hotkeys { opacity: 0; pointer-events: none; }
-/* Below desktop widths the card would overlap the (wrapped) nowbar — and small
-   screens are touch-first anyway, so the keyboard guide steps aside. */
+/* The inspector opens in the same corner — the hotkey card yields to it. */
+#stage:has(#inspector:not([hidden])) #hotkeys { opacity: 0; pointer-events: none; }
+/* Below desktop widths the card would overlap the nowbar — and small screens are
+   touch-first anyway, so the keyboard guide steps aside. */
 @media (max-width: 1100px) { #hotkeys { display: none; } }
 .hk-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -933,143 +517,123 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 #nowbar button.transport:hover { background: rgba(255,255,255,.16); filter: none; }
 #nowbar button.transport[hidden] { display: none; }
 
-/* ---- sync source panel (how the aligner listens) ---- */
-#sync-panel {
-  position: absolute; right: 18px; bottom: 84px; z-index: 8;
+/* ---- now-playing inspector (the ⋯ panel) ----
+   Everything per-song that used to crowd the now-bar. Global preferences do NOT
+   belong here — they live on the Settings screen, which is reachable without a
+   song playing. */
+#inspector {
+  position: absolute; right: var(--space-4); bottom: calc(var(--space-5) + var(--control-h) + var(--space-3));
+  z-index: 8;
 }
-#sync-panel[hidden] { display: none; }
-.sync-panel-card {
+#inspector[hidden] { display: none; }
+.inspector-card {
   position: relative;
-  display: flex; flex-direction: column; gap: 10px;
-  width: min(340px, 86vw); padding: 18px 20px; border-radius: 16px;
-  background: rgba(11,9,8,.92); border: 1px solid rgba(255,255,255,.12);
-  backdrop-filter: blur(12px); box-shadow: 0 14px 40px rgba(0,0,0,.5);
-  font-size: 13px;
+  display: flex; flex-direction: column; gap: var(--space-3);
+  width: min(320px, 86vw); padding: var(--space-4) var(--space-4) var(--space-3);
+  border-radius: var(--r-lg);
+  background: rgba(11,9,8,.94); border: 1px solid var(--line-2);
+  backdrop-filter: blur(12px); box-shadow: var(--shadow-2);
+  font-size: var(--fs-sm);
   /* Never taller than the screen — scroll inside instead of clipping controls. */
-  max-height: calc(100vh - 130px); overflow-y: auto;
+  max-height: calc(100vh - 160px); overflow-y: auto;
   animation: panel-pop .26s var(--ease) both;
   transform-origin: bottom right;
 }
 @keyframes panel-pop {
   from { opacity: 0; transform: translateY(10px) scale(.985); }
 }
+.insp-section { display: flex; flex-direction: column; gap: var(--space-2); }
+.insp-section > b { font-size: var(--fs-sm); font-weight: 650; color: var(--text-1); }
+.insp-hint { margin: 0; color: var(--text-2); font-size: var(--fs-xs); line-height: 1.45; }
+.insp-divider { height: 1px; background: var(--line-1); }
+.insp-actions { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.insp-btn {
+  flex: 1 1 auto; min-width: 68px;
+  padding: 8px 10px;
+  font-size: var(--fs-xs); font-weight: 600; color: var(--text-1);
+  background: var(--surface-2); border: 1px solid var(--line-1);
+  border-radius: var(--r-sm);
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease,
+              border-color var(--dur-fast) ease;
+}
+.insp-btn:hover { background: var(--surface-3); }
+.insp-btn[hidden] { display: none; }
+.insp-btn[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.insp-link {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  width: 100%; padding: 9px 10px;
+  font-size: var(--fs-sm); color: var(--text-1);
+  background: var(--surface-1); border: 1px solid var(--line-1);
+  border-radius: var(--r-sm);
+  transition: background var(--dur-fast) ease;
+}
+.insp-link:hover { background: var(--surface-2); }
+.insp-link::after { content: "›"; color: var(--text-3); font-size: 1.2em; line-height: 0; }
+.insp-link-value { color: var(--text-2); font-size: var(--fs-xs); margin-left: auto; }
 
 /* Close (×) for dismissible popups */
 .panel-close {
   position: absolute; top: 8px; right: 10px;
   width: 26px; height: 26px; padding: 0;
   display: flex; align-items: center; justify-content: center;
-  font: inherit; font-size: 16px; line-height: 1; color: var(--muted);
-  background: rgba(255,255,255,.07); border: 0; border-radius: 50%;
-  pointer-events: auto; transition: background .15s ease, color .15s ease;
+  font-size: 16px; line-height: 1; color: var(--text-2);
+  background: var(--surface-2); border: 0; border-radius: 50%;
+  pointer-events: auto; transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
+  z-index: 1;
 }
-.panel-close:hover { background: rgba(255,255,255,.16); color: var(--ink); }
+.panel-close:hover { background: var(--surface-3); color: var(--text-1); }
 .listen-card { position: relative; }
-.sync-panel-card b { font-size: 14.5px; }
-.sync-panel-hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
-.sync-panel-card label { display: flex; align-items: center; gap: 10px; }
-.sync-panel-card label span { color: var(--muted); font-size: 12px; min-width: 52px; }
-.sync-panel-card select {
-  flex: 1; min-width: 0;
-  background: rgba(255,255,255,.06); color: var(--ink);
-  border: 1px solid rgba(255,255,255,.14); border-radius: 8px;
-  padding: 6px 8px; font-size: 12.5px;
+
+/* ---- timing dial (shared by the inspector and the Settings screen) ---- */
+.timing-dial { display: flex; align-items: center; gap: var(--space-1); flex: none; }
+.timing-dial button {
+  flex: none; min-width: 44px; padding: 7px 8px;
+  font-size: var(--fs-xs); font-weight: 600; color: var(--text-1);
+  background: var(--surface-2); border: 1px solid var(--line-1);
+  border-radius: var(--r-sm);
+  transition: background var(--dur-fast) ease;
 }
-.sync-panel-card label[hidden] { display: none; }
-.sync-panel-status { min-height: 15px; color: var(--muted); font-size: 12px; }
-.sync-panel-status.ok { color: #6df06d; }
-/* Digital-tap setup helper — only shown when a tap exists but isn't carrying audio. */
+.timing-dial button:hover { background: var(--surface-3); }
+#timing-readout, #insp-timing-readout {
+  min-width: 76px; text-align: center;
+  font-size: var(--fs-sm); font-weight: 600;
+  font-variant-numeric: tabular-nums; color: var(--accent-soft);
+}
+#insp-timing-readout { flex: 1; }
+.timing-reset { color: var(--text-2); }
+.timing-reset:hover { color: var(--text-1); }
+
+/* ---- digital-tap setup helper (Settings ▸ Audio & sync) ---- */
 .tap-help {
-  border: 1px solid rgba(227,194,122,.28);
-  background: rgba(227,194,122,.06);
-  border-radius: 12px; padding: 12px 14px;
-  display: flex; flex-direction: column; gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-radius: var(--r-md); padding: var(--space-3) var(--space-4);
+  display: flex; flex-direction: column; gap: var(--space-2);
 }
 .tap-help[hidden] { display: none; }
-.tap-help b { font-size: 13px; color: var(--gold-soft); }
-.tap-help p { margin: 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.tap-help b { font-size: var(--fs-sm); color: var(--accent-soft); }
+.tap-help p { margin: 0; font-size: var(--fs-xs); line-height: 1.45; color: var(--text-2); }
 .tap-help ol {
   margin: 0; padding-left: 18px;
   display: flex; flex-direction: column; gap: 4px;
-  font-size: 12px; line-height: 1.4; color: var(--ink);
+  font-size: var(--fs-xs); line-height: 1.4; color: var(--text-1);
 }
-.tap-help ol b { font-size: inherit; color: var(--ink); font-weight: 650; }
-.tap-help .tap-note {
-  font-size: 11.5px; color: rgba(255,196,110,.9);
-}
+.tap-help ol b { font-size: inherit; color: var(--text-1); font-weight: 650; }
+.tap-help .tap-note { color: var(--warn); }
 .tap-retry {
   align-self: flex-start;
-  font: inherit; font-size: 12px; font-weight: 600; color: #171106;
-  background: linear-gradient(135deg, var(--gold-soft), var(--gold));
-  border: 0; border-radius: 8px; padding: 7px 12px; cursor: pointer;
-  transition: filter .2s ease, transform .12s ease;
+  font-size: var(--fs-xs); font-weight: 600; color: var(--accent-ink);
+  background: linear-gradient(135deg, var(--accent-soft), var(--accent));
+  border: 0; border-radius: var(--r-sm); padding: 7px 12px;
+  transition: filter var(--dur) ease, transform var(--dur-fast) ease;
 }
 .tap-retry:hover { filter: brightness(1.06); }
 .tap-retry:active { transform: scale(.97); }
 .tap-retry:disabled { filter: grayscale(.5) brightness(.8); cursor: default; }
-
-.sync-panel-divider {
-  height: 1px; margin: 4px 0;
-  background: rgba(255,255,255,.1);
-}
-.timing-dial {
-  display: flex; align-items: center; gap: 6px;
-}
-/* Label on one line, hint beneath it — inline hints wrapped into the label and
-   read as one cramped run-on sentence. */
-.auto-timing-row {
-  display: flex; align-items: flex-start; gap: 8px; cursor: pointer;
-  font-size: 12.5px; color: var(--ink);
-}
-.auto-timing-row input {
-  width: 15px; height: 15px; flex: none; margin-top: 1px;
-  accent-color: var(--gold, #e9c46a);
-}
-.auto-timing-row > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.auto-timing-row small { color: var(--muted); font-size: 11.5px; margin-left: 0; line-height: 1.35; }
-.timing-dial button {
-  flex: none; min-width: 44px; padding: 7px 8px;
-  font: inherit; font-size: 12px; font-weight: 600; color: var(--ink);
-  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
-  border-radius: 8px; cursor: pointer;
-}
-.timing-dial button:hover { background: rgba(255,255,255,.14); }
-#timing-readout {
-  flex: 1; text-align: center; font-size: 13px; font-weight: 600;
-  font-variant-numeric: tabular-nums; color: var(--gold-soft, var(--gold));
-}
-.timing-reset {
-  font: inherit; font-size: 12px; color: var(--muted);
-  background: transparent; border: 0; padding: 4px 0; cursor: pointer; text-align: left;
-}
-.singer-lead-row {
-  display: flex; flex-direction: column; gap: 6px; margin-top: 2px;
-}
-.singer-lead-row .singer-lead-head {
-  display: flex; align-items: center; justify-content: space-between;
-  font-size: 12px; color: var(--ink);
-}
-.singer-lead-row .singer-lead-head small { color: var(--muted); font-variant-numeric: tabular-nums; }
-.singer-lead-row input[type="range"] {
-  width: 100%; accent-color: var(--ice);
-  cursor: pointer;
-}
-.practice-row { margin-top: 2px; }
-.practice-row[hidden] { display: none; }
-#btn-recal,
-#btn-recal-early {
-  font-size: 12px; font-weight: 600;
-}
-#btn-practice {
-  min-width: 52px;
-}
-#btn-practice[aria-pressed="true"],
-#btn-focus[aria-pressed="true"] {
-  color: var(--ice);
-  border-color: rgba(227,194,122,.35);
-  background: rgba(227,194,122,.1);
-}
-.timing-reset:hover { color: var(--ink); }
 
 /* ---- live listening (vinyl) feedback ---- */
 #listen-panel {
@@ -1126,16 +690,14 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   padding: 5px 8px; font-size: 12px; max-width: 260px;
 }
 
+/* tokens.css already zeroes every animation and transition under this query.
+   What's left here is the handful of effects that must be switched OFF rather
+   than sped up — a 0.01ms spinner still spins, and the karaoke wipe still needs
+   a legible static fallback. */
 @media (prefers-reduced-motion: reduce) {
-  .line, .word, #lyrics, #setup, #viewport, #nowbar, #hotkeys, .rec, .sync-btn, .chip { transition-duration: .01ms !important; }
-  .setup-panel, #stage[data-mode="playing"] #nowbar, .setup-panel > *,
-  .suggestions, .sync-panel-card, .listen-card, .busy, #live-sep-hud { animation-duration: .01ms !important; }
-  .splash-mark, .splash-word { animation: none; }
-  #splash { transition-duration: .01ms; }
-  .sk-art::after, .sk-line::after { animation: none; }
-  .busy-vinyl { animation: none; }
+  .splash-mark, .splash-word, .busy-vinyl, .listen-pulse,
+  .sk-art::after, .sk-line::after,
   #setup-status[data-type="loading"]::before { animation: none; }
-  .listen-pulse { animation: none; }
   .line.active .word.current {
     transform: none;
     filter: none;

@@ -1,13 +1,12 @@
-// Vocal separation (Electron main process) — MDX-Net via onnxruntime-node.
+// Vocal separation bridge — MDX-Net via onnxruntime-node in a child process.
 //
 // Isolates the vocal stem from a stereo mix BEFORE forced alignment. CTC phoneme
 // probabilities collapse when instruments mask the voice, so aligning on the
 // isolated vocal sharply improves word timing (and makes onset-snapping safe).
 //
-// The transform math lives in ../lib/stft.mjs and ../lib/mdx.mjs (pure + unit-
-// tested). This file owns the model: load/cache/warm, chunked inference with
-// overlap-add, and a soft-fail contract — every failure returns null so the
-// caller falls back to aligning the raw mix (nothing regresses).
+// Inference runs in `separate-worker.cjs` (plain Node via ELECTRON_RUN_AS_NODE).
+// A native ORT abort used to SIGTRAP Electron's main process; the worker dying
+// now soft-fails to null so the caller aligns the raw mix instead.
 //
 // Config (env, since MDX models differ):
 //   SEPARATE_MODEL_PATH  local .onnx path (takes precedence)
@@ -19,25 +18,17 @@
 const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs');
-
-// lib/mdx.mjs is ESM; Electron's Node can't require() it, so import lazily
-// (mirrors align.cjs). Pure transform math (STFT/iSTFT + tensor packing).
-let _mdxP = null;
-function mdx() {
-  if (!_mdxP) _mdxP = import('../lib/mdx.mjs');
-  return _mdxP;
-}
+const { fork } = require('node:child_process');
 
 const MODEL_RATE = 44100;
-// Defaults for a typical MDX-Net vocal model (e.g. UVR MDX-NET / Kim Vocal).
-// dimT is the frame count per chunk; chunk length = (dimT-1)*hop samples.
 const DEFAULT_PARAMS = { nFft: 6144, hop: 1024, dimF: 3072, dimT: 256, compensation: 1.0 };
-const OVERLAP = 0.25; // fraction of a chunk shared with the next, cross-faded
-
 const CACHE_DIR = path.join(os.homedir(), '.cache', 'bar4bar-transformers', 'separate');
+const WORKER_PATH = path.join(__dirname, 'separate-worker.cjs');
 
-let _ort = null;
-let _sessionP = null;
+let _worker = null;
+let _workerReady = null;
+let _nextId = 1;
+let _pending = new Map();
 let _failed = false;
 let _failedReason = null;
 
@@ -95,73 +86,109 @@ function separateReady() {
   return !!localModelPath();
 }
 
-async function ort() {
-  if (!_ort) _ort = require('onnxruntime-node');
-  return _ort;
+function rejectAllPending(err) {
+  for (const [, { reject }] of _pending) reject(err);
+  _pending.clear();
 }
 
-async function downloadIfNeeded() {
-  const local =
-    process.env.SEPARATE_MODEL_PATH && fs.existsSync(process.env.SEPARATE_MODEL_PATH)
-      ? process.env.SEPARATE_MODEL_PATH
-      : null;
-  if (local) return local;
-  if (!process.env.SEPARATE_MODEL_URL) throw new Error('no separation model configured');
-  const url = process.env.SEPARATE_MODEL_URL;
-  const name = path.basename(new URL(url).pathname) || 'mdx.onnx';
-  const dest = path.join(CACHE_DIR, name);
-  if (fs.existsSync(dest)) return dest;
-  fs.mkdirSync(CACHE_DIR, { recursive: true });
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`model download failed: ${res.status}`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  fs.writeFileSync(dest, buf);
-  return dest;
+function markWorkerDead(reason) {
+  _worker = null;
+  _workerReady = null;
+  _failed = true;
+  _failedReason = reason;
+  rejectAllPending(new Error(reason));
 }
 
-async function getSession() {
-  if (_failed) throw new Error(_failedReason || 'separation unavailable');
-  if (_sessionP) return _sessionP;
-  _sessionP = (async () => {
-    const rt = await ort();
-    const modelPath = await downloadIfNeeded();
-    const session = await rt.InferenceSession.create(modelPath);
-    return { session, inputName: session.inputNames[0], outputName: session.outputNames[0] };
-  })().catch((e) => {
-    _sessionP = null;
-    _failed = true;
-    _failedReason = e.message || String(e);
-    throw e;
+function ensureWorker() {
+  if (_failed) return Promise.reject(new Error(_failedReason || 'separation unavailable'));
+  if (_workerReady) return _workerReady;
+
+  _workerReady = new Promise((resolve, reject) => {
+    let settled = false;
+    const child = fork(WORKER_PATH, [], {
+      // Critical: run as plain Node so we don't spawn another Electron, and so a
+      // native ORT crash stays inside this child.
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+      stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+      // Preserve Float32Array payloads (JSON serialization turns them into {}).
+      serialization: 'advanced',
+    });
+    _worker = child;
+
+    const onReady = (msg) => {
+      if (msg && msg.cmd === 'ready' && !settled) {
+        settled = true;
+        child.off('message', onReady);
+        resolve(child);
+      }
+    };
+    child.on('message', onReady);
+    child.on('message', (msg) => {
+      if (!msg || typeof msg.id !== 'number') return;
+      const pending = _pending.get(msg.id);
+      if (!pending) return;
+      _pending.delete(msg.id);
+      if (msg.ok) pending.resolve(msg);
+      else pending.reject(new Error(msg.error || 'separation worker error'));
+    });
+    child.on('exit', (code, signal) => {
+      if (_worker !== child) return;
+      const reason = signal
+        ? `separation worker aborted (${signal})`
+        : `separation worker exited (${code})`;
+      // Unexpected death during/after work — disable for this session so we don't
+      // crash-loop. A clean exit after the parent killed it also lands here.
+      if (!settled) {
+        settled = true;
+        reject(new Error(reason));
+      }
+      markWorkerDead(reason);
+    });
+    child.on('error', (err) => {
+      if (_worker !== child) return;
+      if (!settled) {
+        settled = true;
+        reject(err);
+      }
+      markWorkerDead(err.message || String(err));
+    });
+    child.stderr?.on('data', (buf) => {
+      const line = String(buf).trim();
+      if (line) console.warn('[separate-worker]', line);
+    });
   });
-  return _sessionP;
+
+  return _workerReady;
+}
+
+function callWorker(cmd, payload) {
+  return ensureWorker().then(
+    (child) =>
+      new Promise((resolve, reject) => {
+        const id = _nextId++;
+        _pending.set(id, {
+          resolve: (msg) => resolve(msg),
+          reject,
+        });
+        try {
+          child.send({ id, cmd, payload });
+        } catch (err) {
+          _pending.delete(id);
+          reject(err);
+        }
+      })
+  );
 }
 
 /** Kick off model download/load in the background. Returns true on success. */
 async function separateWarm() {
   if (!separateAvailable()) return false;
   try {
-    await getSession();
+    await callWorker('warm');
     return true;
   } catch {
     return false;
   }
-}
-
-/** Linear resample a planar channel to MODEL_RATE. */
-function resample(chan, fromRate) {
-  if (fromRate === MODEL_RATE) return Float64Array.from(chan);
-  const ratio = fromRate / MODEL_RATE;
-  const outLen = Math.max(1, Math.floor(chan.length / ratio));
-  const out = new Float64Array(outLen);
-  for (let i = 0; i < outLen; i++) {
-    const pos = i * ratio;
-    const j = Math.floor(pos);
-    const f = pos - j;
-    const a = chan[j] ?? 0;
-    const b = chan[j + 1] ?? a;
-    out[i] = a + f * (b - a);
-  }
-  return out;
 }
 
 /**
@@ -178,65 +205,31 @@ async function separateVocals(payload, { throwOnError = false } = {}) {
     return null;
   }
 
-  let bundle;
   try {
-    bundle = await getSession();
+    const toF32 = (b) => {
+      if (b instanceof Float32Array) return b;
+      if (b instanceof ArrayBuffer) return new Float32Array(b);
+      if (ArrayBuffer.isView(b)) return new Float32Array(b.buffer, b.byteOffset, b.byteLength / 4);
+      return new Float32Array(b);
+    };
+    const left = toF32(payload.left);
+    const right = payload.right ? toF32(payload.right) : undefined;
+    const msg = await callWorker('run', {
+      left,
+      right,
+      sampleRate: payload.sampleRate || MODEL_RATE,
+    });
+    const result = msg.result;
+    if (!result?.left) return null;
+    return {
+      left: result.left instanceof Float32Array ? result.left : new Float32Array(result.left),
+      right: result.right instanceof Float32Array ? result.right : new Float32Array(result.right),
+      sampleRate: result.sampleRate || MODEL_RATE,
+    };
   } catch (err) {
     if (throwOnError) throw err;
     return null;
   }
-
-  const rt = await ort();
-  const { mixToNet, netToMix, mdxChunkSamples } = await mdx();
-  const p = params();
-  const chunk = mdxChunkSamples(p);
-  const hopSamples = Math.max(1, Math.round(chunk * (1 - OVERLAP)));
-  const sr = payload.sampleRate || MODEL_RATE;
-
-  const toF64 = (b) => (b instanceof Float32Array ? b : new Float32Array(b));
-  const L = resample(toF64(payload.left), sr);
-  const R = payload.right ? resample(toF64(payload.right), sr) : L;
-  const total = Math.max(L.length, R.length);
-
-  const outL = new Float64Array(total);
-  const outR = new Float64Array(total);
-  const norm = new Float64Array(total);
-  // Triangular cross-fade weight across a chunk (tapers the overlapped seams).
-  const fade = new Float64Array(chunk);
-  for (let i = 0; i < chunk; i++) fade[i] = 1 - Math.abs((2 * i) / (chunk - 1) - 1);
-
-  try {
-    for (let start = 0; start < total; start += hopSamples) {
-      const segL = new Float64Array(chunk);
-      const segR = new Float64Array(chunk);
-      for (let i = 0; i < chunk; i++) {
-        segL[i] = L[start + i] ?? 0;
-        segR[i] = R[start + i] ?? 0;
-      }
-      const input = mixToNet([segL, segR], p);
-      const tensor = new rt.Tensor('float32', input, [1, 4, p.dimF, p.dimT]);
-      const result = await bundle.session.run({ [bundle.inputName]: tensor });
-      const out = result[bundle.outputName].data; // Float32Array [1,4,dimF,dimT]
-      const [vl, vr] = netToMix(out, { ...p, length: chunk });
-      const comp = p.compensation || 1;
-      for (let i = 0; i < chunk && start + i < total; i++) {
-        outL[start + i] += vl[i] * comp * fade[i];
-        outR[start + i] += vr[i] * comp * fade[i];
-        norm[start + i] += fade[i];
-      }
-      if (start + chunk >= total) break;
-    }
-  } catch (e) {
-    if (throwOnError) throw e;
-    return null; // any inference failure → fall back to the raw mix
-  }
-
-  for (let i = 0; i < total; i++) {
-    const w = norm[i] > 1e-6 ? norm[i] : 1;
-    outL[i] /= w;
-    outR[i] /= w;
-  }
-  return { left: Float32Array.from(outL), right: Float32Array.from(outR), sampleRate: MODEL_RATE };
 }
 
 /** Diagnostic status (used by the validation script to surface load failures). */
@@ -248,6 +241,7 @@ function separateStatus() {
     failed: _failed,
     reason: _failedReason,
     params: params(),
+    worker: !!_worker,
   };
 }
 

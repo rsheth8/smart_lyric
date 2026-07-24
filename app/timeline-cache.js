@@ -2,8 +2,8 @@
 // Keys prefer a stable provider id (Spotify track id); otherwise artist|track|duration.
 // localStorage is fine for compact word spans (DOM refs are stripped on write).
 
-const STORAGE_KEY = 'bar4bar.alignCache.v1';
-const ALIGN_VERSION = 1; // bump when aligner semantics change
+const STORAGE_KEY = 'bar4bar.alignCache.v2';
+const ALIGN_VERSION = 2; // bump when aligner semantics change (v2: full-song only)
 const MAX_ENTRIES = 80;
 
 /** @typedef {{ artist?: string, track?: string, album?: string, duration?: number, id?: string, spotifyId?: string, source?: string, format?: string }} TrackMeta */

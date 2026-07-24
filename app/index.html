@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bar4Bar</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles/tokens.css" />
+  <link rel="stylesheet" href="styles/shell.css" />
+  <link rel="stylesheet" href="styles/screens.css" />
   <link rel="stylesheet" href="styles.css" />
   <script src="config.js"></script>
   <script src="https://js-cdn.music.apple.com/musickit/v3/musickit.js"></script>
@@ -26,11 +29,373 @@
       }, 250);
     });
   </script>
-  <div id="stage" data-mode="setup">
+
+  <!-- Window chrome. Only rendered under Electron (body.is-electron); it
+       reserves space for the traffic lights and gives the frameless window
+       something to drag by. -->
+  <div id="titlebar">
+    <button class="tb-back" type="button" id="tb-back">Back</button>
+    <span class="tb-title">Bar4Bar</span>
+  </div>
+
+  <div id="stage" data-mode="setup" data-screen="home" data-nav="push">
     <canvas class="bg" id="bg"></canvas>
     <div class="vignette"></div>
 
     <div id="viewport"><div id="lyrics" aria-live="off"></div></div>
+
+    <!-- ===================== SCREEN STACK ===================== -->
+    <div id="screens">
+
+      <!-- ---------------------------- HOME / HUB ---------------------------- -->
+      <section class="screen" data-screen-panel="home" aria-label="Home">
+        <div class="screen-inner">
+          <header class="hub-header">
+            <div class="brand">
+              <div class="mark" aria-hidden="true">B<span>4</span>B</div>
+              <div>
+                <h1>Bar<span class="brand-four">4</span>Bar</h1>
+                <p class="tagline">Every bar. Every word. In sync.</p>
+              </div>
+            </div>
+            <div class="hub-actions">
+              <button id="btn-projector" class="chip ghost" type="button" title="Projector / OBS">Projector</button>
+              <button class="chip ghost" type="button" data-go="settings" title="Settings">Settings</button>
+            </div>
+          </header>
+
+          <form id="search" autocomplete="off">
+            <div class="hub-search">
+              <div class="field" data-icon="search">
+                <input id="in-track" type="text" placeholder="Search songs…" aria-label="Song title"
+                  data-autofocus autocorrect="off" spellcheck="false" />
+              </div>
+              <button id="btn-load" class="btn-primary" type="submit">Load</button>
+            </div>
+          </form>
+
+          <div id="setup-status" role="status"></div>
+
+          <section class="row" id="row-continue" hidden>
+            <div class="row-head">
+              <h2>Continue</h2>
+              <button class="row-more" type="button" data-go="library">All songs ›</button>
+            </div>
+            <div id="continue-shelf" class="shelf"></div>
+          </section>
+
+          <section class="row">
+            <div class="row-head">
+              <h2>Follow what's playing</h2>
+              <button class="row-more" type="button" data-go="sources">All sources ›</button>
+            </div>
+            <div class="tiles" id="hub-sources">
+              <button class="tile spotify" type="button" data-source="spotify">
+                <span class="tile-icon" aria-hidden="true">◈</span>
+                <span class="tile-copy">
+                  <b id="hub-spotify-label">Connect Spotify</b>
+                  <small id="hub-spotify-hint">Follow what's playing</small>
+                </span>
+              </button>
+              <button class="tile vinyl" type="button" data-source="listen">
+                <span class="tile-icon" aria-hidden="true">◎</span>
+                <span class="tile-copy">
+                  <b>Vinyl / mic</b>
+                  <small>Auto-detect a record</small>
+                </span>
+              </button>
+              <button class="tile" type="button" data-source="audio">
+                <span class="tile-icon" aria-hidden="true">▷</span>
+                <span class="tile-copy">
+                  <b>Audio file</b>
+                  <small>Sync to a local track</small>
+                </span>
+              </button>
+            </div>
+          </section>
+
+          <section class="row" id="spotify-panel" hidden>
+            <div class="row-head">
+              <h2>From Spotify</h2>
+              <button id="btn-spotify-follow" class="row-more" type="button">Follow now playing ›</button>
+            </div>
+            <div id="spotify-recs" class="shelf"></div>
+          </section>
+
+          <section class="row">
+            <div class="row-head">
+              <h2>Recommended</h2>
+              <span class="row-sub">Top songs right now</span>
+            </div>
+            <div id="chart-recs" class="shelf">
+              <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
+              <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
+              <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
+              <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
+              <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
+              <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
+              <span class="visually-hidden" role="status">Loading recommendations…</span>
+            </div>
+          </section>
+
+          <div class="hint">
+            <span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> navigate</span>
+            <span><kbd>Enter</kbd> select</span>
+            <span><kbd>F</kbd> fullscreen</span>
+            <span class="hint-desktop"><kbd>⌘,</kbd> settings</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------------------------- SEARCH ---------------------------- -->
+      <section class="screen" data-screen-panel="search" aria-label="Search results">
+        <div class="screen-inner">
+          <div class="screen-head">
+            <button class="btn-back" type="button" data-back>Back</button>
+            <div class="head-copy">
+              <h1>Search</h1>
+              <p id="search-summary">Type to find a song</p>
+            </div>
+          </div>
+          <form id="search-refine" autocomplete="off">
+            <div class="hub-search">
+              <div class="field" data-icon="search">
+                <input id="in-track-2" type="text" placeholder="Search songs…" aria-label="Song title"
+                  data-autofocus autocorrect="off" spellcheck="false" />
+              </div>
+              <div class="field">
+                <input id="in-artist" type="text" placeholder="Artist (optional)" aria-label="Artist" />
+              </div>
+              <button class="btn-primary" type="submit">Search</button>
+            </div>
+          </form>
+          <div id="suggestions" class="results" role="listbox" aria-label="Search results"></div>
+        </div>
+      </section>
+
+      <!-- ---------------------------- LIBRARY ---------------------------- -->
+      <section class="screen" data-screen-panel="library" aria-label="Library">
+        <div class="screen-inner">
+          <div class="screen-head">
+            <button class="btn-back" type="button" data-back>Back</button>
+            <div class="head-copy">
+              <h1>Library</h1>
+              <p>Songs you've followed, and the ones already vocal-aligned for instant replay.</p>
+            </div>
+          </div>
+          <section class="row">
+            <div class="row-head"><h2>Recent</h2><span class="row-sub" id="library-count"></span></div>
+            <div id="library-list" class="lib-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ---------------------------- SOURCES ---------------------------- -->
+      <section class="screen" data-screen-panel="sources" aria-label="Sources">
+        <div class="screen-inner">
+          <div class="screen-head">
+            <button class="btn-back" type="button" data-back>Back</button>
+            <div class="head-copy">
+              <h1>Sources</h1>
+              <p>Where the lyrics get their timing from.</p>
+            </div>
+          </div>
+          <div class="tiles">
+            <button id="btn-spotify" class="tile spotify" type="button">
+              <span class="tile-icon" aria-hidden="true">◈</span>
+              <span class="tile-copy">
+                <b id="spotify-label">Connect Spotify</b>
+                <small id="spotify-hint">Follow what's playing</small>
+              </span>
+            </button>
+            <button id="btn-listen" class="tile vinyl" type="button">
+              <span class="tile-icon" aria-hidden="true">◎</span>
+              <span class="tile-copy">
+                <b>Vinyl / mic</b>
+                <small>Auto-detect a record through the microphone</small>
+              </span>
+            </button>
+            <button id="btn-audio" class="tile" type="button">
+              <span class="tile-icon" aria-hidden="true">▷</span>
+              <span class="tile-copy">
+                <b>Audio file</b>
+                <small>Sync to a local track</small>
+              </span>
+            </button>
+            <button id="btn-lyrics" class="tile lyrics" type="button">
+              <span class="tile-icon" aria-hidden="true">¶</span>
+              <span class="tile-copy">
+                <b>Lyrics file</b>
+                <small>Import .lrc / .srt / .ass</small>
+              </span>
+            </button>
+            <button id="btn-apple" class="tile apple" type="button" hidden>
+              <span class="tile-icon" aria-hidden="true">⌘</span>
+              <span class="tile-copy">
+                <b>Apple Music</b>
+                <small>Follow playback</small>
+              </span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------------------------- SETTINGS ---------------------------- -->
+      <section class="screen" data-screen-panel="settings" aria-label="Settings">
+        <div class="screen-inner">
+          <div class="screen-head">
+            <button class="btn-back" type="button" data-back>Back</button>
+            <div class="head-copy">
+              <h1>Settings</h1>
+            </div>
+          </div>
+
+          <div class="set-sections">
+            <!-- ---- Audio & Sync ---- -->
+            <section class="set-section">
+              <h2>Audio &amp; sync</h2>
+              <div class="set-group">
+                <div class="set-row static">
+                  <span class="set-copy">
+                    <b>Follow audio</b>
+                    <small>Where the vocal aligner listens. A digital tap (system audio / BlackHole) is cleanest — no room noise.</small>
+                  </span>
+                  <select id="sync-source" aria-label="Vocal align audio source"></select>
+                </div>
+                <div class="set-row static" id="sync-device-row" hidden>
+                  <span class="set-copy"><b>Input device</b></span>
+                  <select id="sync-device" aria-label="Audio input device"></select>
+                </div>
+                <label class="set-row">
+                  <span class="set-copy">
+                    <b>Prefer a digital tap</b>
+                    <small>Cleanest signal. Off = always use the microphone.</small>
+                  </span>
+                  <span class="switch"><input type="checkbox" id="prefer-tap" /><span class="track"></span></span>
+                </label>
+                <label class="set-row" id="vocal-isolation-row" hidden>
+                  <span class="set-copy">
+                    <b>Isolate the vocal before aligning</b>
+                    <small id="vocal-isolation-state"></small>
+                  </span>
+                  <span class="switch"><input type="checkbox" id="vocal-isolation" /><span class="track"></span></span>
+                </label>
+                <label class="set-row">
+                  <span class="set-copy">
+                    <b>Auto-match to the vocal</b>
+                    <small id="auto-timing-state"></small>
+                  </span>
+                  <span class="switch"><input type="checkbox" id="auto-timing" /><span class="track"></span></span>
+                </label>
+              </div>
+              <div id="sync-capture-status" class="set-note"></div>
+              <div id="drift-readout" class="set-note" aria-live="polite"></div>
+
+              <div id="tap-help" class="tap-help" hidden>
+                <b id="tap-help-title">Let the tap hear the music too</b>
+                <p id="tap-help-lead"></p>
+                <ol>
+                  <li>Open <b>Audio MIDI Setup</b> (Applications → Utilities)</li>
+                  <li>Click <b>+</b> → <b>Create Multi-Output Device</b></li>
+                  <li>Tick <b>your speakers</b> and <b>BlackHole</b> — speakers listed first</li>
+                  <li>Tick <b>Drift Correction</b> on BlackHole only</li>
+                  <li>System Settings → Sound → Output → pick the new device</li>
+                </ol>
+                <p class="tap-note">macOS disables the volume keys on a Multi-Output Device — use Spotify's own volume.</p>
+                <button type="button" id="btn-retry-tap" class="tap-retry">Use the digital tap now</button>
+              </div>
+            </section>
+
+            <!-- ---- Timing ---- -->
+            <section class="set-section">
+              <h2>Timing</h2>
+              <div class="set-group">
+                <div class="set-row static">
+                  <span class="set-copy">
+                    <b>Lyric offset</b>
+                    <small>If words land early or late against the singer. Saved per song; your usual delay becomes the default for new tracks. This is speaker lag — not tempo.</small>
+                  </span>
+                  <span class="set-value" id="timing-readout">0 ms</span>
+                </div>
+                <div class="set-row static">
+                  <span class="set-copy"><b>Adjust</b></span>
+                  <div class="timing-dial" role="group" aria-label="Lyric timing offset">
+                    <button type="button" data-timing="-0.1" title="Lyrics 100ms later">−100</button>
+                    <button type="button" data-timing="-0.025" title="Lyrics 25ms later">−25</button>
+                    <button type="button" data-timing="0.025" title="Lyrics 25ms earlier">+25</button>
+                    <button type="button" data-timing="0.1" title="Lyrics 100ms earlier">+100</button>
+                    <button type="button" id="timing-reset" class="timing-reset">Reset</button>
+                  </div>
+                </div>
+                <div class="set-row static">
+                  <span class="set-copy">
+                    <b>Singer cue lead <small id="singer-lead-readout">120 ms</small></b>
+                    <small>How early the wipe runs ahead of the audio. Separate from speaker lag.</small>
+                  </span>
+                  <input id="singer-lead" type="range" min="0" max="250" step="10" value="120"
+                    aria-label="How early highlights appear before the sung word" />
+                </div>
+              </div>
+            </section>
+
+            <!-- ---- Display ---- -->
+            <section class="set-section">
+              <h2>Display</h2>
+              <div class="set-group">
+                <div class="set-row static">
+                  <span class="set-copy">
+                    <b>Layout</b>
+                    <small>TV enlarges everything for a projector or television across the room. Resizing or fullscreening this window never changes it — the projector window always uses the TV layout.</small>
+                  </span>
+                  <div class="segmented" id="surface-mode" role="group" aria-label="Layout density">
+                    <button type="button" data-surface-mode="desktop" aria-pressed="true">Desktop</button>
+                    <button type="button" data-surface-mode="tv" aria-pressed="false">TV</button>
+                  </div>
+                </div>
+                <label class="set-row practice-row" id="practice-row" hidden>
+                  <span class="set-copy">
+                    <b>Practice slowdown (0.8×)</b>
+                    <small>Local audio files only.</small>
+                  </span>
+                  <span class="switch"><input type="checkbox" id="practice-slow" /><span class="track"></span></span>
+                </label>
+              </div>
+            </section>
+
+            <!-- ---- Diagnostics ---- -->
+            <section class="set-section">
+              <h2>Diagnostics</h2>
+              <div class="set-group">
+                <label class="set-row" id="sep-hud-row" hidden>
+                  <span class="set-copy">
+                    <b>Separation HUD</b>
+                    <small>On-screen realtime× and stem/raw counts while the vocal separator runs.</small>
+                  </span>
+                  <span class="switch"><input type="checkbox" id="sep-hud-toggle" /><span class="track"></span></span>
+                </label>
+                <label class="set-row">
+                  <span class="set-copy">
+                    <b>Sync diagnostics</b>
+                    <small>Names whichever stage is blocking the lock.</small>
+                  </span>
+                  <span class="switch"><input type="checkbox" id="sync-hud-toggle" /><span class="track"></span></span>
+                </label>
+                <button class="set-row danger" type="button" id="btn-clear-library">
+                  <span class="set-copy">
+                    <b>Clear library</b>
+                    <small>Forgets recently played songs. Cached vocal alignments are kept.</small>
+                  </span>
+                  <span class="set-value">Clear</span>
+                </button>
+              </div>
+              <p class="set-note" id="about-line">Bar4Bar — word-by-word lyrics that follow every bar.</p>
+            </section>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===================== PLAYBACK OVERLAYS ===================== -->
 
     <div id="listen-panel" hidden aria-live="polite">
       <div class="listen-card">
@@ -49,109 +414,11 @@
       </div>
     </div>
 
-    <div id="setup">
-      <div class="setup-panel">
-        <header class="setup-header">
-          <div class="brand">
-            <div class="mark" aria-hidden="true">B<span>4</span>B</div>
-            <div>
-              <h1>Bar<span class="brand-four">4</span>Bar</h1>
-              <p class="tagline">Every bar. Every word. In sync.</p>
-            </div>
-          </div>
-          <button id="btn-projector" class="chip ghost" type="button" title="Projector / OBS">Projector</button>
-        </header>
-
-        <form id="search" autocomplete="off">
-          <div class="search-row">
-            <div class="search-fields">
-              <input id="in-track" type="text" placeholder="Search songs…" aria-label="Song title" aria-autocomplete="list" aria-controls="suggestions" />
-              <input id="in-artist" type="text" placeholder="Artist (optional)" aria-label="Artist" />
-            </div>
-            <button id="btn-load" type="submit">Load</button>
-          </div>
-          <div id="suggestions" class="suggestions" hidden role="listbox" aria-label="Search suggestions"></div>
-        </form>
-
-        <div id="setup-status" role="status"></div>
-
-        <div id="busy" class="busy" hidden aria-live="assertive">
-          <div class="busy-card">
-            <div class="busy-vinyl" aria-hidden="true"><i></i></div>
-            <b id="busy-title">Working…</b>
-            <p id="busy-detail">Please wait</p>
-          </div>
-        </div>
-
-        <div class="or-divider"><span>or follow what’s playing</span></div>
-
-        <section class="sync-strip" aria-label="Sync sources">
-          <button id="btn-spotify" class="sync-btn spotify" type="button">
-            <span class="sync-icon" aria-hidden="true">◈</span>
-            <span class="sync-copy">
-              <b id="spotify-label">Connect Spotify</b>
-              <small id="spotify-hint">Follow what’s playing</small>
-            </span>
-          </button>
-          <button id="btn-listen" class="sync-btn" type="button">
-            <span class="sync-icon" aria-hidden="true">◎</span>
-            <span class="sync-copy">
-              <b>Vinyl / mic</b>
-              <small>Auto-detect a record</small>
-            </span>
-          </button>
-          <button id="btn-audio" class="sync-btn" type="button">
-            <span class="sync-icon" aria-hidden="true">▷</span>
-            <span class="sync-copy">
-              <b>Audio file</b>
-              <small>Sync to a local track</small>
-            </span>
-          </button>
-          <button id="btn-lyrics" class="sync-btn" type="button">
-            <span class="sync-icon" aria-hidden="true">¶</span>
-            <span class="sync-copy">
-              <b>Lyrics file</b>
-              <small>Import .lrc / .srt / .ass</small>
-            </span>
-          </button>
-          <button id="btn-apple" class="sync-btn" type="button" hidden>
-            <span class="sync-icon" aria-hidden="true">⌘</span>
-            <span class="sync-copy">
-              <b>Apple Music</b>
-              <small>Follow playback</small>
-            </span>
-          </button>
-        </section>
-
-        <section id="spotify-panel" class="recs-section" hidden>
-          <div class="recs-head">
-            <h2>From Spotify</h2>
-            <button id="btn-spotify-follow" class="chip" type="button">Follow now playing</button>
-          </div>
-          <div id="spotify-recs" class="recs-grid"></div>
-        </section>
-
-        <section class="recs-section">
-          <div class="recs-head">
-            <h2>Recommended</h2>
-            <span class="recs-sub">Top songs right now</span>
-          </div>
-          <div id="chart-recs" class="recs-grid">
-            <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
-            <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
-            <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
-            <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
-            <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
-            <div class="rec skeleton" aria-hidden="true"><div class="sk-art"></div><div class="meta"><div class="sk-line"></div><div class="sk-line sk-short"></div></div></div>
-            <span class="visually-hidden" role="status">Loading recommendations…</span>
-          </div>
-        </section>
-      </div>
-      <div class="hint">
-        <span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> navigate</span>
-        <span><kbd>Enter</kbd> select</span>
-        <span><kbd>F</kbd> fullscreen</span>
-        <span class="hint-playing">while playing, press <kbd>?</kbd> for keys</span>
+    <div id="busy" class="busy" hidden aria-live="assertive">
+      <div class="busy-card">
+        <div class="busy-vinyl" aria-hidden="true"><i></i></div>
+        <b id="busy-title">Working…</b>
+        <p id="busy-detail">Please wait</p>
       </div>
     </div>
 
@@ -178,6 +445,7 @@
       </dl>
     </aside>
 
+    <!-- Slim now-playing bar: identity, transport, sync health, overflow. -->
     <div id="nowbar">
       <div id="cover" aria-hidden="true"></div>
       <div class="meta">
@@ -189,92 +457,47 @@
       <button id="btn-prev" class="transport" type="button" title="Previous" aria-label="Previous track" hidden>⏮&#xFE0E;</button>
       <button id="btn-play" type="button">Play</button>
       <button id="btn-next" class="transport" type="button" title="Next" aria-label="Next track" hidden>⏭&#xFE0E;</button>
-      <button id="btn-timing-late" class="transport" type="button" title="Lyrics later (−25ms) · [" aria-label="Lyrics later">«</button>
-      <button id="btn-timing-early" class="transport" type="button" title="Lyrics earlier (+25ms) · ]" aria-label="Lyrics earlier">»</button>
-      <button id="btn-recal-early" class="ghost" type="button" title="Lyrics feel early — nudge later and learn (E)">Feel early</button>
-      <button id="btn-recal" class="ghost" type="button" title="Lyrics feel late — nudge earlier and learn (L)">Feel late</button>
-      <button id="btn-practice" class="ghost" type="button" title="Practice at 0.8× (local files · S)" aria-pressed="false" hidden>0.8×</button>
-      <button id="btn-focus" class="ghost" type="button" title="Focus mode — only active lyrics (O)" aria-pressed="false">Focus</button>
-      <button id="btn-sync-source" class="ghost" type="button" title="How lyrics follow the music">Sync: Auto</button>
+      <button id="btn-more" class="transport" type="button" title="More — timing, modes, source" aria-label="More controls" aria-expanded="false">⋯</button>
       <button id="btn-change" class="ghost" type="button">Change song</button>
     </div>
 
-    <div id="sync-panel" hidden>
-      <div class="sync-panel-card">
-        <button class="panel-close" type="button" data-close="sync-panel" aria-label="Close">×</button>
-        <b>Follow audio</b>
-        <p class="sync-panel-hint">Where the vocal aligner listens. A digital tap (system audio / BlackHole) is cleanest — no room noise.</p>
-        <label>
-          <span>Source</span>
-          <select id="sync-source" aria-label="Vocal align audio source"></select>
-        </label>
-        <label id="sync-device-row" hidden>
-          <span>Device</span>
-          <select id="sync-device" aria-label="Audio input device"></select>
-        </label>
-        <div id="sync-capture-status" class="sync-panel-status"></div>
+    <!-- Now-playing inspector: everything per-song that used to crowd the bar. -->
+    <div id="inspector" hidden aria-label="Now playing controls">
+      <div class="inspector-card">
+        <button class="panel-close" type="button" data-close="inspector" aria-label="Close">×</button>
 
-        <label class="auto-timing-row">
-          <input type="checkbox" id="prefer-tap" />
-          <span>Prefer a digital tap <small>cleanest signal; off = always use the mic</small></span>
-        </label>
-
-        <div id="tap-help" class="tap-help" hidden>
-          <b id="tap-help-title">Let the tap hear the music too</b>
-          <p id="tap-help-lead"></p>
-          <ol>
-            <li>Open <b>Audio MIDI Setup</b> (Applications → Utilities)</li>
-            <li>Click <b>+</b> → <b>Create Multi-Output Device</b></li>
-            <li>Tick <b>your speakers</b> and <b>BlackHole</b> — speakers listed first</li>
-            <li>Tick <b>Drift Correction</b> on BlackHole only</li>
-            <li>System Settings → Sound → Output → pick the new device</li>
-          </ol>
-          <p class="tap-note">
-            macOS disables the volume keys on a Multi-Output Device — use Spotify's own volume.
-          </p>
-          <button type="button" id="btn-retry-tap" class="tap-retry">Use the digital tap now</button>
-        </div>
-        <label class="auto-timing-row" id="vocal-isolation-row" hidden>
-          <input type="checkbox" id="vocal-isolation" />
-          <span>Isolate the vocal before aligning <small id="vocal-isolation-state"></small></span>
-        </label>
-        <label class="auto-timing-row" id="sep-hud-row" hidden>
-          <input type="checkbox" id="sep-hud-toggle" />
-          <span>Show separation HUD <small>on-screen realtime× &amp; stem/raw count</small></span>
-        </label>
-        <label class="auto-timing-row">
-          <input type="checkbox" id="sync-hud-toggle" />
-          <span>Show sync diagnostics <small>names what's blocking the lock</small></span>
-        </label>
-        <div class="sync-panel-divider"></div>
-        <b>Timing</b>
-        <p class="sync-panel-hint">If words are early or late vs the singer, shift them here. Saved <em>per song</em>, and your usual delay becomes the default for new tracks. (This is speaker lag — not BPM.)</p>
-        <label class="auto-timing-row">
-          <input type="checkbox" id="auto-timing" />
-          <span>Auto-match to the vocal <small id="auto-timing-state"></small></span>
-        </label>
-        <div id="drift-readout" class="sync-panel-status" aria-live="polite"></div>
-        <div class="timing-dial" role="group" aria-label="Lyric timing offset">
-          <button type="button" data-timing="-0.1" title="Lyrics 100ms later">−100</button>
-          <button type="button" data-timing="-0.025" title="Lyrics 25ms later">−25</button>
-          <span id="timing-readout">0 ms</span>
-          <button type="button" data-timing="0.025" title="Lyrics 25ms earlier">+25</button>
-          <button type="button" data-timing="0.1" title="Lyrics 100ms earlier">+100</button>
-        </div>
-        <button type="button" id="timing-reset" class="timing-reset">Reset timing</button>
-        <div class="singer-lead-row">
-          <div class="singer-lead-head">
-            <span>Singer cue lead</span>
-            <small id="singer-lead-readout">120 ms</small>
+        <div class="insp-section">
+          <b>Timing</b>
+          <p class="insp-hint">Nudge the words against the singer. Saved for this song.</p>
+          <div class="timing-dial" role="group" aria-label="Lyric timing offset">
+            <button type="button" id="btn-timing-late" title="Lyrics later (−25ms) · [">−25</button>
+            <span id="insp-timing-readout">0 ms</span>
+            <button type="button" id="btn-timing-early" title="Lyrics earlier (+25ms) · ]">+25</button>
           </div>
-          <input id="singer-lead" type="range" min="0" max="250" step="10" value="120"
-            aria-label="How early highlights appear before the sung word" />
-          <p class="sync-panel-hint">How early the wipe/cue runs ahead of the audio. Separate from speaker lag above.</p>
+          <div class="insp-actions">
+            <button id="btn-recal-early" class="insp-btn" type="button" title="Lyrics feel early — nudge later and learn (E)">Feel early</button>
+            <button id="btn-recal" class="insp-btn" type="button" title="Lyrics feel late — nudge earlier and learn (L)">Feel late</button>
+          </div>
         </div>
-        <label class="auto-timing-row practice-row" id="practice-row" hidden>
-          <input type="checkbox" id="practice-slow" />
-          <span>Practice slowdown (0.8×) <small>local files only</small></span>
-        </label>
+
+        <div class="insp-divider"></div>
+
+        <div class="insp-section">
+          <b>View</b>
+          <div class="insp-actions">
+            <button id="btn-focus" class="insp-btn" type="button" title="Only active lyrics (O)" aria-pressed="false">Focus</button>
+            <button id="btn-reading" class="insp-btn" type="button" title="Static, scrollable lyrics (P)" aria-pressed="false">Reading</button>
+            <button id="btn-practice" class="insp-btn" type="button" title="Practice at 0.8× (local files · S)" aria-pressed="false" hidden>0.8×</button>
+            <button id="btn-aid" class="insp-btn" type="button" title="Pronunciation / English (T)">Language</button>
+          </div>
+        </div>
+
+        <div class="insp-divider"></div>
+
+        <button id="btn-sync-source" class="insp-link" type="button">
+          <span>Audio &amp; sync settings</span>
+          <span class="insp-link-value" id="insp-source-value">Auto</span>
+        </button>
       </div>
     </div>
 

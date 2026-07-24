@@ -1,0 +1,538 @@
+/* ============================================================================
+   SCREENS — hub, search, library, sources, settings
+   All sizing comes from density tokens, so every rule here serves both the
+   laptop and the 10-foot layout without a single media query.
+   ========================================================================== */
+
+/* ============================ BRAND ============================ */
+
+.brand { display: flex; align-items: center; gap: var(--space-3); text-align: left; }
+.mark {
+  width: calc(var(--control-h) * .95); height: calc(var(--control-h) * .95);
+  border-radius: calc(var(--r-md) + 1px); flex: none;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display);
+  font-size: var(--fs-sm); font-weight: 750; letter-spacing: -.06em;
+  color: var(--accent-soft); background: var(--surface-0);
+  border: 1px solid color-mix(in srgb, var(--accent) 46%, transparent);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 20%, transparent),
+              inset 0 0 18px color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.mark span { color: var(--ember); }
+.brand h1 {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl); font-weight: 700; letter-spacing: -.02em; line-height: 1.15;
+}
+.brand-four { color: var(--ember); font-weight: 800; }
+.tagline { font-size: var(--fs-sm); color: var(--text-2); line-height: 1.4; margin-top: 2px; }
+
+/* ============================ CHIP ============================ */
+
+.chip {
+  font-size: var(--fs-sm); font-weight: 550; color: var(--accent-ink);
+  background: var(--accent-soft); border: 0; border-radius: var(--r-pill);
+  padding: 0 var(--space-3); height: var(--row-h); white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: filter var(--dur) ease, transform var(--dur-fast) ease;
+}
+.chip:hover { filter: brightness(1.06); }
+.chip:active { transform: scale(.97); }
+.chip.ghost {
+  color: var(--text-1); background: var(--surface-2);
+  border: 1px solid var(--line-1);
+}
+.chip.ghost:hover { background: var(--surface-3); filter: none; }
+
+/* ============================ HOME / HUB ============================ */
+
+.screen[data-screen-panel="home"] .screen-inner {
+  gap: var(--space-5);
+  /* `safe` matters: with plain `center`, once the hub is taller than the window
+     (TV density, or a Continue row + Spotify row) the overflow above the centre
+     line becomes unscrollable and the header is permanently cut off. `safe`
+     falls back to flex-start exactly in that case. */
+  justify-content: safe center;
+  min-height: 100%;
+}
+
+.hub-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: var(--space-3); flex-wrap: wrap;
+}
+.hub-actions { display: flex; gap: var(--space-2); align-items: center; }
+
+/* ---- the search entry on the hub ---- */
+.hub-search { display: flex; gap: var(--space-2); align-items: stretch; }
+.hub-search .field { position: relative; flex: 1; min-width: 0; }
+
+.field input {
+  width: 100%;
+  height: var(--control-h);
+  font-size: var(--fs-md);
+  color: var(--text-1);
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  padding: 0 var(--space-4) 0 calc(var(--space-4) + 1.6em);
+  transition: border-color var(--dur) ease, background var(--dur) ease;
+}
+.field input::placeholder { color: var(--text-3); }
+.field input:hover { border-color: var(--line-3); }
+.field input:focus { border-color: var(--accent); background: var(--surface-3); }
+/* Opt-in: only the song-title fields get the magnifier. The artist field is a
+   filter, not a search box, and a second magnifier beside it reads as two
+   separate searches. */
+.field[data-icon="search"]::before {
+  content: "";
+  position: absolute; left: var(--space-4); top: 50%;
+  width: 1.05em; height: 1.05em; margin-top: -.5em;
+  pointer-events: none;
+  background: currentColor; color: var(--text-3);
+  -webkit-mask: var(--icon-search) center / contain no-repeat;
+  mask: var(--icon-search) center / contain no-repeat;
+}
+.field[data-icon="search"]:focus-within::before { color: var(--accent); }
+/* Without the icon there's no glyph to clear, so reclaim the indent. */
+.field:not([data-icon]) input { padding-left: var(--space-4); }
+
+:root {
+  --icon-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.8-3.8'/%3E%3C/svg%3E");
+}
+
+.btn-primary {
+  flex: none;
+  height: var(--control-h);
+  padding: 0 var(--space-5);
+  font-size: var(--fs-md); font-weight: 600;
+  color: var(--accent-ink);
+  background: linear-gradient(135deg, var(--accent-soft), var(--accent));
+  border-radius: var(--r-lg);
+  transition: transform var(--dur-fast) ease, filter var(--dur) ease;
+}
+.btn-primary:hover { filter: brightness(1.06); }
+.btn-primary:active { transform: scale(.985); }
+.btn-primary:disabled { filter: grayscale(.4) brightness(.8); cursor: default; }
+
+/* ---- rows / shelves ---- */
+
+.row { display: flex; flex-direction: column; gap: var(--space-2); }
+.row[hidden] { display: none !important; }
+.row-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--space-3);
+}
+.row-head h2 {
+  font-size: var(--fs-sm); font-weight: 650; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text-2);
+}
+.row-sub { font-size: var(--fs-sm); color: var(--text-3); }
+.row-more {
+  font-size: var(--fs-sm); color: var(--text-2); font-weight: 550;
+  padding: 2px 8px; border-radius: var(--r-pill);
+}
+.row-more:hover { color: var(--accent); }
+
+/* TV shelf: a horizontal row of poster cards, remote-scrollable. Scrolls
+   sideways with snap rather than wrapping into a dense grid — the Apple TV
+   pattern, readable from the couch. */
+.shelf {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--card-w);
+  gap: var(--space-3);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  /* Breathing room so a focused card's lift + ring aren't clipped. */
+  padding: var(--space-2) var(--space-1) var(--space-3);
+  scrollbar-width: none;
+}
+.shelf::-webkit-scrollbar { display: none; }
+.shelf-empty { font-size: var(--fs-sm); color: var(--text-2); padding: var(--space-2); }
+
+.rec {
+  display: flex; flex-direction: column; align-items: stretch; gap: var(--space-2);
+  width: 100%; text-align: left; color: var(--text-1);
+  background: var(--surface-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-lg); padding: var(--space-2) var(--space-2) var(--space-3);
+  scroll-snap-align: start;
+  transition: background var(--dur) ease, border-color var(--dur) ease,
+              transform var(--dur) var(--ease), box-shadow var(--dur) ease;
+}
+.rec:hover {
+  background: var(--surface-2); border-color: var(--line-2);
+  transform: translateY(-2px);
+}
+.rec:active { transform: scale(.98); }
+.rec img, .rec .art {
+  width: 100%; height: auto; aspect-ratio: 1;
+  border-radius: var(--r-md); object-fit: cover; flex: none;
+  background: linear-gradient(135deg, #3a2c17, #6e5528 55%, var(--ember));
+}
+.rec .art { display: grid; place-items: center; font-size: 1.8em; color: var(--text-2); }
+.rec .meta { min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 0 2px; }
+.rec .meta b {
+  font-size: var(--fs-sm); font-weight: 600; line-height: 1.25;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.rec .meta span {
+  font-size: var(--fs-xs); color: var(--text-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* "Already aligned — instant replay" marker. */
+.rec .meta .ready { color: var(--ok); }
+
+/* Skeleton cards while a shelf loads. */
+.rec.skeleton { pointer-events: none; }
+.sk-art { width: 100%; aspect-ratio: 1; border-radius: var(--r-md); background: var(--surface-1); }
+.sk-line { height: .7em; border-radius: 6px; margin-top: 6px; background: var(--surface-2); }
+.sk-line.sk-short { width: 60%; }
+.sk-art, .sk-line { position: relative; overflow: hidden; }
+.sk-art::after, .sk-line::after {
+  content: ""; position: absolute; inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(246,240,228,.06), transparent);
+  animation: shimmer 1.4s ease infinite;
+}
+@keyframes shimmer { to { transform: translateX(100%); } }
+
+/* ---- source tiles (hub row + sources screen) ---- */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: var(--space-3);
+}
+.tile {
+  display: flex; align-items: center; gap: var(--space-3);
+  text-align: left; color: var(--text-1);
+  background: var(--surface-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-lg);
+  padding: var(--space-3) var(--space-4);
+  min-height: var(--control-h);
+  transition: background var(--dur) ease, border-color var(--dur) ease,
+              transform var(--dur) var(--ease), box-shadow var(--dur) ease;
+}
+.tile:hover {
+  background: var(--surface-2); border-color: var(--line-2);
+  transform: translateY(-1px); box-shadow: var(--shadow-1);
+}
+.tile:active { transform: scale(.985); box-shadow: none; }
+.tile:disabled { opacity: .55; cursor: wait; }
+
+.tile-icon {
+  width: calc(var(--control-h) * .78); height: calc(var(--control-h) * .78);
+  border-radius: var(--r-sm); flex: none;
+  display: grid; place-items: center;
+  background: var(--surface-3);
+  font-size: var(--fs-md); color: var(--accent-soft);
+}
+.tile-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.tile-copy b { font-size: var(--fs-base); font-weight: 650; line-height: 1.2; }
+.tile-copy small {
+  font-size: var(--fs-xs); color: var(--text-2); line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.tile-state {
+  font-size: var(--fs-xs); color: var(--text-3); flex: none;
+  padding: 3px 10px; border-radius: var(--r-pill);
+  background: var(--surface-2);
+}
+.tile-state.on { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+
+/* Per-source accents so the row scans fast. */
+.tile.spotify { border-color: color-mix(in srgb, var(--spotify) 35%, transparent); }
+.tile.spotify .tile-icon { color: var(--spotify); background: color-mix(in srgb, var(--spotify) 12%, transparent); }
+.tile.spotify.connected {
+  background: color-mix(in srgb, var(--spotify) 10%, transparent);
+  border-color: color-mix(in srgb, var(--spotify) 50%, transparent);
+}
+.tile.vinyl .tile-icon { color: #d9a06b; background: rgba(217,160,107,.12); }
+.tile.lyrics .tile-icon { color: var(--text-1); background: var(--surface-3); }
+.tile.apple .tile-icon { color: #fa586a; background: rgba(250,88,106,.12); }
+
+/* ============================ SEARCH SCREEN ============================ */
+
+.results { display: flex; flex-direction: column; gap: var(--space-1); }
+.result-row {
+  display: flex; align-items: center; gap: var(--space-3);
+  width: 100%; text-align: left; color: var(--text-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  background: transparent;
+  transition: background var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+.result-row:hover, .result-row[aria-selected="true"] {
+  background: var(--surface-2); border-color: var(--line-1);
+}
+.result-row img, .result-row .art {
+  width: calc(var(--control-h) * 1.05); height: calc(var(--control-h) * 1.05);
+  border-radius: var(--r-sm); object-fit: cover; flex: none;
+  background: var(--surface-3);
+}
+.result-row .t { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.result-row .t b {
+  font-size: var(--fs-base); font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.result-row .t span {
+  font-size: var(--fs-sm); color: var(--text-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.result-row .dur {
+  font-size: var(--fs-sm); color: var(--text-3); flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  text-align: center; color: var(--text-2);
+}
+.empty-state b { font-size: var(--fs-md); color: var(--text-1); font-weight: 600; }
+.empty-state p { font-size: var(--fs-sm); line-height: 1.5; max-width: 42ch; }
+
+/* ============================ LIBRARY SCREEN ============================ */
+
+.lib-list { display: flex; flex-direction: column; gap: var(--space-1); }
+.lib-row {
+  display: flex; align-items: center; gap: var(--space-3);
+  width: 100%; text-align: left; color: var(--text-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  transition: background var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+.lib-row:hover { background: var(--surface-2); border-color: var(--line-1); }
+.lib-row img, .lib-row .art {
+  width: var(--control-h); height: var(--control-h);
+  border-radius: var(--r-sm); object-fit: cover; flex: none;
+  background: linear-gradient(135deg, #3a2c17, #6e5528 55%, var(--ember));
+}
+.lib-row .t { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.lib-row .t b {
+  font-size: var(--fs-base); font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lib-row .t span {
+  font-size: var(--fs-sm); color: var(--text-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lib-row .when { font-size: var(--fs-sm); color: var(--text-3); flex: none; }
+.badge-ready {
+  font-size: var(--fs-xs); color: var(--ok); flex: none;
+  padding: 2px 9px; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ok) 24%, transparent);
+}
+
+/* ============================ SETTINGS SCREEN ============================ */
+
+.set-sections { display: flex; flex-direction: column; gap: var(--space-5); }
+.set-section { display: flex; flex-direction: column; gap: var(--space-2); }
+.set-section > h2 {
+  font-size: var(--fs-sm); font-weight: 650; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text-2);
+  padding: 0 var(--space-2);
+}
+.set-group {
+  display: flex; flex-direction: column;
+  background: var(--surface-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.set-row {
+  display: flex; align-items: center; gap: var(--space-3);
+  width: 100%; text-align: left; color: var(--text-1);
+  padding: var(--space-3) var(--space-4);
+  min-height: var(--control-h);
+  border-bottom: 1px solid var(--line-1);
+  background: transparent;
+  transition: background var(--dur-fast) ease;
+}
+.set-group > .set-row:last-child { border-bottom: 0; }
+.set-row:hover:not(.static) { background: var(--surface-2); }
+.set-row[hidden] { display: none !important; }
+.set-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.set-copy b { font-size: var(--fs-base); font-weight: 550; line-height: 1.25; }
+.set-copy small { font-size: var(--fs-xs); color: var(--text-2); line-height: 1.4; }
+.set-row > select,
+.set-row > .set-value {
+  flex: none; max-width: 46%;
+  font-size: var(--fs-sm); color: var(--text-2);
+}
+.set-row > select {
+  height: var(--row-h);
+  color: var(--text-1);
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  padding: 0 var(--space-2);
+}
+.set-row input[type="range"] { flex: none; width: 40%; accent-color: var(--accent); }
+
+/* Switch — a real toggle, not a checkbox in a nice font. */
+.switch { position: relative; flex: none; width: 3.1em; height: 1.75em; }
+.switch input {
+  position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1;
+}
+.switch .track {
+  position: absolute; inset: 0; border-radius: var(--r-pill);
+  background: var(--surface-3);
+  border: 1px solid var(--line-2);
+  transition: background var(--dur) ease, border-color var(--dur) ease;
+}
+.switch .track::after {
+  content: ""; position: absolute;
+  top: 50%; left: .18em; width: 1.3em; height: 1.3em; margin-top: -.65em;
+  border-radius: 50%;
+  background: var(--text-2);
+  transition: transform var(--dur) var(--ease), background var(--dur) ease;
+}
+.switch input:checked + .track {
+  background: color-mix(in srgb, var(--accent) 34%, transparent);
+  border-color: var(--accent);
+}
+.switch input:checked + .track::after {
+  transform: translateX(1.32em);
+  background: var(--accent);
+}
+.switch input:focus-visible + .track {
+  outline: var(--ring-w) solid var(--accent); outline-offset: 2px;
+}
+
+/* Segmented control — for small mutually-exclusive choices (layout, aid mode). */
+.segmented {
+  display: inline-flex; flex: none;
+  background: var(--surface-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-sm);
+  padding: 2px; gap: 2px;
+}
+.segmented button {
+  font-size: var(--fs-xs); font-weight: 550; color: var(--text-2);
+  padding: 0 var(--space-3); height: calc(var(--row-h) - 6px);
+  border-radius: calc(var(--r-sm) - 2px);
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.segmented button:hover { color: var(--text-1); }
+.segmented button[aria-pressed="true"] {
+  color: var(--accent-ink); background: var(--accent-soft);
+}
+
+.set-note {
+  font-size: var(--fs-xs); color: var(--text-3); line-height: 1.5;
+  padding: 0 var(--space-2);
+}
+.set-row.danger .set-copy b { color: var(--ember); }
+
+/* ============================ STATUS / BUSY ============================ */
+
+#setup-status {
+  min-height: 1em; font-size: var(--fs-sm); line-height: 1.4;
+  color: var(--text-2); transition: color var(--dur) ease;
+}
+#setup-status:empty { display: none; }
+#setup-status[data-type="error"] { color: var(--ember); }
+#setup-status[data-type="ok"] { color: var(--ok); }
+#setup-status[data-type="loading"] { color: var(--accent-soft); }
+#setup-status[data-type="loading"]::before {
+  content: ""; display: inline-block; width: .8em; height: .8em; margin-right: 8px;
+  vertical-align: -1px; border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-top-color: var(--accent);
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.busy {
+  position: fixed; inset: 0; z-index: 40;
+  display: grid; place-items: center;
+  background: var(--scrim);
+  backdrop-filter: blur(8px);
+  animation: busy-in .25s ease both;
+}
+@keyframes busy-in { from { opacity: 0; } }
+.busy[hidden] { display: none !important; }
+.busy-card {
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
+  text-align: center; padding: var(--space-5) var(--space-5); max-width: 320px;
+}
+/* On-brand loader: a little record spinning under a gold label. */
+.busy-vinyl {
+  position: relative; width: 48px; height: 48px; border-radius: 50%;
+  background: repeating-radial-gradient(circle at 50% 50%, #191411 0 2px, #0d0a08 2px 4px);
+  border: 1px solid var(--line-2);
+  animation: spin 1.6s linear infinite;
+}
+.busy-vinyl::before {
+  content: ""; position: absolute; inset: 31%; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-soft), var(--accent));
+}
+.busy-vinyl::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from 0deg,
+    rgba(255,255,255,.14), transparent 50deg,
+    transparent 175deg, rgba(255,255,255,.07) 205deg, transparent 250deg);
+}
+.busy-vinyl i { position: absolute; inset: 44%; border-radius: 50%; background: var(--surface-0); z-index: 1; }
+.busy-card b { font-size: var(--fs-base); font-weight: 650; }
+.busy-card p { font-size: var(--fs-sm); color: var(--text-2); line-height: 1.4; }
+
+/* ============================ SPLASH ============================ */
+
+#splash {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  background: var(--surface-0);
+  transition: opacity .5s ease, visibility .5s;
+}
+#splash.done { opacity: 0; visibility: hidden; pointer-events: none; }
+.splash-mark {
+  width: 76px; height: 76px; border-radius: var(--r-xl);
+  display: flex; align-items: center; justify-content: center;
+  font: 750 22px/1 var(--font-display); letter-spacing: -.06em;
+  color: var(--accent-soft); background: var(--surface-0);
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  box-shadow: 0 0 44px color-mix(in srgb, var(--accent) 22%, transparent),
+              inset 0 0 26px color-mix(in srgb, var(--accent) 7%, transparent);
+  animation: splash-breathe 1.6s var(--ease) infinite;
+}
+.splash-mark span { color: var(--ember); }
+.splash-word {
+  font: 650 17px/1 var(--font-display); letter-spacing: .01em;
+  color: var(--text-2);
+  animation: splash-fade 1.6s ease infinite;
+}
+.splash-word b { color: var(--ember); font-weight: 750; }
+@keyframes splash-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.045); }
+}
+@keyframes splash-fade { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+/* ============================ HINT FOOTER ============================ */
+
+.hint {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-1) var(--space-4);
+  font-size: var(--fs-xs); letter-spacing: .2px;
+  color: var(--text-3);
+  padding-top: var(--space-2);
+}
+.hint span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 1.6em; padding: 2px 6px;
+  font: 600 .82em/1.3 var(--font-mono);
+  color: var(--text-2);
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+}
+/* The pointer hints are noise on a TV, and the mouse hints are noise on a remote. */
+body[data-surface="tv"] .hint-desktop { display: none; }

@@ -47,12 +47,28 @@ export function isWordSyncFormat(format) {
 /**
  * True when we should try forced alignment (line/estimated timing, or catalog
  * word sync we still might refine — but we skip catalog word sync by default).
+ * Completion is per-line (`_vocalAligned`): a single successful live/batch line
+ * must NOT freeze the rest of the song out of CTC.
  */
 export function needsVocalAlign(timeline, meta = {}) {
   if (!timeline?.lines?.length) return false;
-  if (timeline.aligned) return false;
   if (isWordSyncFormat(meta.format)) return false;
-  return timeline.lines.some((l) => (l.words?.length || 0) > 0);
+  return timeline.lines.some((l) => (l.words?.length || 0) > 0 && !l._vocalAligned);
+}
+
+/**
+ * Set `timeline.aligned` only when every worded line has `_vocalAligned`.
+ * Returns true when the timeline is fully aligned (safe to cache).
+ */
+export function markTimelineAlignedIfComplete(timeline) {
+  if (!timeline?.lines?.length) {
+    if (timeline) timeline.aligned = false;
+    return false;
+  }
+  const eligible = timeline.lines.filter((l) => (l.words?.length || 0) > 0);
+  const done = eligible.length > 0 && eligible.every((l) => l._vocalAligned);
+  timeline.aligned = done;
+  return done;
 }
 
 /**
@@ -424,7 +440,11 @@ export function vocalStateAt(intervals, t, { pre = 0.2, post = 0.4 } = {}) {
 // therefore hysteretic: slow to enter (sustained quiet, and only for a gap worth
 // announcing) and quick to leave (lyrics are back before the singer is).
 export const INSTR_ENTER_SEC = 0.9; // sustained quiet before ♪ appears
-export const INSTR_MIN_GAP_SEC = 2.5; // shorter gaps aren't worth announcing
+// Only a real interlude deserves the ♪ takeover. At 2.5s this fired on ordinary
+// breathing room between verses, so the indicator kept flashing up mid-song for
+// pauses the singer never experienced as a break. A gap has to be long enough
+// that a countdown genuinely helps you find your entrance again.
+export const INSTR_MIN_GAP_SEC = 5.0;
 export const INSTR_EXIT_LEAD_SEC = 0.5; // clear ♪ this long before the vocal returns
 
 /**
@@ -680,7 +700,8 @@ const liveSepStats = {
   // be counted when judging whether we can keep pace.
   firstSepSec: 0,
   firstWindowSec: 0,
-  paused: false, // auto-fell back to the raw mix because it couldn't keep up
+  paused: false, // temporarily fell back to the raw mix because it couldn't keep up
+  pausedAtMs: null, // when the auto-fallback flipped on (for cool-down retry)
   stemLines: 0, // lines word-aligned on an isolated stem
   rawLines: 0, // lines word-aligned on the raw mix
 };
@@ -691,6 +712,9 @@ const liveSepStats = {
 // separation is unaffected — it isn't racing anything).
 export const LIVE_SEP_MIN_REALTIME = 0.8;
 export const LIVE_SEP_MIN_SAMPLES = 3; // ignore warm-up; need a real trend
+// After falling behind, sit out this long then try again — CPU load and window
+// length change mid-song, so a sticky permanent pause was too harsh.
+export const LIVE_SEP_RETRY_AFTER_SEC = 25;
 
 /**
  * Has live separation fallen far enough behind that we should drop to the raw
@@ -706,6 +730,20 @@ export function shouldPauseLiveSeparation(
   const windowSec = stats.sepTotalWindowSec - (stats.firstWindowSec || 0);
   if (!(secs > 0) || !(windowSec > 0)) return false;
   return windowSec / secs < minRealtime;
+}
+
+/**
+ * Has the cool-down since an auto-fallback elapsed, so we should try stem
+ * isolation again? Pure for tests.
+ */
+export function shouldResumeLiveSeparation(
+  stats,
+  nowMs = Date.now(),
+  { retryAfterSec = LIVE_SEP_RETRY_AFTER_SEC } = {}
+) {
+  if (!stats?.paused) return false;
+  if (stats.pausedAtMs == null) return true;
+  return (nowMs - stats.pausedAtMs) / 1000 >= retryAfterSec;
 }
 let _liveSepListener = null;
 /** Subscribe to live-separation diagnostics (one listener; for the HUD). */
@@ -723,7 +761,20 @@ export function resetLiveSeparationStats() {
   // Clear the auto-pause too: a new song (or a freed-up machine) deserves a
   // fresh attempt rather than staying degraded for the rest of the session.
   liveSepStats.paused = false;
+  liveSepStats.pausedAtMs = null;
   liveSepStats.stemLines = liveSepStats.rawLines = 0;
+  _emitLiveSep();
+}
+
+/** After a cool-down, clear the fallback and reset pace samples for a fresh try. */
+function maybeResumeLiveSeparation() {
+  if (!shouldResumeLiveSeparation(liveSepStats, nowMs())) return;
+  liveSepStats.paused = false;
+  liveSepStats.pausedAtMs = null;
+  liveSepStats.sepCount = liveSepStats.sepTotalSec = liveSepStats.sepTotalWindowSec = 0;
+  liveSepStats.firstSepSec = liveSepStats.firstWindowSec = 0;
+  liveSepStats.lastRealtime = liveSepStats.lastWindowSec = null;
+  console.log('[live-sep] retrying stem isolation after cool-down');
   _emitLiveSep();
 }
 function _emitLiveSep() {
@@ -750,11 +801,12 @@ function recordSeparation(secs, sepSec) {
     liveSepStats.firstSepSec = sepSec; // warm-up: model load, not a fair sample
     liveSepStats.firstWindowSec = secs;
   }
-  // Self-tune: if we can't keep pace, stop separating live windows rather than
+  // Self-tune: if we can't keep pace, sit out for a cool-down rather than
   // blocking the align loop for longer than the audio we're analysing.
   if (!liveSepStats.paused && shouldPauseLiveSeparation(liveSepStats)) {
     liveSepStats.paused = true;
-    console.log('[live-sep] slower than realtime — falling back to the raw mix for live alignment');
+    liveSepStats.pausedAtMs = nowMs();
+    console.log('[live-sep] slower than realtime — skipping stem for a bit, using raw mix');
   }
   _emitLiveSep();
   if (sepSec > 0) {
@@ -781,7 +833,9 @@ const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Da
  */
 async function micWindowStem(monoPcm, sampleRate, { onStatus } = {}) {
   if (!_separationEnabled || !_liveSeparationEnabled) return null;
-  // Auto-paused after falling behind playback; the raw mix keeps alignment moving.
+  // Auto-skipped after falling behind; retry after cool-down in case the machine
+  // freed up. Raw mix keeps alignment moving while we sit out.
+  maybeResumeLiveSeparation();
   if (liveSepStats.paused) return null;
   if (!(monoPcm?.length > 0)) return null;
   const secs = monoPcm.length / sampleRate;
@@ -934,13 +988,15 @@ export async function refineTimelineWithAudio(
         ? (fromAbs, toAbs) =>
             findVoiceEnd(windowPcm, TARGET_RATE, fromAbs - ws, toAbs - ws, tuning.onset) + ws
         : null;
-      batch.forEach(({ line }, k) => {
+      batch.forEach(({ line, i }, k) => {
+        const nextLineStart = timeline.lines[i + 1]?.start;
         if (
           applyWordSpans(line, result.lines[k]?.words, {
             onsetsIn,
             voiceEndIn,
             offsetSec: ws,
             floorSec,
+            nextLineStart,
             snap,
             minScore: tuning.minScore,
           })
@@ -951,14 +1007,13 @@ export async function refineTimelineWithAudio(
         }
         floorSec = Math.max(floorSec, line.end); // keep lines ordered across batches
       });
-      if (aligned > 0) {
-        timeline.aligned = true;
-        _emitLiveSep();
-      }
+      if (markTimelineAlignedIfComplete(timeline)) _emitLiveSep();
+      else if (aligned > 0) _emitLiveSep();
     }
     onProgress?.(done, targets.length);
   }
 
+  markTimelineAlignedIfComplete(timeline);
   return aligned > 0 || timeline.aligned ? { aligned } : false;
 }
 
@@ -1118,32 +1173,40 @@ export async function refineTimelineFromMic(
       result = null;
     }
     if (Array.isArray(result?.lines)) {
-      const snap = (tAbs) => snapToVocalOnset(batchPcm, TARGET_RATE, tAbs - batchStart, tuning.snap) + batchStart;
+      // Capture-labeled times sit in "heard" coordinates (buffer end ≈ songNowSec).
+      // syncOffset / expectedOffset is the measured hear-vs-catalog lag — convert
+      // OUT before writing the canonical lyric timeline so display syncOffset
+      // doesn't apply the same delay twice.
+      const latency = Number(expectedOffset || 0);
+      const sourceOrigin = batchStart + latency;
+      const snap = (tAbs) =>
+        snapToVocalOnset(batchPcm, TARGET_RATE, tAbs - sourceOrigin, tuning.snap) + sourceOrigin;
       const onsetsIn = tuning.onset
         ? (fromAbs, toAbs) =>
             detectOnsets(
               batchPcm,
               TARGET_RATE,
-              fromAbs - batchStart,
-              toAbs - batchStart,
+              fromAbs - sourceOrigin,
+              toAbs - sourceOrigin,
               tuning.onset
-            ).map((t) => t + batchStart)
+            ).map((t) => t + sourceOrigin)
         : null;
       const voiceEndIn = tuning.onset
         ? (fromAbs, toAbs) =>
             findVoiceEnd(
               batchPcm,
               TARGET_RATE,
-              fromAbs - batchStart,
-              toAbs - batchStart,
+              fromAbs - sourceOrigin,
+              toAbs - sourceOrigin,
               tuning.onset
-            ) + batchStart
+            ) + sourceOrigin
         : null;
       for (let idx = 0; idx < candidates.length; idx++) {
-        const { line } = candidates[idx];
+        const { line, i } = candidates[idx];
         const al = result.lines[idx];
         if (!al?.words) continue;
-        // Timing measurement from the raw onset, BEFORE applyWordSpans re-anchors.
+        // Timing measurement from the raw (heard) onset, BEFORE latency conversion
+        // and before applyWordSpans re-anchors.
         const firstSpan = al.words.find(
           (s) => s && s.end > s.start && (s.score == null || s.score >= MIN_WORD_SCORE)
         );
@@ -1164,8 +1227,9 @@ export async function refineTimelineFromMic(
         // and carry word.score / line.uncertain for the confidence-aware display.
         if (
           applyWordSpans(line, al.words, {
-            offsetSec: batchStart,
+            offsetSec: sourceOrigin,
             floorSec,
+            nextLineStart: timeline.lines[i + 1]?.start,
             snap,
             onsetsIn,
             voiceEndIn,
@@ -1178,16 +1242,14 @@ export async function refineTimelineFromMic(
         }
         floorSec = Math.max(floorSec, line.end);
       }
-      if (aligned > 0) {
-        timeline.aligned = true;
-        _emitLiveSep();
-      }
+      markTimelineAlignedIfComplete(timeline);
+      if (aligned > 0) _emitLiveSep();
       return aligned > 0 || timingSamples.length ? { aligned, timingSamples } : false;
     }
   }
 
   // Fallback for older bridges or an unexpected batch failure.
-  for (const { line } of candidates) {
+  for (const { line, i } of candidates) {
     const pad = timingOnly ? TIMING_SEARCH_PAD_SEC : ALIGN_SEARCH_PAD_SEC;
     const ws = Math.max(windowStart, line.start - pad);
     const we = Math.min(songNowSec, line.end + pad);
@@ -1233,18 +1295,26 @@ export async function refineTimelineFromMic(
 
     if (timingOnly) continue;
 
-    const snap = (tAbs) => snapToVocalOnset(pcm16k, TARGET_RATE, tAbs - ws) + ws;
-    if (applyWordSpans(line, al.words, { offsetSec: ws, floorSec, snap })) {
+    // Legacy per-line path: convert capture lag out the same way as the batch path.
+    const latency = Number(expectedOffset || 0);
+    const sourceOrigin = ws + latency;
+    const snap = (tAbs) => snapToVocalOnset(pcm16k, TARGET_RATE, tAbs - sourceOrigin) + sourceOrigin;
+    if (
+      applyWordSpans(line, al.words, {
+        offsetSec: sourceOrigin,
+        floorSec,
+        nextLineStart: timeline.lines[i + 1]?.start,
+        snap,
+      })
+    ) {
       aligned++;
       liveSepStats.rawLines++; // legacy per-line path never separates
     }
     floorSec = Math.max(floorSec, line.end);
   }
 
-  if (aligned > 0) {
-    timeline.aligned = true;
-    _emitLiveSep();
-  }
+  markTimelineAlignedIfComplete(timeline);
+  if (aligned > 0) _emitLiveSep();
   return aligned > 0 || timingSamples.length ? { aligned, timingSamples } : false;
 }
 
@@ -1343,6 +1413,7 @@ function applyWordSpans(
   {
     offsetSec = 0,
     floorSec = -Infinity,
+    nextLineStart = null,
     snap = null,
     onsetsIn = null,
     voiceEndIn = null,
@@ -1383,8 +1454,17 @@ function applyWordSpans(
     if (snap) est = snap(est);
     lineStart = est;
   }
-  line.start = clampT(lineStart, floorSec, Math.min(anchors[0].start, originalEnd - 0.1));
-  line.end = Math.max(originalEnd, anchors[anchors.length - 1].end);
+  // Cap against the next line so re-anchoring can't create overlapping ranges
+  // that make the display jump between two "current" lines.
+  const endCap =
+    Number.isFinite(nextLineStart) && nextLineStart > floorSec ? nextLineStart - 0.02 : Infinity;
+  line.start = clampT(
+    lineStart,
+    floorSec,
+    Math.min(anchors[0].start, originalEnd - 0.1, Number.isFinite(endCap) ? endCap : Infinity)
+  );
+  line.end = Math.min(Math.max(originalEnd, anchors[anchors.length - 1].end), endCap);
+  if (!(line.end > line.start)) line.end = line.start + 0.05;
 
   // 3. Place starts: anchors from CTC, gaps interpolated by syllable weight.
   const starts = new Array(words.length).fill(null);
@@ -1460,6 +1540,185 @@ function applyWordSpans(
   line._alignCoverage = anchors.length / words.length;
   line.uncertain = line._alignCoverage < UNCERTAIN_COVERAGE;
   line._vocalAligned = true;
+  return true;
+}
+
+// ---- Live in-progress-line retiming (rubato, before the line finishes) ----
+//
+// refineTimelineFromMic only ever corrects a line AFTER it's fully sung
+// (candidate filter above requires line.end <= songNowSec) — useless for the
+// highlight during a tempo change mid-line. These two functions add a lighter,
+// onset-only pass (no CTC/IPC round trip beyond one separation call) that
+// retimes the NOT-YET-REACHED words of the line currently being sung, so a
+// rubato swing is caught within the line instead of after it.
+
+const LIVE_RETIME_REACHED_MARGIN_SEC = 0.15; // how "in the past" a word must be to be untouchable
+const LIVE_RETIME_MIN_MATCHED = 2; // need >=2 onset/word pairs before trusting a pace
+const LIVE_RETIME_MIN_REARM_SEC = 1.5; // min gap between separation attempts on one line
+const LIVE_RETIME_MIN_CHANGE_SEC = 0.05; // skip a correction too small to be worth the jitter risk
+
+/**
+ * Pure core of live rubato retiming. Given a line's CURRENT word estimate and
+ * onsets observed so far in [lineStart, nowSec), re-spread only the words the
+ * display hasn't reached yet using the locally observed singing pace instead
+ * of the original tempo-blind estimate. Returns null (no-op) whenever the
+ * evidence is too weak to trust — never invents a correction from a guess.
+ *
+ * Never mutates `words` — reached words are load-bearing for what the display
+ * already rendered, and rewriting one would show as a visible jump.
+ *
+ * @param {Array<{start:number,end:number,text?:string}>} words  line.words,
+ *   current estimated timing.
+ * @param {number} nowSec
+ * @param {{lineStart:number, lineEnd:number, onsets:number[],
+ *   margin?:number, minMatched?:number}} opts  `onsets` are song-time seconds
+ *   (same clock as start/end); re-filtered defensively to [lineStart, nowSec).
+ * @returns {null | Array<{index:number, start:number, end:number}>} patches
+ *   (word index + new start/end) to apply, or null.
+ */
+export function computeLiveRetime(
+  words,
+  nowSec,
+  {
+    lineStart,
+    lineEnd,
+    onsets,
+    margin = LIVE_RETIME_REACHED_MARGIN_SEC,
+    minMatched = LIVE_RETIME_MIN_MATCHED,
+  } = {}
+) {
+  if (!Array.isArray(words) || words.length < 2) return null;
+  if (!(lineEnd > lineStart) || !Number.isFinite(nowSec)) return null;
+
+  const clean = Array.from(
+    new Set((onsets || []).filter((t) => Number.isFinite(t) && t >= lineStart && t < nowSec))
+  ).sort((a, b) => a - b);
+  if (clean.length < minMatched) return null;
+
+  // "Reached" = the current estimate already thinks this word has started —
+  // the display has committed to it. Starts are monotonic, so reached is
+  // always a prefix.
+  let reachedCut = -1;
+  for (let i = 0; i < words.length; i++) {
+    if (Number.isFinite(words[i]?.start) && words[i].start <= nowSec - margin) reachedCut = i;
+    else break;
+  }
+  if (reachedCut < 0) return null; // line just started, nothing to anchor on
+  if (reachedCut + 1 >= words.length) return null; // already on the last word
+
+  // Tail-pair the most recent reached words against the most recent onsets, in
+  // order. No distance gate: a large displacement IS the rubato signal (same
+  // philosophy as fitToOnsets above) — rejecting it would defeat the purpose.
+  const n = Math.min(reachedCut + 1, clean.length);
+  if (n < minMatched) return null;
+  const anchorFirst = { i: reachedCut + 1 - n, t: clean[clean.length - n] };
+  const anchorLast = { i: reachedCut, t: clean[clean.length - 1] };
+  if (!(anchorLast.t > anchorFirst.t)) return null;
+
+  let weightSpan = 0;
+  for (let k = anchorFirst.i; k < anchorLast.i; k++) weightSpan += wordWeight(words[k]);
+  if (!(weightSpan > 0)) return null;
+  const pace = clampT((anchorLast.t - anchorFirst.t) / weightSpan, SEC_PER_WEIGHT_MIN, SEC_PER_WEIGHT_MAX);
+
+  const lastIdx = words.length - 1;
+  let weightAfterAnchor = 0;
+  for (let k = anchorLast.i; k < lastIdx; k++) weightAfterAnchor += wordWeight(words[k]);
+  if (!(weightAfterAnchor > 0)) return null;
+  const available = lineEnd - 0.02 - anchorLast.t;
+  const effectivePace =
+    available > 0 && weightAfterAnchor * pace > available ? available / weightAfterAnchor : pace;
+  if (!(effectivePace > 0)) return null;
+
+  // Floor at the LATER of "now" and the last reached word's own (untouched)
+  // .end — never schedule the next word to start before the still-"current"
+  // reached word finishes (both would render as current simultaneously).
+  const floorStart = Math.max(
+    nowSec + 0.02,
+    Number.isFinite(words[reachedCut].end) ? words[reachedCut].end : words[reachedCut].start + 0.02
+  );
+
+  const patches = [];
+  let cum = 0;
+  let prev = floorStart - 0.02;
+  for (let k = reachedCut + 1; k <= lastIdx; k++) {
+    cum += wordWeight(words[k - 1]);
+    const raw = anchorLast.t + cum * effectivePace;
+    const s = clampT(raw, prev + 0.02, lineEnd - 0.02);
+    patches.push({ index: k, start: s });
+    prev = s;
+  }
+  for (let m = 0; m < patches.length; m++) {
+    patches[m].end = m + 1 < patches.length ? patches[m + 1].start : lineEnd;
+  }
+
+  // Skip a no-meaningful-change result — avoid jitter/CSS churn when the
+  // observed pace roughly matches the existing estimate already.
+  const changed = patches.some((p) => Math.abs(p.start - words[p.index].start) > LIVE_RETIME_MIN_CHANGE_SEC);
+  return changed ? patches : null;
+}
+
+/**
+ * Live sibling of refineTimelineFromMic, but for the line CURRENTLY being
+ * sung. Onset evidence only — no CTC/IPC round trip beyond one separation
+ * call, so it can run every tick regardless of the CTC bootstrapping state.
+ * Mutates the in-progress line's not-yet-reached words in place; sets
+ * `line._liveRetimedAt` (distinct from `_vocalAligned`, which is reserved for
+ * a real CTC pass — see applyWordSpans above) so a later full CTC pass on
+ * this line is never skipped because of this lighter live pass.
+ * @returns {Promise<boolean>} true when a line's words were actually retimed.
+ */
+export async function retimeCurrentLineFromMic(
+  timeline,
+  mic,
+  songNowSec,
+  { onStatus, minRearmSec = LIVE_RETIME_MIN_REARM_SEC } = {}
+) {
+  if (!timeline?.lines?.length || !mic || !Number.isFinite(songNowSec)) return false;
+
+  const line = timeline.lines.find(
+    (l) =>
+      l.start <= songNowSec &&
+      songNowSec < l.end &&
+      (l.words?.length || 0) > 1 &&
+      !l._vocalAligned &&
+      (l._liveRetimedAt == null || songNowSec - l._liveRetimedAt >= minRearmSec)
+  );
+  if (!line) return false;
+
+  const pcm = mic.getOrderedPcm?.();
+  if (!pcm?.length) return false;
+  const sampleRate = mic.sampleRate || 44100;
+  const windowStart = songNowSec - pcm.length / sampleRate;
+  // Mirrors the bound check in refineTimelineFromMic's candidate filter above.
+  if (!(line.start - ALIGN_SEARCH_PAD_SEC >= windowStart)) return false;
+
+  const i0 = Math.max(0, Math.floor((line.start - windowStart) * sampleRate));
+  const i1 = Math.min(pcm.length, Math.ceil((songNowSec - windowStart) * sampleRate));
+  if (i1 - i0 < 800) return false;
+
+  // Isolate the vocal for just this line's elapsed span; micWindowStem no-ops
+  // (returns null) when separation is unavailable/paused/too-short. We NEVER
+  // fall back to onset-detecting the raw mix — drum hits masquerade as
+  // syllable attacks there (see detectOnsets/applyWordSpans comments above).
+  const stem = await micWindowStem(pcm.subarray(i0, i1), sampleRate, { onStatus });
+  line._liveRetimedAt = songNowSec; // recorded whether or not this attempt finds anything
+  if (!stem?.length) return false;
+
+  const onsets = detectOnsets(stem, TARGET_RATE, 0, songNowSec - line.start, {
+    minE: 0.004,
+    minRise: 0.002,
+  }).map((t) => t + line.start);
+
+  const patches = computeLiveRetime(line.words, songNowSec, {
+    lineStart: line.start,
+    lineEnd: line.end,
+    onsets,
+  });
+  if (!patches) return false;
+  for (const p of patches) {
+    line.words[p.index].start = p.start;
+    line.words[p.index].end = p.end;
+  }
   return true;
 }
 
