@@ -83,8 +83,19 @@ export function createRouter({ stage, onEnter = () => {}, onLeave = () => {} }) 
         return;
       }
       const host = stage.querySelector(`[data-screen-panel="${name}"]`);
-      const first = host?.querySelector('[data-autofocus]')
-        || host?.querySelector('button, input, select, [tabindex="0"]');
+      // On a 10-foot remote, landing focus on a text field summons the on-screen
+      // keyboard the moment you arrive — the worst lean-back sin. On the TV
+      // surface, skip a text-input autofocus and land on the first browsable
+      // control instead; a text field is only focused if nothing else exists.
+      const isTv = document.body.dataset.surface === 'tv';
+      let first;
+      if (isTv) {
+        first = host?.querySelector('button:not([hidden]), [tabindex="0"]')
+          || host?.querySelector('[data-autofocus], input, select');
+      } else {
+        first = host?.querySelector('[data-autofocus]')
+          || host?.querySelector('button, input, select, [tabindex="0"]');
+      }
       first?.focus({ preventScroll: true });
     });
   }

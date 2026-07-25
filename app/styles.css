@@ -17,6 +17,39 @@
   background: radial-gradient(120% 90% at 50% 45%, transparent 40%, rgba(0,0,0,.6) 100%);
 }
 
+/* ---------------------------- ambient scene ----------------------------
+   A slow album-art glow for the "between" moments. Hidden by default; fades in
+   when playback is paused (data-playback set by updatePlayBtn) so a frozen pause
+   becomes a living scene rather than a dead still. The pause cue itself only
+   appears once the chrome has slept — a brief pause with the bar still up needs
+   no extra glyph. */
+.ambient {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 1s ease;
+  background: radial-gradient(52% 44% at 50% 50%,
+    color-mix(in srgb, var(--accent) 20%, transparent), transparent 72%);
+}
+#stage[data-playback="paused"] .ambient {
+  opacity: 1; animation: ambient-breathe 6.5s var(--ease) infinite;
+}
+@keyframes ambient-breathe { 0%, 100% { opacity: .68; } 50% { opacity: 1; } }
+/* Top-centre, not dead-centre: a centred cue would collide with the (centred)
+   active lyric. Up here it reads as a calm status glyph instead. */
+.ambient-cue {
+  position: absolute; top: 8%; left: 50%; transform: translateX(-50%);
+  display: flex; gap: .3em; font-size: var(--fs-xl);
+  opacity: 0; transition: opacity .8s ease .2s;
+}
+/* Only surface the pause bars once the bar has faded — otherwise the visible
+   nowbar (already showing “Play”) and this cue say the same thing twice. */
+#stage[data-playback="paused"][data-chrome="asleep"] .ambient-cue { opacity: .85; }
+.ambient-cue i {
+  display: block; width: .32em; height: 1em; border-radius: 3px;
+  background: var(--accent-soft);
+  box-shadow: 0 0 28px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
 /* ============================ LYRIC VIEW ============================ */
 #viewport {
   position: absolute; inset: 0; z-index: 2;
@@ -27,7 +60,10 @@
 #stage[data-mode="playing"] #viewport { opacity: 1; transform: none; }
 #lyrics {
   position: relative;
-  width: min(1000px, 82vw); text-align: center; will-change: transform;
+  /* Column + type are density tokens (see tokens.css): the inline fallbacks are
+     the desktop values, so a surface that doesn't set them is unchanged. TV
+     widens the column and grows the type for a read across the room. */
+  width: var(--lyric-col, min(1000px, 82vw)); text-align: center; will-change: transform;
   transition: transform .6s var(--ease);
   font-family: "SF Pro Display", -apple-system, system-ui, sans-serif;
 }
@@ -35,7 +71,7 @@
    softly out of focus, like rack focus on the sung line. */
 .line {
   display: block; margin: .5em auto; line-height: 1.14; opacity: .18;
-  font-size: clamp(26px, 4.4vw, 58px); font-weight: 800; letter-spacing: -.02em;
+  font-size: var(--lyric-size, clamp(26px, 4.4vw, 58px)); font-weight: 800; letter-spacing: -.02em;
   overflow-wrap: break-word; text-wrap: balance;
   transform: scale(.965);
   transition: opacity .55s ease, filter .55s ease, transform .6s var(--ease);
@@ -51,6 +87,17 @@
 .line.next.prep-ready {
   opacity: .62; filter: blur(.2px); transform: scale(.99);
 }
+/* 10-foot now/next hero. At ~3m the desktop's gentle rack-focus reads as mush —
+   too many half-legible lines competing. On the TV surface the sung line and the
+   one you're about to sing are the two things that matter; everything else drops
+   further back so those two carry the eye across the room. Desktop is untouched. */
+/* Only the idle context lines recede further — scoped with :not() so this never
+   outranks the state rules below (a bare `.line` override would beat `.line.active`
+   on specificity and blank out the sung line). */
+body[data-surface="tv"] .line:not(.active):not(.next):not(.past) { opacity: .12; filter: blur(2px); }
+body[data-surface="tv"] .line.past { opacity: .05; filter: blur(2.6px); }
+body[data-surface="tv"] .line.next { opacity: .52; filter: blur(.5px); }
+body[data-surface="tv"] .line.next.prep-ready { opacity: .7; filter: blur(.12px); }
 /* Focus mode: only active + next line; chrome gets out of the way.
    Nowbar still wakes on mouse/keys (no !important) so Focus/0.8× stay reachable. */
 #stage.focus-mode #nowbar.hide {
@@ -642,6 +689,14 @@ body:has(#stage[data-mode="setup"]) :is(#live-sep-hud, #sync-hud) { display: non
   pointer-events: none;
 }
 #listen-panel[hidden] { display: none; }
+/* Full-bleed breathing glow behind the listening card, so auto-detecting a
+   record feels like the whole screen is listening — not just a small dialog. */
+#listen-panel::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(50% 42% at 50% 48%,
+    color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%);
+  animation: ambient-breathe 6.5s var(--ease) infinite;
+}
 .listen-card {
   display: flex; flex-direction: column; align-items: center; gap: 14px;
   padding: 34px 40px; border-radius: 20px;
@@ -696,6 +751,7 @@ body:has(#stage[data-mode="setup"]) :is(#live-sep-hud, #sync-hud) { display: non
    a legible static fallback. */
 @media (prefers-reduced-motion: reduce) {
   .splash-mark, .splash-word, .busy-vinyl, .listen-pulse,
+  #stage[data-playback="paused"] .ambient, #listen-panel::before,
   .sk-art::after, .sk-line::after,
   #setup-status[data-type="loading"]::before { animation: none; }
   .line.active .word.current {

@@ -111,6 +111,27 @@
 }
 .btn-primary:hover { filter: brightness(1.06); }
 .btn-primary:active { transform: scale(.985); }
+
+/* ---- browse-first hub on the TV surface ----
+   A 10-foot remote can't type without the on-screen keyboard, so the hub leads
+   with everything that's D-pad navigable — recent, follow-what's-playing,
+   recommendations — and demotes the search field to a secondary utility beneath
+   them. `order` only changes the visual + geometry order (which is what D-pad
+   nav follows via getBoundingClientRect); DOM order — and the whole desktop
+   layout — stay exactly as they were. */
+body[data-surface="tv"] .screen[data-screen-panel="home"] .hub-header { order: -4; }
+body[data-surface="tv"] .screen[data-screen-panel="home"] #row-continue { order: -3; }
+body[data-surface="tv"] .screen[data-screen-panel="home"] .row:has(#hub-sources) { order: -2; }
+body[data-surface="tv"] .screen[data-screen-panel="home"] .row:has(#chart-recs) { order: -1; }
+body[data-surface="tv"] .screen[data-screen-panel="home"] #spotify-panel { order: 0; }
+body[data-surface="tv"] .screen[data-screen-panel="home"] #search { order: 1; }
+body[data-surface="tv"] .screen[data-screen-panel="home"] #setup-status { order: 2; }
+body[data-surface="tv"] .screen[data-screen-panel="home"] .hint { order: 3; }
+
+/* The demoted search reads as a centred utility, not the page hero. */
+body[data-surface="tv"] .screen[data-screen-panel="home"] #search {
+  width: 100%; max-width: 760px; align-self: center;
+}
 .btn-primary:disabled { filter: grayscale(.4) brightness(.8); cursor: default; }
 
 /* ---- rows / shelves ---- */

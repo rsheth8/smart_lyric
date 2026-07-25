@@ -41,6 +41,10 @@
   <div id="stage" data-mode="setup" data-screen="home" data-nav="push">
     <canvas class="bg" id="bg"></canvas>
     <div class="vignette"></div>
+    <!-- Ambient scene: a slow album-art glow that breathes behind the lyrics
+         during the "between" moments (paused; the pause cue fades in only once
+         the chrome has slept). Purely decorative. -->
+    <div class="ambient" aria-hidden="true"><span class="ambient-cue"><i></i><i></i></span></div>
 
     <div id="viewport"><div id="lyrics" aria-live="off"></div></div>
 

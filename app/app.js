@@ -36,6 +36,7 @@ import { translateLines, romanizeLines, needsRomanization } from './providers/tr
 import { getMedium } from './mediums/index.js';
 import { createRouter } from './ui/router.js';
 import { initScreenFocus } from './ui/focus.js';
+import { initRemote, Intent } from './remote.js';
 import { initSurface } from './ui/surface.js';
 import { accentFromPalette, applyAccent } from './theme.js';
 import { loadLibrary, recordPlay, clearLibrary, relativeWhen, updateArt } from './library.js';
@@ -397,6 +398,8 @@ function ingestTimingSamples(samples) {
 function enterSetup() {
   stage.dataset.mode = 'setup';
   clearTimeout(idleTimer);
+  stage.dataset.chrome = 'awake';
+  delete stage.dataset.playback; // no ambient paused scene on the hub
   $('nowbar').classList.remove('hide');
   $('hotkeys')?.classList.add('hide');
   $('inspector').hidden = true;
@@ -1502,6 +1505,13 @@ function updatePlayBtn() {
     label = 'Listening';
   }
   $('btn-play').textContent = label;
+  // Ambient-scene seam: only meaningful while a song is up. 'Play'/'Paused' are
+  // the two resting labels; everything else ('Pause'/'Following'/'Listening') is live.
+  if (stage.dataset.mode === 'playing') {
+    stage.dataset.playback = label === 'Play' || label === 'Paused' ? 'paused' : 'playing';
+  } else {
+    delete stage.dataset.playback;
+  }
 }
 audio.addEventListener('play', updatePlayBtn);
 audio.addEventListener('pause', updatePlayBtn);
@@ -1553,17 +1563,25 @@ document.addEventListener('click', (e) => {
 });
 
 // ⋯ — the now-bar's single overflow. Everything per-song that used to live as a
-// separate button on the bar is inside.
-$('btn-more').addEventListener('click', () => {
+// separate button on the bar is inside: timing, view modes, language — none of
+// which have a physical remote button. On a Siri Remote the ⋯ is reached by
+// normal focus nav (a swipe wakes the bar, then over to it); opening lands focus
+// on the first control inside so the remote can drive the panel immediately.
+// (The hardware Menu button is Back, per tvOS — it's Intent.BACK, not this.)
+function toggleInspector(force) {
   const panel = $('inspector');
-  const open = panel.hidden;
+  const open = typeof force === 'boolean' ? force : panel.hidden;
   panel.hidden = !open;
   $('btn-more').setAttribute('aria-expanded', String(open));
   if (open) {
     syncInspectorUi();
+    $('nowbar')?.classList.remove('hide');
     poke(9000); // keep the bar awake while the panel is up
+    // Land focus inside so a remote can drive it immediately.
+    panel.querySelector('button:not([hidden]):not([disabled])')?.focus({ preventScroll: true });
   }
-});
+}
+$('btn-more').addEventListener('click', () => toggleInspector());
 
 // Global preferences live on the Settings screen, which is reachable with or
 // without a song playing — the sync panel used to be the only way in.
@@ -2562,27 +2580,67 @@ initScreenFocus({
   },
 });
 
+// -------------------- remote intents (Siri Remote / TV) --------------------
+// The transport + system buttons a focus engine never covers — Play/Pause, the
+// track buttons, and Back/Menu — flow through app/remote.js so they work
+// whether the runtime delivers them as key events or via the Media Session API.
+// Directional focus (MOVE/SELECT) is left to the focus engine above.
+
+/**
+ * Peel exactly one layer off the current context, tvOS Menu-button style:
+ * popup → focus/reading/practice → leave the lyric view → pop the screen stack.
+ * Returns true if it consumed the press.
+ */
+function handleBack() {
+  if (closeAnyOpenPopup()) return true;
+  if (stage.dataset.mode === 'playing' && exitTopOverlayMode()) return true;
+  if (stage.dataset.mode === 'playing') {
+    $('btn-change').click();
+    return true;
+  }
+  return router.back();
+}
+
+initRemote({
+  guard: (intent) => {
+    // Space typed into a text field is a space, not play/pause. A hardware
+    // Play button (source 'media'/'mediaSession') always toggles, even in a field.
+    if (intent.type === Intent.PLAYPAUSE && intent.source === 'key') {
+      return document.activeElement?.tagName !== 'INPUT';
+    }
+    return true;
+  },
+  onIntent: (intent, ev) => {
+    // Any remote input wakes the chrome. This is the one wake point that also
+    // covers Media Session intents (a hardware Play/Pause / track button), which
+    // arrive with no keydown and so never reach the keydown-based poke below.
+    poke();
+    switch (intent.type) {
+      case Intent.PLAYPAUSE:
+        ev?.preventDefault();
+        togglePlay();
+        break;
+      case Intent.BACK:
+        if (handleBack()) ev?.preventDefault();
+        break;
+      case Intent.NEXT:
+        if (!$('btn-next')?.hidden) $('btn-next').click();
+        break;
+      case Intent.PREV:
+        if (!$('btn-prev')?.hidden) $('btn-prev').click();
+        break;
+      // MOVE / SELECT / MENU / VOICE: navigation stays with the focus engine;
+      // MENU + VOICE get homes in later slices.
+    }
+  },
+});
+
 // -------------------- fullscreen + auto-hiding bar -------------------------
 addEventListener('keydown', (e) => {
-  // Esc peels layers: popup → focus/reading/practice → leave lyric view → back
-  // up the screen stack. Each rung returns, so one press undoes exactly one thing.
-  if (e.key === 'Escape') {
-    if (closeAnyOpenPopup()) return;
-    if (stage.dataset.mode === 'playing' && exitTopOverlayMode()) return;
-    if (stage.dataset.mode === 'playing') {
-      $('btn-change').click();
-      return;
-    }
-    if (router.back()) return;
-  }
   if (e.key.toLowerCase() === 'f') {
     if (window.bar4bar?.toggleFullscreen) window.bar4bar.toggleFullscreen();
     else if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
     else document.exitFullscreen?.();
-  }
-  if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
-    e.preventDefault();
-    togglePlay();
   }
   // Sync nudge only while lyrics are playing — avoids clashing with search typing.
   if (stage.dataset.mode !== 'playing') return;
@@ -2626,14 +2684,24 @@ let lastPokeMove = 0;
  * the pointer twitched. It's now summoned explicitly with `?` (showKeys), which
  * is what the hint on the hub advertises.
  */
-function poke(holdMs = 3500) {
+// A viewer across the room needs longer to notice the bar than one at a laptop,
+// so the lean-back dwell stretches on the TV surface.
+function idleHold() {
+  return document.body.dataset.surface === 'tv' ? 4800 : 3500;
+}
+function poke(holdMs) {
   if (stage.dataset.mode !== 'playing') return;
   $('nowbar')?.classList.remove('hide');
+  stage.dataset.chrome = 'awake';
   clearTimeout(idleTimer);
-  const ms = typeof holdMs === 'number' && holdMs > 0 ? holdMs : 3500;
+  const ms = typeof holdMs === 'number' && holdMs > 0 ? holdMs : idleHold();
   idleTimer = setTimeout(() => {
+    // Never fade out from under an open control panel — the user is mid-task.
+    // Re-arm instead so it hides once they've dismissed it.
+    if (!$('inspector')?.hidden) { poke(); return; }
     $('nowbar')?.classList.add('hide');
     $('hotkeys')?.classList.add('hide');
+    stage.dataset.chrome = 'asleep';
   }, ms);
 }
 
@@ -2808,5 +2876,13 @@ async function bootSetup() {
 bootSetup();
 // preventScroll: focusing the search field otherwise scrolls it into view,
 // which pushes the brand header off the top of the hub on first paint.
-$('in-track').focus({ preventScroll: true });
+if (document.body.dataset.surface === 'tv') {
+  // 10-foot: opening on the search field would pop the on-screen keyboard at
+  // launch. Land on the first browse action ("Follow what's playing") instead —
+  // the whole hub is D-pad navigable, and search stays one click away.
+  (document.querySelector('#hub-sources .tile') || document.querySelector('#screens button'))
+    ?.focus({ preventScroll: true });
+} else {
+  $('in-track').focus({ preventScroll: true });
+}
 window.__sl = { display, demoClock, enterPlaying, stage, session, router, surface };

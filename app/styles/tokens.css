@@ -166,6 +166,12 @@ body[data-surface="tv"] {
   --safe-x: 5vw;
   --safe-y: 4vh;
   --screen-max: 1600px;
+
+  /* Lyric hero: grow the type and widen the column for a read across the room.
+     Consumed by #lyrics / .line in styles.css, which fall back to the desktop
+     values when a surface doesn't set these. */
+  --lyric-size: clamp(44px, 6.2vw, 104px);
+  --lyric-col: min(1500px, 90vw);
 }
 
 /* Fallback: if JS hasn't set data-surface yet (first paint), assume desktop

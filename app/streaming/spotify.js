@@ -3,6 +3,7 @@
 
 import { StreamingClock } from '../clock.js';
 import { saveToken, loadToken, clearToken, isExpired } from './auth.js';
+import { describeAuthError } from './authError.js';
 import {
   createPkcePair,
   buildAuthorizeUrl,
@@ -188,6 +189,12 @@ export async function beginSpotifyLogin() {
   sessionStorage.setItem('sl_spotify_verifier', verifier);
   sessionStorage.setItem('sl_spotify_state', state);
   const redirectUri = browserRedirectUri();
+  // Name the exact redirect URI before we leave the app: if Spotify stops on its
+  // own "Invalid redirect URI" page (the app never regains control to report it),
+  // this is what must be registered in the Dashboard — trailing slash included.
+  console.info(
+    `[Bar4Bar] Spotify authorize redirect_uri = ${redirectUri} — this exact value must be registered in your Spotify Developer Dashboard.`
+  );
   location.href = buildAuthorizeUrl({
     clientId,
     redirectUri,
@@ -210,7 +217,7 @@ export async function completeSpotifyLoginFromUrl() {
   const error = params.get('error');
   if (error) {
     history.replaceState(null, '', location.pathname);
-    throw new Error(`Spotify auth error: ${error}`);
+    throw new Error(describeAuthError(error, browserRedirectUri()));
   }
   if (!code) return false;
 
