@@ -36,7 +36,7 @@ const ALIGN_BATCH_LINES = 6;
 // pauses and the word is allowed to end honestly instead of faking a hold.
 const GAP_TOLERANCE_SEC = 0.35;
 
-const WORD_SYNC_FORMATS = new Set(['yrc', 'richsync', 'ass']);
+const WORD_SYNC_FORMATS = new Set(['yrc', 'richsync', 'ass', 'ttml']);
 const LATIN_LETTER = /[A-Za-z]/;
 
 /** Formats that already ship true per-word timing from a catalog. */
@@ -52,7 +52,9 @@ export function isWordSyncFormat(format) {
  */
 export function needsVocalAlign(timeline, meta = {}) {
   if (!timeline?.lines?.length) return false;
-  if (isWordSyncFormat(meta.format)) return false;
+  // `wordSync === false` is a word-sync FORMAT carrying line-level timing (a
+  // line-level TTML sidecar); it still needs alignment despite the format name.
+  if (isWordSyncFormat(meta.format) && timeline.wordSync !== false) return false;
   return timeline.lines.some((l) => (l.words?.length || 0) > 0 && !l._vocalAligned);
 }
 
@@ -488,6 +490,24 @@ export function instrumentalState(prev, { quiet, nextVocalIn, t }, opts = {}) {
  * @param {number} t
  * @param {{ maxHoldSec?: number, minGapSec?: number }} [opts]
  */
+/**
+ * When singing on a line is "done" for display purposes.
+ *
+ * Catalog LRC sets `line.end` to the NEXT line's start, and `wordsAcrossSpan`
+ * parks all leftover span on the final word as a held tail — so neither
+ * `line.end` nor the last word's `end` says when the voice actually stops. A
+ * held note is real but bounded; past `maxHoldSec` the rest is interlude.
+ *
+ * Shared by instrumental detection and section derivation so both agree on
+ * where a lyric block ends.
+ */
+export function lineSungUntil(line, maxHoldSec = 2.0) {
+  const words = line?.words || [];
+  if (!words.length) return line?.start ?? 0;
+  const last = words[words.length - 1];
+  return Math.min(last.end, last.start + maxHoldSec);
+}
+
 export function lyricGapStateAt(lines, t, { maxHoldSec = 2.0, minGapSec = 1.5 } = {}) {
   if (!lines?.length) return { active: true, nextVocalIn: null };
 
@@ -513,13 +533,7 @@ export function lyricGapStateAt(lines, t, { maxHoldSec = 2.0, minGapSec = 1.5 } 
 
   // When singing on this line is "done" for display: last word may hold briefly,
   // then any long leftover until the next line is the interlude.
-  let sungUntil;
-  if (!words.length) {
-    sungUntil = line.start;
-  } else {
-    const last = words[words.length - 1];
-    sungUntil = Math.min(last.end, last.start + maxHoldSec);
-  }
+  const sungUntil = lineSungUntil(line, maxHoldSec);
   const gapEnd = nextStart != null ? nextStart : (Number.isFinite(line.end) ? line.end : sungUntil);
   const leftover = gapEnd - sungUntil;
 
