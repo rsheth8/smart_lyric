@@ -13,6 +13,7 @@ import {
   putCachedTimeline,
 } from './timeline-cache.js';
 import { needsVocalAlign } from './align.js';
+import { hydrateFromSidecar, saveToSidecar } from './sidecar.js';
 
 const WORD_SYNC_FORMATS = new Set(['yrc', 'richsync', 'ass']);
 
@@ -109,7 +110,41 @@ export class SongSession {
       return false;
     }
 
+    // Pull any on-disk alignment into localStorage first, so `applyResult`'s
+    // synchronous cache lookup can find it. Bounded by the fetch we just did —
+    // this costs one file stat in the common (no sidecar) case.
+    await this.hydrateAlignment({ artist, track, album, duration, id, spotifyId, meta: result.meta });
+    if (gen !== this.loadGeneration) return false;
+
     return this.applyResult(result, { artist, track, album, duration, id, spotifyId, gen });
+  }
+
+  /**
+   * Import a durable sidecar for this track before the cache is consulted.
+   * Tries the key we're about to load under, and the key the resolved metadata
+   * implies, since catalog metadata can differ from what the user typed.
+   */
+  async hydrateAlignment({ artist, track, album, duration, id, spotifyId, meta } = {}) {
+    const keys = new Set(
+      [
+        cacheKey({ artist, track, album, duration, id, spotifyId }),
+        cacheKey({
+          artist: meta?.artistName || artist,
+          track: meta?.trackName || track,
+          duration: duration || meta?.duration,
+          id: id || spotifyId || meta?.id,
+          spotifyId,
+        }),
+      ].filter(Boolean)
+    );
+    if (!keys.size && !this.audioFile) return false;
+
+    let imported = false;
+    for (const key of keys.size ? keys : [null]) {
+      const res = await hydrateFromSidecar({ key, audioFile: this.audioFile });
+      if (res.imported) imported = true;
+    }
+    return imported;
   }
 
   /**
@@ -156,10 +191,17 @@ export class SongSession {
     this.cacheKey = cacheKey(this.meta);
 
     let fromCache = false;
+    let provisionalCache = false;
     if (this.cacheKey && !WORD_SYNC_FORMATS.has(this.meta.format)) {
       const cached = getCachedTimeline(this.cacheKey);
-      if (cached?.timeline && applyCachedTiming(timeline, cached.timeline)) {
+      // A stale entry (older aligner) is still far better than a syllable
+      // guess: apply it provisionally so the song is instantly close, and let
+      // the current aligner refine it in the background.
+      if (cached?.timeline && applyCachedTiming(timeline, cached.timeline, {
+        provisional: cached.stale,
+      })) {
         fromCache = true;
+        provisionalCache = !!cached.stale;
       }
     }
 
@@ -183,15 +225,26 @@ export class SongSession {
       source: this.meta.source,
       aligned: !!timeline.aligned,
       fromCache,
+      provisionalCache,
+      rebound: !!timeline.rebound,
       cacheKey: this.cacheKey,
       needsAlign: needsVocalAlign(timeline, this.meta),
     };
   }
 
-  /** Persist the current timeline after forced alignment succeeds. */
+  /**
+   * Persist the current timeline after forced alignment succeeds.
+   * localStorage is written synchronously (the caller's return value); the
+   * durable sidecar is written fire-and-forget, since losing it costs
+   * durability on the next run, never correctness on this one.
+   */
   saveAlignedCache() {
     if (!this.cacheKey || !this.timeline?.aligned) return false;
-    return putCachedTimeline(this.cacheKey, this.timeline, this.meta || {});
+    const saved = putCachedTimeline(this.cacheKey, this.timeline, this.meta || {});
+    if (saved) {
+      saveToSidecar({ key: this.cacheKey, audioFile: this.audioFile }).catch(() => {});
+    }
+    return saved;
   }
 
   setClock(clock) {

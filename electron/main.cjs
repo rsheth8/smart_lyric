@@ -14,6 +14,7 @@ const { identifyWav } = require('./fingerprint.cjs');
 const { identifyAcr, acrConfigured } = require('./acrcloud.cjs');
 const { alignSong, alignAvailable, alignModelLoaded, alignWarm } = require('./align.cjs');
 const { separateVocals, separateAvailable, separateWarm } = require('./separate.cjs');
+const { readAlignment, writeAlignment } = require('./sidecar.cjs');
 const { transcribeAudio, transcribeAvailable } = require('./transcribe.cjs');
 const { cleanLyricLines, guessSongLanguage, anthropicConfigured } = require('./anthropic.cjs');
 const { buildMenu } = require('./menu.cjs');
@@ -412,6 +413,22 @@ function createWindow() {
     }
     return result;
   });
+  // Durable alignment sidecars (next to the audio file, plus a userData store).
+  ipcMain.handle('read-alignment', async (_e, payload) => {
+    try {
+      return await readAlignment(payload || {});
+    } catch {
+      return null; // a missing/unreadable sidecar must never break loading a song
+    }
+  });
+  ipcMain.handle('write-alignment', async (_e, payload) => {
+    try {
+      return await writeAlignment(payload || {});
+    } catch (err) {
+      return { ok: false, store: false, sibling: false, error: String(err?.message || err) };
+    }
+  });
+
   ipcMain.handle('align-available', () => alignAvailable());
   ipcMain.handle('align-model-loaded', () => alignModelLoaded());
   ipcMain.handle('align-warm', async () => {

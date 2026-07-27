@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('bar4bar', {
   guessLanguage: (payload) => ipcRenderer.invoke('guess-language', payload),
   alignSong: (payload) => ipcRenderer.invoke('align-song', payload),
   alignAvailable: () => ipcRenderer.invoke('align-available'),
+  readAlignment: (payload) => ipcRenderer.invoke('read-alignment', payload),
+  writeAlignment: (payload) => ipcRenderer.invoke('write-alignment', payload),
   alignModelLoaded: () => ipcRenderer.invoke('align-model-loaded'),
   alignWarm: () => ipcRenderer.invoke('align-warm'),
   separateVocals: (payload) => ipcRenderer.invoke('separate-vocals', payload),
