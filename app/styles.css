@@ -249,6 +249,121 @@ body[data-surface="tv"] .line.next.prep-ready { opacity: .7; filter: blur(.12px)
   text-shadow: 0 0 20px rgba(227,194,122,.26);
   filter: none;
 }
+/* ---------------------------------------------------------------------------
+   Background vocals (TTML ttm:role="x-bg") — a quieter second track under the
+   lead. Deliberately no karaoke wipe: two sweeping playheads on one screen is
+   two things to follow. Parentheses are drawn by CSS so the lyric data stays
+   clean text.
+   ------------------------------------------------------------------------- */
+.line-bg {
+  margin-top: .1em;
+  font-size: .52em; font-weight: 650; letter-spacing: .01em;
+  color: var(--dim);
+}
+.line-bg::before { content: "("; margin-right: .1em; opacity: .5; }
+.line-bg::after { content: ")"; margin-left: .1em; opacity: .5; }
+.bg-word { display: inline-block; margin: 0 .18em; transition: color .2s ease; }
+.line.active .bg-word { color: var(--upcoming); }
+.line.active .bg-word.sung { color: rgba(246,240,228,.6); }
+.line.active .bg-word.current {
+  color: var(--accent-soft);
+  text-shadow: 0 0 14px rgba(227,194,122,.3);
+}
+/* In focus mode the lead line is the point — keep ad-libs from competing. */
+#stage.focus-mode .line:not(.active) .line-bg { opacity: 0; }
+
+/* ---------------------------------------------------------------------------
+   Duet staging (TTML ttm:agent) — push each singer to their own edge so a
+   call-and-response reads at a glance. Only applied when 2+ agents actually
+   sing (#lyrics.duet), so ordinary single-voice lyrics stay centred.
+   ------------------------------------------------------------------------- */
+#lyrics.duet .line[data-singer="a"] { text-align: left; padding-right: 18%; }
+#lyrics.duet .line[data-singer="b"] { text-align: right; padding-left: 18%; }
+#lyrics.duet .line[data-singer="c"] { text-align: center; }
+#lyrics.duet .line[data-singer] { transition: opacity var(--dur) var(--ease); }
+/* A hairline on the singer's side: which voice, without a name tag shouting. */
+#lyrics.duet .line[data-singer="a"] .line-orig,
+#lyrics.duet .line[data-singer="b"] .line-orig {
+  position: relative;
+}
+#lyrics.duet .line.active[data-singer="a"] .line-orig::before,
+#lyrics.duet .line.active[data-singer="b"] .line-orig::before {
+  content: "";
+  position: absolute; top: .18em; bottom: .18em; width: 2px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, transparent, var(--accent), transparent);
+  opacity: .55;
+}
+#lyrics.duet .line.active[data-singer="a"] .line-orig::before { left: -.55em; }
+#lyrics.duet .line.active[data-singer="b"] .line-orig::before { right: -.55em; }
+@media (max-width: 720px) {
+  #lyrics.duet .line[data-singer="a"] { padding-right: 6%; }
+  #lyrics.duet .line[data-singer="b"] { padding-left: 6%; }
+}
+
+/* ---------------------------------------------------------------------------
+   Structure rail — the shape of the song, readable from the couch: where the
+   choruses are, how long the break runs, how far in you are.
+   ------------------------------------------------------------------------- */
+#structure-rail {
+  /* Sits directly above the now-playing bar. `--nowbar-h` is the bar's measured
+     height; keep them in step or the rail lands on top of the transport. */
+  --nowbar-h: 64px;
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--space-5) + var(--nowbar-h) + 14px);
+  z-index: 7; width: min(660px, 62vw);
+  opacity: 0; transition: opacity var(--dur-slow) var(--ease);
+  pointer-events: none;
+}
+#structure-rail.show { opacity: .9; }
+#stage[data-mode="setup"] #structure-rail { display: none; }
+#stage.focus-mode #structure-rail { opacity: 0; }
+.rail-label {
+  height: 1.1em; margin-bottom: 7px; text-align: center;
+  font: 650 11px/1.1 "SF Pro Display", system-ui, sans-serif;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: var(--text-3);
+  transition: color var(--dur) var(--ease);
+}
+#structure-rail.has-label .rail-label { color: rgba(244,227,189,.72); }
+.rail-track {
+  position: relative; height: 4px; border-radius: var(--r-pill);
+  background: rgba(255,255,255,.06);
+  overflow: hidden;
+}
+.rail-seg {
+  position: absolute; top: 0; bottom: 0;
+  border-radius: var(--r-pill);
+  background: rgba(255,255,255,.09);
+  /* Hairline between adjacent sections so the song's shape is countable. */
+  box-shadow: inset -1px 0 0 rgba(11,9,8,.85);
+  transition: background var(--dur) var(--ease);
+}
+.rail-seg[data-part="Chorus"] { background: rgba(227,194,122,.26); }
+.rail-seg[data-part="Break"],
+.rail-seg[data-part="Intro"],
+.rail-seg[data-part="Outro"] { background: rgba(255,255,255,.05); }
+.rail-seg.current { background: rgba(227,194,122,.2); }
+.rail-seg.current[data-part="Chorus"] { background: rgba(227,194,122,.34); }
+.rail-fill {
+  display: block; height: 100%; width: 0;
+  border-radius: var(--r-pill);
+  background: linear-gradient(90deg, rgba(227,194,122,.7), var(--accent));
+}
+.rail-seg.current .rail-fill {
+  box-shadow: 0 0 12px rgba(227,194,122,.45);
+}
+/* Derived structure is a good guess, not gospel — state it more quietly than
+   an authored TTML song-part. */
+.rail-seg[data-derived] .rail-fill { opacity: .82; }
+/* 10-foot: the rail is a glanceable landmark, so give it real size on TV. */
+body[data-surface="tv"] #structure-rail { --nowbar-h: 84px; width: min(1100px, 68vw); }
+body[data-surface="tv"] .rail-track { height: 6px; }
+body[data-surface="tv"] .rail-label { font-size: 15px; }
+@media (prefers-reduced-motion: reduce) {
+  #structure-rail, .rail-seg, .rail-label { transition: none; }
+}
+
 /* Language aid line (romanization / English) — hidden until #lyrics.show-sub. */
 .line-sub {
   display: none;

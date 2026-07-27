@@ -8,6 +8,7 @@
 
 import { lyricGapStateAt, vocalStateAt, instrumentalState } from './align.js';
 import { syllableCount } from './providers/formats/lrc.js';
+import { resolveSections, sectionIndexAt } from './providers/formats/sections.js';
 
 // How early a word lights up so a first-time singer can react and start on time.
 export const LEADIN_WORD = 0.32;
@@ -39,6 +40,28 @@ const FOCUS_KEY = 'bar4bar.focusMode';
 // `lineTop` must be measured relative to the scrolling #lyrics element.
 export function centerTranslate(viewportH, lineTop, lineHeight) {
   return Math.round(viewportH / 2 - (lineTop + lineHeight / 2));
+}
+
+/**
+ * Assign duet sides from `ttm:agent` ids. Apple stages a duet by pushing each
+ * singer's lines to opposite edges, which is what makes a call-and-response
+ * readable at a glance instead of a wall of centred text.
+ *
+ * Returns null unless at least two agents actually sing — a single-agent TTML
+ * (the common case) must stay centred, not drift left.
+ *
+ * @param {Array<{ agent?: string }>} lines
+ * @returns {Map<string, 'a'|'b'|'c'>|null}
+ */
+export function agentSides(lines) {
+  const order = [];
+  for (const line of lines || []) {
+    if (line?.agent && !order.includes(line.agent)) order.push(line.agent);
+  }
+  if (order.length < 2) return null;
+  const sides = new Map();
+  order.forEach((id, i) => sides.set(id, i === 0 ? 'a' : i === 1 ? 'b' : 'c'));
+  return sides;
 }
 
 /** 0..1 progress through a word's sung span (karaoke wipe). */
@@ -365,9 +388,12 @@ export class Display {
   setLyrics(timeline, { source, format, wordSync, aligned } = {}) {
     this.lines = timeline.lines || [];
     this.lyricsEl.innerHTML = '';
+    const sides = agentSides(this.lines);
+    this.lyricsEl.classList.toggle('duet', !!sides);
     this.lineEls = this.lines.map((line) => {
       const el = document.createElement('div');
       el.className = 'line';
+      if (sides && line.agent) el.dataset.singer = sides.get(line.agent) || 'c';
       // Alignment wasn't confident of the per-word timing here → the display shows
       // this line at line level (whole-line highlight) rather than a false sweep.
       if (line.uncertain) el.classList.add('uncertain');
@@ -387,6 +413,25 @@ export class Display {
         word.syll = Math.max(1, syllableCount(word.text));
       });
       el.appendChild(orig);
+      // Background vocals (TTML `ttm:role="x-bg"`): a quieter row under the
+      // lead. Rendered as its own track so the lead line's karaoke wipe isn't
+      // interrupted by ad-libs that a different voice is singing.
+      line.bgWords = [];
+      if (line.bg?.length) {
+        const bgRow = document.createElement('div');
+        bgRow.className = 'line-bg';
+        for (const group of line.bg) {
+          for (const word of group.words || []) {
+            const s = document.createElement('span');
+            s.className = 'bg-word';
+            s.textContent = word.text;
+            bgRow.appendChild(s);
+            word.el = s;
+            line.bgWords.push(word);
+          }
+        }
+        if (line.bgWords.length) el.appendChild(bgRow);
+      }
       const sub = document.createElement('div');
       sub.className = 'line-sub';
       el.appendChild(sub);
@@ -405,6 +450,9 @@ export class Display {
     // lyric-gap heuristic must NOT run on it (it would false-flag sustains as
     // instrumental). Only the stem's vocal map is trustworthy for these.
     this.wordSync = !!wordSync;
+    // Authored TTML structure when present; derived verse/chorus/break otherwise.
+    this.sections = resolveSections(timeline);
+    this._buildRail(timeline.duration);
     this._setInstrumental(false);
     this._hideCountIn();
     this._applyCurrentWord(null);
@@ -414,6 +462,76 @@ export class Display {
     this.activeLine = -1;
     this._instrState = { on: false, quietSince: null };
     this._resize();
+  }
+
+  /**
+   * Song structure rail — the shape of the song as a bar you can read from the
+   * couch: where the choruses are, how long the instrumental break runs, how
+   * far in you are. Authored TTML `song-part` divs when we have them, derived
+   * verse/chorus/break otherwise (see providers/formats/sections.js).
+   */
+  _buildRail(duration) {
+    if (!this._railEl) {
+      this._railEl = document.createElement('div');
+      this._railEl.id = 'structure-rail';
+      this._railEl.setAttribute('aria-hidden', 'true');
+      this._railEl.innerHTML =
+        '<div class="rail-label"></div><div class="rail-track"></div>';
+      this.stage.appendChild(this._railEl);
+      this._railTrack = this._railEl.querySelector('.rail-track');
+      this._railLabel = this._railEl.querySelector('.rail-label');
+    }
+    this._railDuration = Number.isFinite(duration) && duration > 0 ? duration : 0;
+    this._railTrack.innerHTML = '';
+    this._railSegs = [];
+    this._sectionIdx = -1;
+
+    const sections = this.sections || [];
+    // Nothing worth drawing: no structure, or no duration to scale it against.
+    const show = sections.length >= 2 && this._railDuration > 0;
+    this._railEl.classList.toggle('show', show);
+    if (!show) return;
+
+    for (const s of sections) {
+      const seg = document.createElement('div');
+      seg.className = 'rail-seg';
+      seg.dataset.part = s.part;
+      if (s.derived) seg.dataset.derived = '1';
+      seg.style.left = `${(s.start / this._railDuration) * 100}%`;
+      seg.style.width = `${Math.max(0, (s.end - s.start) / this._railDuration) * 100}%`;
+      const fill = document.createElement('i');
+      fill.className = 'rail-fill';
+      seg.appendChild(fill);
+      this._railTrack.appendChild(seg);
+      this._railSegs.push({ el: seg, fill, section: s });
+    }
+  }
+
+  /** Advance the rail: fill past sections, track progress through the current. */
+  _updateRail(t) {
+    if (!this._railSegs?.length || !this._railEl?.classList.contains('show')) return;
+    const idx = sectionIndexAt(this.sections, t, Math.max(0, this._sectionIdx));
+
+    if (idx !== this._sectionIdx) {
+      this._railSegs.forEach((seg, i) => {
+        seg.el.classList.toggle('current', i === idx);
+        // A section behind the playhead is fully filled; one ahead, empty.
+        // The active one is driven below, every frame.
+        if (i !== idx) seg.fill.style.width = idx >= 0 && i < idx ? '100%' : '0%';
+      });
+      const part = idx >= 0 ? this.sections[idx].part : '';
+      if (this._railLabel.textContent !== part) this._railLabel.textContent = part;
+      this._railEl.classList.toggle('has-label', !!part);
+      this._sectionIdx = idx;
+    }
+
+    if (idx < 0) return;
+    const s = this.sections[idx];
+    const span = s.end - s.start;
+    const p = span > 0 ? Math.min(1, Math.max(0, (t - s.start) / span)) : 0;
+    const pct = `${Math.round(p * 1000) / 10}%`;
+    const fill = this._railSegs[idx].fill;
+    if (fill.style.width !== pct) fill.style.width = pct;
   }
 
   /** Which aid overlays have any content on the current timeline. */
@@ -543,9 +661,13 @@ export class Display {
     this.activeLine = -1;
     this.vocalIntervals = null;
     this.wordSync = false;
+    this.sections = [];
+    this._railSegs = [];
+    this._sectionIdx = -1;
+    this._railEl?.classList.remove('show', 'has-label');
     if (this.lyricsEl) {
       this.lyricsEl.innerHTML = '';
-      this.lyricsEl.classList.remove('instrumental', 'show-sub');
+      this.lyricsEl.classList.remove('instrumental', 'show-sub', 'duet');
       this.lyricsEl.style.transform = '';
     }
     this._lastY = null;
@@ -656,7 +778,24 @@ export class Display {
     for (const word of line.words) {
       word.el?.classList.remove('current', 'sung', 'leadin', 'prep', 'attack', 'cut', 'soft');
     }
+    for (const word of line.bgWords || []) {
+      word.el?.classList.remove('current', 'sung');
+    }
     line.el?.classList.remove('prep-ready');
+  }
+
+  /**
+   * Background vocals get sung/current states but no karaoke wipe. They're a
+   * second voice, not the one you're following — lighting them the same way
+   * would put two competing playheads on screen.
+   */
+  _updateBgWords(line, t) {
+    for (const word of line?.bgWords || []) {
+      const c = word.el?.classList;
+      if (!c) continue;
+      c.toggle('sung', t >= word.end);
+      c.toggle('current', t >= word.start && t < word.end);
+    }
   }
 
   /**
@@ -802,6 +941,10 @@ export class Display {
     const lead = this._reduceMotion ? 0 : this.singerLead || 0;
     const t = tAudio + lead;
 
+    // The rail tracks true playback position, not the singer-lead cue time —
+    // it answers "where am I in the song", not "when should I come in".
+    this._updateRail(tAudio);
+
     // Instrumental / vocal activity first — line choice may hold through a gap.
     const vs = this.vocalIntervals?.length
       ? vocalStateAt(this.vocalIntervals, tAudio)
@@ -860,6 +1003,7 @@ export class Display {
     // Word states on the active line (+ lead-in / prep on the peeked next line).
     let cur = { currentEl: null, wipe: 0, hold: 0, glow: 0, cut: 0, attack: 0, soft: 0 };
     if (li >= 0) {
+      this._updateBgWords(this.lines[li], t);
       const lineLevel = !inst && this.lines[li].uncertain;
       if (inst) {
         for (const word of this.lines[li].words) {
