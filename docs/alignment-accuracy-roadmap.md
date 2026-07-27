@@ -25,34 +25,56 @@ ASR). This doc covers making (b) as accurate as possible.
 
 ### 1. Vocal separation before alignment — MEASURED, 2026-07-27
 
-**Verdict: confirmed, and it depends entirely on mix density.** Measured with
-`scripts/align-check.mjs --both` (UVR-MDX-NET-Voc_FT, whole song, real CTC):
+**Verdict: confirmed, and it helps EVERY song. Keep it unconditional.**
+Measured with `scripts/align-check.mjs --both` over the 7-song test set
+(UVR-MDX-NET-Voc_FT, whole song, real CTC).
 
-| Song | | Confident anchors | Line-level fallback |
-|---|---|---|---|
-| Nirvana — Smells Like Teen Spirit | raw mix | 219/253 (87%) | **7/49 lines (14%)** |
-| (dense mix) | vocal stem | 252/253 (100%) | **0/49 lines (0%)** |
-| Adele — Someone Like You | raw mix | 330/335 (99%) | 0/43 lines (0%) |
-| (sparse mix) | vocal stem | 329/335 (98%) | 0/43 lines (0%) |
+⚠️ **A first pass using LINE-LEVEL fallback % as the metric concluded
+"decisive on dense mixes, no-op on sparse ones". That was wrong** — fallback %
+saturates at 0 for most songs, so it cannot measure improvement that doesn't
+cross the threshold. The sensitive metric is the **share of words the aligner
+scores 0.7–1.0**, which is what actually drives per-word timing quality.
 
-Read the fallback column, not the anchors column: the two rows use the different
-`minScore` gates the app actually applies (0.30 raw, 0.15 stem), so anchor counts
-aren't directly comparable across rows. Fallback % is what the display keys on.
+| Song | raw hi-conf % | stem hi-conf % | gain | raw → stem fallback |
+|---|---|---|---|---|
+| Nirvana — Teen Spirit | 61.7 | 86.2 | **+24.5 pp** | 14% → **0%** |
+| Blow | 42.2 | 53.8 | +11.6 pp | 0% → 0% |
+| 16 | 52.6 | 63.5 | +10.9 pp | 0% → 0% |
+| Tum Hi Ho \* | 86.4 | 92.5 | +6.1 pp | 8% → 8% |
+| Peelings \* | 37.7 | 43.2 | +5.5 pp | 0% → 0% |
+| Adele — Someone Like You | 80.6 | 84.2 | +3.6 pp | 0% → 0% |
+| All RED | 33.0 | 34.3 | +1.3 pp | 0% → 0% |
 
-On the dense mix, separation is the difference between honest word-by-word sync
-and giving up on a seventh of the song. On the sparse mix it changes nothing
-measurable — worth knowing, because separation costs ~1.2x realtime (Adele: 3m30s
-of the 3m52s run), while both alignments together took ~20s.
+\* non-English, aligned via romanization through an English-only CTC model —
+their absolute numbers reflect that, not mix density.
 
-That cost is paid once per song and, since the durable word-timing cache landed
-(`docs/ttml-word-cache.md`), the result now survives aligner upgrades, lyric
-edits, and a cache clear. **Do not build the stem cache the section below
-proposes** — a cached aligned timeline makes the stem unnecessary on replay, and
-storing stems would cost ~50 MB/song for nothing.
+**7 of 7 songs improve.** Only Nirvana crosses the fallback threshold, which is
+why the first pass mistook a universal gain for a conditional one.
 
-Still open: separation is unconditional today. An adaptive "skip it on sparse
-mixes" heuristic would save minutes on songs like Adele, but we have no cheap
-predictor of mix density yet — measure before building one.
+Caveat: high-confidence share measures the aligner's *confidence*, not measured
+error against ground truth. Higher CTC scores should mean better spans, and on
+Nirvana it demonstrably removes line-level fallback, but this harness does not
+compare against `yrc` ground truth.
+
+**Do not build an adaptive "skip separation on sparse mixes" rule.** Tested with
+cheap raw-mix features (`scripts/mix-features.mjs`: spectral flatness, crest,
+centroid, flux, band ratios, stereo width) correlated against the per-song gain:
+
+    ENGLISH ONLY (n=5)   centroidHz r=0.65   flatness r=0.61   crest r=0.51
+                         flux r=0.14        rawTop% r=0.15
+
+Nothing is strong enough to act on at n=5 (r=0.65 there is not significant), and
+`rawTop%` r=0.15 means a weak raw-mix alignment does not even predict its own
+gain — so "align first, decide after" doesn't work either. Skipping would cost
+every song a little and one song a lot, to save time on a step that is paid once.
+
+**Do not build the per-track stem cache** proposed below either: since the
+durable word-timing cache landed (`docs/ttml-word-cache.md`), a replay reuses the
+aligned timeline and never needs the stem, so caching stems would cost ~50 MB per
+song for nothing.
+
+Cost for the record: ~1.2x realtime (Adele: 3m30s of a 3m52s run; both
+alignments together were ~20s). Paid once per song, and now durably cached.
 
 ### 1b. Original scoping notes
 

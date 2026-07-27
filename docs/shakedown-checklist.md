@@ -16,10 +16,11 @@ Paste results back and we fix in the order reality reveals.
       stem rms 0.1182 vs mix 0.2515). Does it sound like **isolated vocals** with instruments
       largely gone? Rate: clean / muddy / artifacts / instruments bleed through.
       - Regenerate anytime: `node --env-file=.env scripts/separate-check.mjs song.wav out.wav`
-- [x] **Alignment quality numbers.** Done 2026-07-27 on two songs:
-      Nirvana (dense) raw 14% line-level fallback → stem **0%**;
-      Adele (sparse) raw 0% → stem 0%. Separation is decisive on dense mixes and
-      a no-op on sparse ones. Full table in `docs/alignment-accuracy-roadmap.md`.
+- [x] **Alignment quality numbers.** Done 2026-07-27 across all 7 test songs.
+      Separation raises the share of high-confidence words on **every** song
+      (+1.3 to +24.5 pp) and clears Nirvana's 14% line-level fallback to 0%.
+      Keep separation unconditional; no adaptive skip. Full table and the
+      rejected-heuristic analysis in `docs/alignment-accuracy-roadmap.md`.
       - Re-run: `node --env-file=.env scripts/align-check.mjs your.wav your.lrc --both`
       - ⚠️ Scores are only meaningful with the **correct** lyrics for that audio.
 
