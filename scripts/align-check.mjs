@@ -25,7 +25,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, basename } from 'node:path';
 import { decodeWAV, rms } from '../app/wav.js';
 import { alignSong, alignAvailable } from '../electron/align.cjs';
-import { separateVocals, separateStatus } from '../electron/separate.cjs';
+import { separateVocals, separateStatus, separateShutdown } from '../electron/separate.cjs';
 
 // Mirror the constants the renderer/display use (app/align.js).
 const TARGET_RATE = 16000;
@@ -192,6 +192,9 @@ if (wantStem) {
   if (res?.error) console.error(`  aligner error: ${res.error}`);
   report(`VOCAL STEM  (minScore ${MIN_WORD_SCORE_STEM})  ${((Date.now() - t0) / 1000).toFixed(1)}s`, summarize(res, lines, MIN_WORD_SCORE_STEM));
 }
+
+// The separation worker is a fork; it holds this process's event loop open.
+separateShutdown();
 
 console.log('\nHigher "confident anchors" and lower "LINE-LEVEL fallback" = better word-by-word sync.');
 if (flags.has('--both')) {

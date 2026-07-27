@@ -161,23 +161,76 @@ function ensureWorker() {
   return _workerReady;
 }
 
+/**
+ * Wall-clock budget for one worker call. Separation runs ~1x realtime, so the
+ * budget scales with audio length plus a fixed allowance for the first call
+ * (model download + session load). Without this a wedged worker hangs the
+ * caller forever, which breaks the soft-fail-to-raw-mix contract this module
+ * is built on: `vocalStemMono16k` awaits us, so a never-settling promise means
+ * alignment never starts at all.
+ */
+const CALL_FIXED_BUDGET_MS = 5 * 60 * 1000;
+const CALL_REALTIME_FACTOR = 6; // generous: ~1x expected, allow a slow/loaded machine
+
+function callBudgetMs(payload) {
+  const samples = payload?.left?.length || 0;
+  const secs = samples / (payload?.sampleRate || MODEL_RATE);
+  return CALL_FIXED_BUDGET_MS + secs * CALL_REALTIME_FACTOR * 1000;
+}
+
 function callWorker(cmd, payload) {
   return ensureWorker().then(
     (child) =>
       new Promise((resolve, reject) => {
         const id = _nextId++;
-        _pending.set(id, {
-          resolve: (msg) => resolve(msg),
-          reject,
-        });
+        const timer = setTimeout(() => {
+          if (!_pending.has(id)) return;
+          _pending.delete(id);
+          // A worker that blew the budget is not trustworthy for this session;
+          // tear it down so the next call fails fast instead of hanging again.
+          try {
+            child.kill();
+          } catch {
+            /* already gone */
+          }
+          markWorkerDead('separation worker timed out');
+          reject(new Error('separation worker timed out'));
+        }, callBudgetMs(payload));
+        if (typeof timer.unref === 'function') timer.unref();
+
+        const done = (fn) => (arg) => {
+          clearTimeout(timer);
+          fn(arg);
+        };
+        _pending.set(id, { resolve: done(resolve), reject: done(reject) });
         try {
           child.send({ id, cmd, payload });
         } catch (err) {
+          clearTimeout(timer);
           _pending.delete(id);
           reject(err);
         }
       })
   );
+}
+
+/**
+ * Release the worker. The fork keeps the parent's event loop alive, so any
+ * short-lived process (the CLI diagnostics) hangs after its work is done
+ * unless it calls this. Long-running hosts keep the worker warm and never
+ * need it.
+ */
+function separateShutdown() {
+  const child = _worker;
+  _worker = null;
+  _workerReady = null;
+  rejectAllPending(new Error('separation shut down'));
+  if (!child) return;
+  try {
+    child.kill();
+  } catch {
+    /* already gone */
+  }
 }
 
 /** Kick off model download/load in the background. Returns true on success. */
@@ -245,4 +298,12 @@ function separateStatus() {
   };
 }
 
-module.exports = { separateVocals, separateAvailable, separateReady, separateWarm, separateStatus, MODEL_RATE };
+module.exports = {
+  separateVocals,
+  separateAvailable,
+  separateReady,
+  separateWarm,
+  separateStatus,
+  separateShutdown,
+  MODEL_RATE,
+};

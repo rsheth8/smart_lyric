@@ -18,7 +18,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, basename } from 'node:path';
 import { encodeWAV, decodeWAV, rms } from '../app/wav.js';
-import { separateVocals, separateStatus } from '../electron/separate.cjs';
+import { separateVocals, separateStatus, separateShutdown } from '../electron/separate.cjs';
 
 const [, , inArg, outArg, modelArg] = process.argv;
 if (!inArg) {
@@ -85,6 +85,9 @@ const n = stem.left.length;
 const mono = new Float32Array(n);
 for (let i = 0; i < n; i++) mono[i] = 0.5 * (stem.left[i] + (stem.right[i] ?? stem.left[i]));
 writeFileSync(outputPath, Buffer.from(encodeWAV(mono, stem.sampleRate)));
+
+// The separation worker is a fork; it holds this process's event loop open.
+separateShutdown();
 
 const elapsed = (Date.now() - t0) / 1000;
 console.log(`\n✓ Done in ${elapsed.toFixed(1)}s  (${(durSec / elapsed).toFixed(1)}× realtime)`);

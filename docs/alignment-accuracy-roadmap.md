@@ -23,7 +23,38 @@ ASR). This doc covers making (b) as accurate as possible.
 
 ## Heavy deps (scoped, not yet built)
 
-### 1. Vocal separation before alignment — the single biggest lever
+### 1. Vocal separation before alignment — MEASURED, 2026-07-27
+
+**Verdict: confirmed, and it depends entirely on mix density.** Measured with
+`scripts/align-check.mjs --both` (UVR-MDX-NET-Voc_FT, whole song, real CTC):
+
+| Song | | Confident anchors | Line-level fallback |
+|---|---|---|---|
+| Nirvana — Smells Like Teen Spirit | raw mix | 219/253 (87%) | **7/49 lines (14%)** |
+| (dense mix) | vocal stem | 252/253 (100%) | **0/49 lines (0%)** |
+| Adele — Someone Like You | raw mix | 330/335 (99%) | 0/43 lines (0%) |
+| (sparse mix) | vocal stem | 329/335 (98%) | 0/43 lines (0%) |
+
+Read the fallback column, not the anchors column: the two rows use the different
+`minScore` gates the app actually applies (0.30 raw, 0.15 stem), so anchor counts
+aren't directly comparable across rows. Fallback % is what the display keys on.
+
+On the dense mix, separation is the difference between honest word-by-word sync
+and giving up on a seventh of the song. On the sparse mix it changes nothing
+measurable — worth knowing, because separation costs ~1.2x realtime (Adele: 3m30s
+of the 3m52s run), while both alignments together took ~20s.
+
+That cost is paid once per song and, since the durable word-timing cache landed
+(`docs/ttml-word-cache.md`), the result now survives aligner upgrades, lyric
+edits, and a cache clear. **Do not build the stem cache the section below
+proposes** — a cached aligned timeline makes the stem unnecessary on replay, and
+storing stems would cost ~50 MB/song for nothing.
+
+Still open: separation is unconditional today. An adaptive "skip it on sparse
+mixes" heuristic would save minutes on songs like Adele, but we have no cheap
+predictor of mix density yet — measure before building one.
+
+### 1b. Original scoping notes
 
 CTC phoneme probabilities degrade when drums/bass/instruments mask the voice, so
 choruses and dense mixes align worst, and onset-snapping can catch a drum hit
