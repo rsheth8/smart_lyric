@@ -51,10 +51,43 @@ their absolute numbers reflect that, not mix density.
 **7 of 7 songs improve.** Only Nirvana crosses the fallback threshold, which is
 why the first pass mistook a universal gain for a conditional one.
 
-Caveat: high-confidence share measures the aligner's *confidence*, not measured
-error against ground truth. Higher CTC scores should mean better spans, and on
-Nirvana it demonstrably removes line-level fallback, but this harness does not
-compare against `yrc` ground truth.
+### Ground-truth accuracy (`scripts/truth-check.mjs`, 2026-07-27)
+
+Confidence is not accuracy, so this was measured directly against NetEase `yrc`
+word timings. Nirvana, 241/253 words matched, per-word |start − truth| **after
+removing a constant global offset** (the truth is a different upload of the same
+recording — 1.3 s more lead-in, drift 0.0005 s/s; a constant shift is not a sync
+error, it is what syncOffset/auto-timing corrects):
+
+| Condition | median | p90 | ≤100 ms | ≤200 ms | ≤300 ms |
+|---|---|---|---|---|---|
+| Baseline (LRC, words estimated, no audio) | 350 ms | **616 ms** | 13% | 27% | 43% |
+| CTC on raw mix | 489 ms | 1681 ms | 10% | 33% | 38% |
+| CTC on vocal stem | **285 ms** | 1127 ms | **26%** | **42%** | **52%** |
+
+Two findings:
+
+1. **Separation cuts median word error 489 → 285 ms (−42%) and doubles the share
+   of words inside 100 ms (13% → 26%).** The confidence numbers above understated
+   it; this is the real accuracy win.
+2. **Raw-mix CTC is WORSE than using no audio at all** on this dense mix — 489 ms
+   vs 350 ms median, and a p90 of 1681 ms against the baseline's 616 ms — while
+   simultaneously reporting 87% "confident anchors". Confidence and accuracy are
+   decoupled, and a wrong-but-confident span is worse than an honest estimate.
+
+⚠️ **Limitation: these are RAW CTC spans.** The harness applies the aligner's
+output directly (falling back to the estimate where CTC returned nothing); it does
+NOT run `applyWordSpans`' three refinements — line re-anchoring, confidence
+interpolation, onset snapping — which exist precisely to repair bad CTC words. The
+shipped pipeline should therefore score better than the "raw mix" row here. **Do
+not act on finding 2 until it is re-measured through `applyWordSpans`**; the
+current raw-mix fallback may already be fine.
+
+⚠️ **n = 1 song.** Nirvana is the only full-length track in the test set with
+word-level ground truth (Adele has no `yrc`; Blow / All_RED / 16 are ~2.5 min
+clips that don't match a full-song `yrc` — <25% word match, drift 0.65–1.55).
+Adding two or three full songs NetEase has `yrc` for would make this general; the
+harness needs no changes.
 
 **Do not build an adaptive "skip separation on sparse mixes" rule.** Tested with
 cheap raw-mix features (`scripts/mix-features.mjs`: spectral flatness, crest,
