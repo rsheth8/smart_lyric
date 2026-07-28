@@ -269,6 +269,11 @@ async function prepareSong(query) {
     setTimeout(() => showToast('Press T for pronunciation / English'), 900);
   } else if (result?.fromCache && result?.aligned) {
     setTimeout(() => showToast('Vocal-aligned (cached)'), 900);
+  } else if (result?.provisionalCache) {
+    // Real cached word timing from an older aligner, being refreshed in place.
+    setTimeout(() => showToast('Cached timing — refreshing with the new aligner…'), 900);
+  } else if (result?.rebound) {
+    setTimeout(() => showToast('Lyrics changed — retiming the edited lines…'), 900);
   } else if (result?.source === 'ai-spotify' || result?.source === 'ai-transcript') {
     setTimeout(() => showToast('AI lyrics — nudge with [ ] if needed'), 900);
   } else if (result?.estimated) {

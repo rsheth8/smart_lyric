@@ -12,10 +12,8 @@ import {
   applyCachedTiming,
   putCachedTimeline,
 } from './timeline-cache.js';
-import { needsVocalAlign } from './align.js';
+import { needsVocalAlign, isWordSyncFormat } from './align.js';
 import { hydrateFromSidecar, saveToSidecar } from './sidecar.js';
-
-const WORD_SYNC_FORMATS = new Set(['yrc', 'richsync', 'ass']);
 
 /**
  * Orchestrates lyrics loading, timeline parsing, and active medium/clock.
@@ -192,7 +190,7 @@ export class SongSession {
 
     let fromCache = false;
     let provisionalCache = false;
-    if (this.cacheKey && !WORD_SYNC_FORMATS.has(this.meta.format)) {
+    if (this.cacheKey && !isWordSyncFormat(this.meta.format)) {
       const cached = getCachedTimeline(this.cacheKey);
       // A stale entry (older aligner) is still far better than a syllable
       // guess: apply it provisionally so the song is instantly close, and let
@@ -206,12 +204,15 @@ export class SongSession {
     }
 
     this.timeline = timeline;
-    const wordSync = WORD_SYNC_FORMATS.has(this.meta.format);
+    const wordSync = isWordSyncFormat(this.meta.format) && timeline.wordSync !== false;
     this.display.setLyrics(timeline, {
       source: this.meta.source,
       format: this.meta.format,
       wordSync,
       aligned: !!timeline.aligned,
+      // Cached word timing from an older aligner: real spans, being refreshed.
+      // The badge must not call this "words estimated".
+      provisional: !!timeline.provisional,
     });
     this.onMeta(this.meta);
     this.onStatus('', '');

@@ -385,7 +385,7 @@ export class Display {
   // Build DOM from a parsed timeline. Each line gets an original text row plus a
   // `.line-sub` row for the language aid (romanization or English), populated by
   // setAidMode(). Line objects may carry `.roman` / `.english` overlay strings.
-  setLyrics(timeline, { source, format, wordSync, aligned } = {}) {
+  setLyrics(timeline, { source, format, wordSync, aligned, provisional } = {}) {
     this.lines = timeline.lines || [];
     this.lyricsEl.innerHTML = '';
     const sides = agentSides(this.lines);
@@ -458,7 +458,9 @@ export class Display {
     this._applyCurrentWord(null);
     this._setPeek(-1);
     this._setBreath(-1);
-    this._setBadge(this._timingBadge({ estimated: this.estimated, source, format, wordSync, aligned }));
+    this._setBadge(
+      this._timingBadge({ estimated: this.estimated, source, format, wordSync, aligned, provisional })
+    );
     this.activeLine = -1;
     this._instrState = { on: false, quietSince: null };
     this._resize();
@@ -559,12 +561,14 @@ export class Display {
   }
 
   // Small persistent label (e.g. "Estimated timing") so approximate scroll is honest.
-  _timingBadge({ estimated, source, format, wordSync, aligned }) {
+  _timingBadge({ estimated, source, format, wordSync, aligned, provisional }) {
     if (source === 'ai-spotify' || source === 'ai-transcript' || format === 'asr') {
       return aligned ? 'AI lyrics · vocal-aligned' : 'AI lyrics · from audio';
     }
     if (estimated) return 'Estimated timing';
     if (aligned) return 'Vocal-aligned';
+    // Cached spans from an older aligner — real word timing, being refreshed.
+    if (provisional) return 'Vocal-aligned · refreshing';
     if (wordSync) return `Word sync · ${source || format || 'synced'}`;
     return 'Line sync · words estimated';
   }
@@ -857,9 +861,9 @@ export class Display {
     });
   }
 
-  updateTimingBadge({ source, format, wordSync, aligned } = {}) {
+  updateTimingBadge({ source, format, wordSync, aligned, provisional } = {}) {
     this._setBadge(
-      this._timingBadge({ estimated: this.estimated, source, format, wordSync, aligned })
+      this._timingBadge({ estimated: this.estimated, source, format, wordSync, aligned, provisional })
     );
   }
 
