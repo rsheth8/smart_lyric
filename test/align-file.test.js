@@ -219,6 +219,39 @@ test('mic path reaches parity: routes through applyWordSpans (score + uncertain)
   assert.ok(Array.isArray(res.timingSamples) && res.timingSamples.length >= 1, 'still measures timing');
 });
 
+test('stem:true applies the relaxed stem tuning to pre-decoded PCM', async () => {
+  // Score 0.2 is below the full-mix gate (0.3) but above the stem gate (0.15).
+  // Without the flag the measurement harness would score stem audio through the
+  // conservative mix gates and understate what the app actually does.
+  const alignSong = async ({ lines }) => ({
+    aligned: lines.length,
+    lines: lines.map((l) => ({
+      words: l.words.map((_, i) => ({ start: 0.5 + i * 0.5, end: 0.5 + i * 0.5 + 0.3, score: 0.2 })),
+    })),
+  });
+  global.window.bar4bar.alignSong = alignSong;
+  const mk = () => ({ lines: [{ start: 0, end: 6, words: [{ text: 'a' }, { text: 'b' }] }] });
+
+  const mix = mk();
+  assert.equal(await refineTimelineWithAudio(mix, pcm16k), false, 'mix gate rejects 0.2');
+  assert.equal(mix.lines[0]._vocalAligned, undefined);
+
+  const stem = mk();
+  const res = await refineTimelineWithAudio(stem, pcm16k, { stem: true });
+  assert.ok(res && res.aligned === 1, `stem gate should accept 0.2, got ${JSON.stringify(res)}`);
+  assert.ok(stem.lines[0].words[0].score >= 0.2 - 1e-9, 'kept as a real anchor');
+  assert.notEqual(stem.lines[0].uncertain, true);
+});
+
+test('stem:true also builds the vocal-activity map the display needs', async () => {
+  const tl = makeTimeline();
+  await refineTimelineWithAudio(tl, pcm16k, { batchLines: 2, stem: true });
+  assert.ok(Array.isArray(tl.vocalIntervals), 'stem run derives vocalIntervals');
+  const mix = makeTimeline();
+  await refineTimelineWithAudio(mix, pcm16k, { batchLines: 2 });
+  assert.equal(mix.vocalIntervals, undefined, 'mix energy is not vocal — no map');
+});
+
 test('vocal separation is gated by both the enable flag and model availability', async () => {
   const buf = new Float32Array(1000); // decodeStereo is never reached in these cases
   setVocalSeparationEnabled(false);

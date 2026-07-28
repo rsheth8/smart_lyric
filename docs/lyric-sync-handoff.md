@@ -41,13 +41,18 @@ leftover tail → median 314 ms, worst case 10 s→5.6 s. Tunable; validated by
 `app/lib/forced-align.mjs` does the trellis/backtrack. Progressive/batched so early
 lines sharpen first; soft-fails to keep existing timing.
 
-**Accuracy refinements in `applyWordSpans`** (all reuse CTC output):
+**Accuracy refinements in `applyWordSpans`** (`app/word-spans.js` — pure, no DOM
+or Electron, so it is unit-tested directly in `test/word-spans.test.js` and
+measurable end-to-end by `scripts/truth-check.mjs`; all reuse CTC output):
 - **Line re-anchoring** — trust the first confident vocal onset over the catalog's
   `line.start` (wider `ALIGN_SEARCH_PAD_SEC=0.6`, bounded by prev line end).
 - **Confidence interpolation** — words below `MIN_WORD_SCORE` are placed *between*
   confident anchors by syllable weight, not dropped to a guess.
 - **Onset snapping** (`snapToVocalOnset`) — nudge each start to the nearest energy
   rise. Conservative on the mix; aggressive params on a clean stem.
+- **Honest word ends** — a word ends where the voice stops (stem) or where CTC
+  says it stopped (mix), not always at the next word; gaps under
+  `GAP_TOLERANCE_SEC=0.35` still stretch so the wipe stays continuous.
 - Writes `word.score` (anchor = CTC, interpolated = 0) and `line.uncertain`
   (`_alignCoverage < UNCERTAIN_COVERAGE=0.6`) — consumed by the display (§5, §6).
 

@@ -13,13 +13,21 @@ ASR). This doc covers making (b) as accurate as possible.
 - **Always-on, progressive forced alignment for local files** (`app/align.js`
   `refineTimelineWithAudio`, Electron): batched, patches as it goes, warms the
   model on file attach, surfaces progress/errors.
-- **Cheap alignment refinements** (`applyWordSpans`, `electron/align.cjs`):
+- **Cheap alignment refinements** (`applyWordSpans` in `app/word-spans.js`):
   1. **Line re-anchoring** — trust the first confident vocal onset over the
      catalog's line start (wider `searchPad`, bounded by the previous line).
   2. **Confidence interpolation** — low-score words are placed *between*
      confident anchors by syllable weight, not dropped to a heuristic guess.
   3. **Onset snapping** — `snapToVocalOnset` nudges each start to the nearest
      local energy rise (conservative on a full mix; see below).
+  4. **Honest word ends** — measured voice-stop (stem) or the CTC span's own end,
+     instead of always holding until the next word.
+- **Placement split out of the audio plumbing** (2026-07-27): `applyWordSpans`
+  and its helpers live in `app/word-spans.js`, which is pure — no DOM, no
+  Electron, no audio. That makes them unit-testable
+  (`test/word-spans.test.js`, 25 tests) and, more importantly, lets
+  `scripts/truth-check.mjs` score the pipeline the app actually renders instead
+  of bare CTC output.
 
 ## Heavy deps (scoped, not yet built)
 
@@ -57,37 +65,52 @@ Confidence is not accuracy, so this was measured directly against NetEase `yrc`
 word timings. Nirvana, 241/253 words matched, per-word |start − truth| **after
 removing a constant global offset** (the truth is a different upload of the same
 recording — 1.3 s more lead-in, drift 0.0005 s/s; a constant shift is not a sync
-error, it is what syncOffset/auto-timing corrects):
+error, it is what syncOffset/auto-timing corrects).
+
+The `+ refine` rows run the SHIPPED pipeline — `refineTimelineWithAudio`'s 6-line
+batching plus every `applyWordSpans` refinement — not bare aligner output. This
+was the open question left by the first pass; it is now closed.
 
 | Condition | median | p90 | ≤100 ms | ≤200 ms | ≤300 ms |
 |---|---|---|---|---|---|
-| Baseline (LRC, words estimated, no audio) | 350 ms | **616 ms** | 13% | 27% | 43% |
-| CTC on raw mix | 489 ms | 1681 ms | 10% | 33% | 38% |
-| CTC on vocal stem | **285 ms** | 1127 ms | **26%** | **42%** | **52%** |
+| Baseline (LRC, words estimated, no audio) | 350 ms | 616 ms | 13% | 27% | 43% |
+| Raw mix, bare CTC | 489 ms | 1681 ms | 10% | 33% | 38% |
+| Raw mix **+ refine** (shipped) | 460 ms | 1658 ms | 11% | 31% | 38% |
+| Vocal stem, bare CTC | 285 ms | 1127 ms | **26%** | 42% | 52% |
+| Vocal stem **+ refine** (shipped) | **248 ms** | **866 ms** | 19% | 41% | **56%** |
 
-Two findings:
+Three findings:
 
-1. **Separation cuts median word error 489 → 285 ms (−42%) and doubles the share
-   of words inside 100 ms (13% → 26%).** The confidence numbers above understated
-   it; this is the real accuracy win.
-2. **Raw-mix CTC is WORSE than using no audio at all** on this dense mix — 489 ms
-   vs 350 ms median, and a p90 of 1681 ms against the baseline's 616 ms — while
-   simultaneously reporting 87% "confident anchors". Confidence and accuracy are
-   decoupled, and a wrong-but-confident span is worse than an honest estimate.
+1. **Separation is the big lever, and it holds through the real pipeline:**
+   460 → 248 ms median (−46%), p90 1658 → 866 ms. Unchanged conclusion, now
+   measured on what users actually see.
+2. **The refinements pay off in the TAIL, not the median.** On the stem they cut
+   p90 1127 → 866 ms (−23%) and take uncertain lines from 3 to 0, but the share
+   of words inside 100 ms drops 26% → 19%. They trade some precision on
+   already-good words for far fewer badly-placed ones — the right trade
+   perceptually (a word 1.1 s late is a visible failure; 120 ms vs 90 ms is not),
+   but it is a trade, not a free win. Worth revisiting if the ≤100 ms share ever
+   becomes the thing to optimise.
+3. **Raw-mix CTC is still WORSE than using no audio at all** — 460 ms vs the
+   baseline's 350 ms, p90 1658 ms vs 616 ms — while reporting 87% "confident
+   anchors". The refinements barely move it (489 → 460 ms), which makes sense:
+   onset fitting and voice-end detection are deliberately stem-only, so the
+   full-mix path only gets re-anchoring and interpolation. **This finding
+   survived the test that was supposed to overturn it.**
 
-⚠️ **Limitation: these are RAW CTC spans.** The harness applies the aligner's
-output directly (falling back to the estimate where CTC returned nothing); it does
-NOT run `applyWordSpans`' three refinements — line re-anchoring, confidence
-interpolation, onset snapping — which exist precisely to repair bad CTC words. The
-shipped pipeline should therefore score better than the "raw mix" row here. **Do
-not act on finding 2 until it is re-measured through `applyWordSpans`**; the
-current raw-mix fallback may already be fine.
+**Open decision from finding 3.** If it replicates on two more songs, the app
+should probably not run CTC at all when no separation model is configured —
+shipping timing with a 2.7× worse tail than the honest syllable estimate is a
+regression users would feel. A softer option is to accept a CTC span on the raw
+mix only where it agrees with the estimate to within some tolerance. **Do not
+build either at n = 1**; measure first.
 
 ⚠️ **n = 1 song.** Nirvana is the only full-length track in the test set with
 word-level ground truth (Adele has no `yrc`; Blow / All_RED / 16 are ~2.5 min
 clips that don't match a full-song `yrc` — <25% word match, drift 0.65–1.55).
 Adding two or three full songs NetEase has `yrc` for would make this general; the
-harness needs no changes.
+harness needs no changes (`--skip-raw` halves the runtime once the bare-CTC rows
+stop being interesting).
 
 **Do not build an adaptive "skip separation on sparse mixes" rule.** Tested with
 cheap raw-mix features (`scripts/mix-features.mjs`: spectral flatness, crest,

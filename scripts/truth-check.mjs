@@ -6,10 +6,22 @@
 // format we can parse), which is the number the display's sync quality depends
 // on and the one the 394 ms baseline in docs/ was quoted from.
 //
-// Compares three conditions on the same audio:
-//   baseline  syllable-weighted estimate from line-level LRC (no audio at all)
-//   raw mix   CTC forced alignment on the full mix
-//   stem      CTC forced alignment on the isolated vocal
+// Compares up to five conditions on the same audio:
+//   baseline    syllable-weighted estimate from line-level LRC (no audio at all)
+//   raw mix     bare CTC output on the full mix
+//   raw+refine  the SHIPPED pipeline on the full mix
+//   stem        bare CTC output on the isolated vocal
+//   stem+refine the SHIPPED pipeline on the isolated vocal   ← what the app renders
+//
+// The "+refine" rows are the ones that matter. Bare CTC is not what the display
+// shows: refineTimelineWithAudio aligns in 6-line batches and runs every span
+// through applyWordSpans, which re-anchors each line to the real vocal onset,
+// interpolates unconfident words between confident anchors, snaps starts to
+// local energy onsets, and ends words on measured evidence. Scoring bare CTC
+// measures a thing no user ever sees — and it is how the earlier "raw-mix CTC is
+// worse than baseline" reading was produced.
+//
+// `--skip-raw` drops the two bare-CTC rows (halves the runtime).
 //
 // GLOBAL OFFSET IS REMOVED before scoring. Ground truth almost always comes
 // from a different upload of the same recording, with a different lead-in — a
@@ -31,12 +43,19 @@ import { lcsPairs } from '../app/timeline-cache.js';
 import { alignSong, alignAvailable } from '../electron/align.cjs';
 import { separateVocals, separateAvailable, separateShutdown } from '../electron/separate.cjs';
 
+// The refinement pipeline reaches the aligner through the Electron preload
+// bridge. Stand that bridge up against the in-process aligner so this script
+// exercises refineTimelineWithAudio itself rather than a copy of it.
+globalThis.window = { bar4bar: { alignSong } };
+const { refineTimelineWithAudio } = await import('../app/align.js');
+
 const TARGET_RATE = 16000;
 const ALIGN_SEARCH_PAD_SEC = 0.6;
 // Drift beyond this means the truth is a different master and per-word scoring
 // would be measuring the edit, not the aligner.
 const MAX_DRIFT_SLOPE = 0.005; // seconds of offset per second of song
 
+const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith('--')));
 const [audioArg, lrcArg, truthArg] = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 if (!audioArg || !lrcArg || !truthArg) {
   console.error('usage: node --env-file=.env scripts/truth-check.mjs <audio.wav> <lyrics.lrc> <truth.yrc>');
@@ -93,6 +112,10 @@ const quantile = (xs, p) => {
 
 /** Score one set of predicted word starts against the matched ground truth. */
 function score(label, startsByIndex) {
+  if (!startsByIndex) {
+    console.log(`── ${label}: no data\n`);
+    return null;
+  }
   const deltas = [];
   const xs = [];
   for (const [oi, ti] of pairs) {
@@ -101,7 +124,10 @@ function score(label, startsByIndex) {
     deltas.push(truthWords[ti].start - pred);
     xs.push(truthWords[ti].start);
   }
-  if (!deltas.length) return null;
+  if (!deltas.length) {
+    console.log(`── ${label}: no finite predictions\n`);
+    return null;
+  }
 
   // Robust constant offset (see header) + drift check.
   const offset = median(deltas);
@@ -132,7 +158,7 @@ function score(label, startsByIndex) {
 }
 
 function report(r) {
-  if (!r) return console.log(`${r?.label ?? '?'}: no data`);
+  if (!r) return; // score() already said why
   console.log(`── ${r.label} ${'─'.repeat(Math.max(0, 48 - r.label.length))}`);
   console.log(`  global offset removed: ${(r.offset * 1000).toFixed(0)} ms   drift ${r.slope.toFixed(5)} s/s`);
   if (Math.abs(r.slope) > MAX_DRIFT_SLOPE) {
@@ -157,23 +183,65 @@ function startsFromAlign(result) {
   return out;
 }
 
+/** A refined timeline → predicted start per our-word index. */
+function startsFromTimeline(tl) {
+  return ourWords.map((w) => tl.lines[w.li]?.words?.[w.wi]?.start ?? NaN);
+}
+
 const alignPayload = timeline.lines.map((l) => ({
   start: l.start,
   end: l.end,
   words: l.words.map((w) => w.text),
 }));
 
+/** Bare CTC over the whole song in one call — the aligner with nothing on top. */
+async function bareCtc(label, pcm) {
+  process.stdout.write(`Aligning ${label}…\n`);
+  const res = await alignSong({
+    pcm,
+    sampleRate: TARGET_RATE,
+    searchPad: ALIGN_SEARCH_PAD_SEC,
+    lines: alignPayload,
+  });
+  if (res?.error) console.error(`  aligner error: ${res.error}`);
+  return startsFromAlign(res);
+}
+
+/**
+ * The shipped path: batched alignment plus every refinement in applyWordSpans.
+ * Re-parses the LRC because refineTimelineWithAudio mutates the timeline it is
+ * given, and each condition must start from the same unrefined estimate.
+ */
+async function refined(label, pcm, { stem = false } = {}) {
+  const tl = parseLRC(readFileSync(lrcArg, 'utf8'));
+  process.stdout.write(`Refining ${label}… `);
+  const res = await refineTimelineWithAudio(tl, pcm, {
+    stem,
+    onProgress: (done, total) => process.stdout.write(`\rRefining ${label}… ${done}/${total}   `),
+  });
+  process.stdout.write('\n');
+  if (res?.error) console.error(`  aligner error: ${res.error}`);
+  if (!res) {
+    console.error('  refinement returned nothing — check the aligner bridge shim');
+    return null;
+  }
+  const uncertain = tl.lines.filter((l) => l.uncertain).length;
+  const worded = tl.lines.filter((l) => l.words?.length).length;
+  console.log(`  ${res.aligned}/${worded} lines aligned, ${uncertain} flagged uncertain`);
+  return startsFromTimeline(tl);
+}
+
 // 1. Baseline: no audio at all, just the syllable-weighted spread from the LRC.
 report(score('BASELINE  (line-level LRC, words estimated)', ourWords.map((w) => w.est)));
 
-// 2. Raw mix.
+// 2. Raw mix, with and without the refinements.
 const rawPcm = toMono16k(wav.channels, wav.sampleRate);
-process.stdout.write('Aligning raw mix…\n');
-const rawRes = await alignSong({ pcm: rawPcm, sampleRate: TARGET_RATE, searchPad: ALIGN_SEARCH_PAD_SEC, lines: alignPayload });
-if (rawRes?.error) console.error(`  aligner error: ${rawRes.error}`);
-report(score('RAW MIX   (CTC on the full mix)', startsFromAlign(rawRes)));
+if (!flags.has('--skip-raw')) {
+  report(score('RAW MIX   (bare CTC on the full mix)', await bareCtc('raw mix', rawPcm)));
+}
+report(score('RAW MIX + REFINE  (shipped pipeline, full mix)', await refined('raw mix', rawPcm)));
 
-// 3. Isolated vocal stem.
+// 3. Isolated vocal stem — what the app uses when a separation model is configured.
 if (separateAvailable()) {
   process.stdout.write('Separating vocal stem… (~1.2x realtime)\n');
   const stem = await separateVocals(
@@ -181,10 +249,15 @@ if (separateAvailable()) {
     { throwOnError: true }
   );
   const stemPcm = toMono16k([stem.left, stem.right || stem.left], stem.sampleRate);
-  process.stdout.write('Aligning stem…\n');
-  const stemRes = await alignSong({ pcm: stemPcm, sampleRate: TARGET_RATE, searchPad: ALIGN_SEARCH_PAD_SEC, lines: alignPayload });
-  if (stemRes?.error) console.error(`  aligner error: ${stemRes.error}`);
-  report(score('VOCAL STEM (CTC on the isolated vocal)', startsFromAlign(stemRes)));
+  if (!flags.has('--skip-raw')) {
+    report(score('VOCAL STEM (bare CTC on the isolated vocal)', await bareCtc('stem', stemPcm)));
+  }
+  report(
+    score(
+      'STEM + REFINE  (shipped pipeline, isolated vocal)',
+      await refined('stem', stemPcm, { stem: true })
+    )
+  );
 } else {
   console.log('(separation unavailable — set SEPARATE_MODEL_PATH to compare the stem)\n');
 }
