@@ -1,0 +1,12 @@
+// Point at your Vercel origin for NetEase yrc / Musixmatch richsync.
+// Example: LYRICS_API_BASE = https://your-app.vercel.app
+LYRICS_API_BASE =
+
+// Your Apple Developer Team ID — needed only for a real device build.
+// Find it in Xcode ▸ Settings ▸ Accounts, or developer.apple.com ▸ Membership.
+//
+// Set it HERE, not in Xcode's target UI: `project.yml` regenerates the
+// .xcodeproj from scratch, so anything typed into the Signing & Capabilities
+// pane is erased the next time `xcodegen generate` runs. Leaving this empty is
+// fine for simulator builds.
+DEVELOPMENT_TEAM =

@@ -1,0 +1,64 @@
+name: Bar4BarTV
+options:
+  bundleIdPrefix: com.bar4bar
+  deploymentTarget:
+    tvOS: "17.0"
+  xcodeVersion: "15.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "3"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TVOS_DEPLOYMENT_TARGET: "17.0"
+targets:
+  Bar4BarCore:
+    type: framework
+    platform: tvOS
+    sources:
+      - path: Bar4BarCore/Sources/Bar4BarCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bar4bar.core
+        GENERATE_INFOPLIST_FILE: true
+        PRODUCT_NAME: Bar4BarCore
+        SKIP_INSTALL: YES
+        DEFINES_MODULE: YES
+  Bar4BarTV:
+    type: application
+    platform: tvOS
+    sources:
+      - path: Bar4BarTV
+        excludes:
+          - "**/*.md"
+          - "**/*.xcconfig"
+    resources:
+      - path: Bar4BarTV/Assets.xcassets
+    configFiles:
+      Debug: Bar4BarTV/Config/Debug.xcconfig
+      Release: Bar4BarTV/Config/Debug.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bar4bar.tv
+        INFOPLIST_FILE: Bar4BarTV/Config/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Bar4BarTV/Config/Bar4BarTV.entitlements
+        DEVELOPMENT_TEAM: "$(DEVELOPMENT_TEAM)"
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: "App Icon & Top Shelf Image"
+        ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME: ""
+        ENABLE_ON_DEMAND_RESOURCES: NO
+        GENERATE_INFOPLIST_FILE: false
+    dependencies:
+      - target: Bar4BarCore
+    scheme: {}
+    info:
+      path: Bar4BarTV/Config/Info.plist
+      properties:
+        CFBundleDisplayName: Bar4Bar
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        UILaunchScreen: {}
+        UIRequiredDeviceCapabilities: [arm64]
+        NSAppleMusicUsageDescription: Bar4Bar follows Apple Music playback to show word-by-word lyrics on your TV.
+        LYRICS_API_BASE: "$(LYRICS_API_BASE)"
