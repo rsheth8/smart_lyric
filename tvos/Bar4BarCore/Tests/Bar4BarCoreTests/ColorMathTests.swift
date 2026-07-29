@@ -69,6 +69,38 @@ final class ColorMathTests: XCTestCase {
 
   /// Near-greyscale art has no hue worth borrowing — the caller must fall back
   /// to the brand gold rather than tinting the UI with noise.
+  /// Every accepted accent has to carry real colour, near the brand gold's own
+  /// chroma. The original rule only clamped the ceiling, so a muted sleeve kept
+  /// its muted chroma and rebuilt to a pale near-white — which washed the whole
+  /// karaoke screen out and read as "lower quality" rather than "art-adaptive".
+  func testAcceptedAccentsAreNeverWashedOut() {
+    let goldChroma = RGB(0xE3C27A).oklch.c   // 0.098
+    let covers: [UInt32] = [0x0FA3A3, 0xD01B2A, 0x2B4FA0, 0x6E8F3A, 0xB07020]
+    for hex in covers {
+      guard let built = AccentMath.rebuild(dominant: RGB(hex)) else { continue }
+      let c = built.accent.oklch.c
+      XCTAssertGreaterThanOrEqual(
+        c, AccentMath.minC - 1e-6,
+        String(format: "#%06X rebuilt at C=%.4f, below the floor", hex, c)
+      )
+      // Within reach of the brand's own presence, in both directions.
+      XCTAssertGreaterThan(c, goldChroma * 0.7)
+      XCTAssertLessThanOrEqual(c, AccentMath.maxC + 1e-6)
+    }
+  }
+
+  /// A near-grey cover's hue is essentially sensor noise. Now that chroma gets
+  /// lifted to the floor, letting one through would amplify that noise into a
+  /// confident, wrong tint across the entire screen.
+  func testNearGreyArtFallsBackRatherThanBeingAmplified() {
+    for hex: UInt32 in [0x8A8078, 0x787F8A, 0x9A8A90, 0x8C8C8A] {
+      XCTAssertNil(
+        AccentMath.rebuild(dominant: RGB(hex)),
+        String(format: "#%06X should fall back to brand gold", hex)
+      )
+    }
+  }
+
   func testGreyscaleArtFallsBack() {
     XCTAssertNil(AccentMath.rebuild(dominant: RGB(0x808080)))
     XCTAssertNil(AccentMath.rebuild(dominant: RGB(0xFFFFFF)))

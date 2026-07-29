@@ -20,6 +20,24 @@ tvos/
 4. [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
 5. Optional: Vercel deploy of this repo for NetEase yrc / Musixmatch richsync (`LYRICS_API_BASE`)
 
+### Pair the Apple TV before the first device build
+
+Automatic signing cannot create a profile for a team with no registered devices,
+and it fails with a message that reads like an account problem rather than a
+setup step:
+
+> Your team has no devices from which to generate a provisioning profile.
+
+Registering the Apple TV happens by pairing it, which is **wireless only** —
+there is no cable for this, and the TV must be on the same network as the Mac:
+
+1. Apple TV → Settings ▸ Remotes and Devices ▸ Remote App and Devices
+   (leave that screen open — it is what makes the TV discoverable)
+2. Xcode → Window ▸ Devices and Simulators ▸ the Apple TV appears under
+   *Discovered* → **Pair** → type the six-digit code shown on the TV
+
+The UDID registers with the team on pairing, and the next build signs.
+
 ## Generate & run
 
 ```sh
@@ -32,7 +50,15 @@ Select an **Apple TV** simulator or device, set your Development Team, then Run.
 
 **Required once on this Mac:** install the **tvOS** platform / simulator runtime from Xcode → Settings → Platforms (or Components). Without it, `actool` fails with `No available simulator runtimes for platform appletvsimulator` even for device SDK builds.
 
-Set build setting / Info `LYRICS_API_BASE` (via [`tvos/Bar4BarTV/Config/Debug.xcconfig`](../tvos/Bar4BarTV/Config/Debug.xcconfig)) to your Vercel origin (e.g. `https://your-app.vercel.app`) for word-level NetEase/Musixmatch via the existing proxies. Leave blank to use **LRCLIB only** (no secrets in the IPA).
+Set `LYRICS_API_HOST` in [`tvos/Bar4BarTV/Config/Debug.xcconfig`](../tvos/Bar4BarTV/Config/Debug.xcconfig) to your Vercel **host** for word-level NetEase/Musixmatch via the existing proxies, and for Spotify pairing. Leave blank to use **LRCLIB only** (no secrets in the IPA).
+
+> **Host only — no scheme.** `xcconfig` treats `//` as a comment with no escape,
+> so writing `LYRICS_API_BASE = https://your-app.vercel.app` silently truncates
+> the value to `https:`. That is not hypothetical: it is what shipped, and the
+> lyric proxies looked configured while never once being reached. The file now
+> takes a bare host and glues the scheme back on through a `SLASHES` variable,
+> and `AppConfig.lyricsAPIBase` rejects any URL with no host so the same trap
+> cannot go quiet again.
 
 CLI typecheck (no simulator runtime needed for Swift; asset catalog still needs the platform):
 
@@ -92,27 +118,112 @@ cannot render at all in the simulator because MusicKit will not run there.
 
 | Variable | Values |
 |---|---|
-| `BAR4BAR_ROUTE` | `search` · `settings` · `karaoke` |
-| `BAR4BAR_FAKE_RESULTS` | `results` · `empty` · `loading` · `error` |
+| `BAR4BAR_ROUTE` | `search` · `settings` · `karaoke` · `spotify` |
+| `BAR4BAR_SEARCH` | any term — runs a real catalog search on launch |
+| `BAR4BAR_FAKE_RESULTS` | `empty` · `loading` · `error` |
+| `BAR4BAR_FAKE_PAIR` | a code, e.g. `K7M-3QP` — parks the pairing screen |
 
 ```sh
 SIMCTL_CHILD_BAR4BAR_ROUTE=search \
-SIMCTL_CHILD_BAR4BAR_FAKE_RESULTS=results \
+SIMCTL_CHILD_BAR4BAR_SEARCH="ella langley" \
 xcrun simctl launch <UDID> com.bar4bar.tv
 ```
 
-The placeholder rows are unplayable by construction — they are never added to
-`MusicPlayerService.catalog`, so selecting one takes the "no longer available"
-path rather than pretending to start playback.
+Results no longer need faking: browse runs on the public iTunes feeds, so the
+hub shelves and the search grid fill with real artwork in the simulator.
+`BAR4BAR_FAKE_RESULTS` survives only for the three states the network will not
+produce on demand.
+
+## Browse without MusicKit
+
+The hub and search are fed by [`Bar4BarCore/CatalogClient.swift`](../tvos/Bar4BarCore/Sources/Bar4BarCore/CatalogClient.swift):
+the iTunes charts RSS and the iTunes Search API, the same public, keyless feeds
+the web hub uses in `app/recommendations.js`.
+
+This matters beyond "it renders in the simulator". Sourcing browse from MusicKit
+meant a viewer with no Apple Music subscription saw an empty app, and it meant
+every browse surface was unverifiable on the only machines that can display
+them. MusicKit is now consulted at exactly one moment — pressing play.
+
+The handoff is exact rather than fuzzy: the chart feed's `im:id` and Search's
+`trackId` are both the **Apple Music catalog id**, so `MusicPlayerService.resolve`
+looks the song up by id and only falls back to a title match for items that
+arrived without one.
+
+## Spotify follow (tvOS)
+
+The Apple TV never plays Spotify audio — it follows it. `/me/player/currently-playing`
+reports what the account is playing on *any* device, so a phone or a HomePod
+drives the lyrics on the television.
+
+tvOS has no browser, no `ASWebAuthenticationSession`, and Spotify has no
+device-code flow, so authorization runs as a pairing handshake through this
+repo's own deployment ([`lib/tv-pair.mjs`](../lib/tv-pair.mjs), [`api/tv-pair.js`](../api/tv-pair.js)):
+
+1. TV → `POST /api/tv-pair?action=start` → `{ code: "K7M-3QP", pollToken }`
+2. TV shows the code; you open `/tv` on a phone and type it in
+3. phone → `/api/tv-pair?action=authorize&code=…` → 302 to Spotify
+4. Spotify → `?action=callback` → PKCE exchange, tokens stored against the code
+5. TV → `?action=poll&token=…` → the tokens, **once**, then the record is destroyed
+
+PKCE throughout: no client secret anywhere, and the client id never reaches the
+device (refresh is proxied for the same reason). The refresh token lives in the
+tvOS Keychain.
+
+**Requires a shared store.** The TV and the phone are different lambdas, so the
+handshake needs somewhere both can see. [`lib/pair-store.mjs`](../lib/pair-store.mjs)
+takes whichever is configured — it holds ~200 bytes for ten minutes, so this
+should never be a vendor decision, and free tiers move around (Upstash dropped
+theirs):
+
+| Backend | Env | Setup |
+|---|---|---|
+| Supabase | `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | run [`docs/tv-pairing-store.sql`](tv-pairing-store.sql) once |
+| Upstash-protocol REST KV (Vercel KV, Upstash) | `KV_REST_API_URL` + `KV_REST_API_TOKEN` | bind the integration |
+| memory | — | `npm run dev` only |
+
+The table holds a Spotify refresh token for the seconds between the phone
+finishing OAuth and the TV's next poll, so the SQL turns RLS on with **no
+policies** and revokes anon/authenticated outright — only the service-role key,
+which never leaves the server, can touch it.
+
+With no store bound, the `start` response carries `durable: false` and the TV
+warns on screen instead of showing a code that can never be redeemed. To see
+which backend a deployment actually picked up:
+
+```sh
+curl -s "https://YOUR-PROJECT.vercel.app/api/tv-pair?action=start"
+# → {"code":"K7M-3QP", … ,"durable":true,"backend":"supabase"}
+```
+
+Add `https://YOUR-PROJECT.vercel.app/api/tv-pair?action=callback` to the Spotify
+Dashboard's Redirect URIs.
+
+The playhead goes through `StreamingClock`, not straight to the display:
+Spotify reports `progress_ms` about once a second with network jitter on top,
+and driving the word wipe off that raw would make every word twitch.
+
+## Song structure
+
+[`Bar4BarCore/Sections.swift`](../tvos/Bar4BarCore/Sources/Bar4BarCore/Sections.swift)
+is the Swift port of `app/providers/formats/sections.js` — chorus-vs-verse from
+repeated passages, instrumental breaks from long gaps, and nothing finer,
+because repetition supports no finer claim. The karaoke rail draws it: sung
+sections solid, instrumental ones hollow, the current one raised.
+
+The rail hides itself when a song yields fewer than two sections, which is the
+honest answer for anything short or without repetition.
 
 ## Product cut line
 
 | On Apple TV (v1) | Stays on Mac Electron |
 |------------------|------------------------|
 | Apple Music (MusicKit) playback + playhead | Vinyl / mic / AcoustID / ACRCloud |
-| Catalog lyrics (LRCLIB + optional proxy) | Forced align, vocal separation, Whisper |
-| Word wipe karaoke, sync nudge, singer lead | Local audio file sync |
-| Hub shelves + search + remote focus | Spotify follow-poll / OBS projector |
+| **Spotify follow (phone pairing)** | Forced align, vocal separation, Whisper |
+| Catalog lyrics (LRCLIB + optional proxy) | Local audio file sync |
+| Word wipe karaoke, sync nudge, singer lead | Music video / YouTube bed |
+| Hub shelves + search + remote focus | OBS projector output |
+| **Structure rail, art-adaptive accent** | Language aid (romanization) |
 
 ## Phases checklist
 
@@ -133,7 +244,17 @@ path rather than pretending to start playback.
       rows) and is now a two-column token-built page. Search gained real
       loading / empty / no-match / error states and a grid. `SongItem` replaces
       `MusicKit.Song` in the view layer. Core tests 36 → 39.
+- [x] Phase 3.7 — **Parity with the Electron hub.** The tvOS hub was two cards on
+      an empty ground because every browse surface was gated behind MusicKit;
+      `CatalogClient` moved browse onto the public iTunes feeds, so shelves and
+      search now carry real artwork with no account and no subscription. Adds
+      Spotify follow via phone pairing, the structure rail (`Sections.swift`),
+      artwork in the karaoke header, the B4B mark, persisted recents, and a
+      connect prompt so pressing an unplayable song leads somewhere. Fixed the
+      xcconfig `//` truncation that had disabled the lyric proxies outright.
+      Core tests 39 → 65.
 - [ ] Phase 4 — Device build on real Apple TV (only way to verify MusicKit);
+      deploy `/api/tv-pair` + bind a KV to verify Spotify pairing end to end;
       TestFlight; App Store screenshots; ToS review for lyric proxies
 
 ### Fixed in the audit
@@ -151,10 +272,16 @@ path rather than pretending to start playback.
 
 ### Known gaps
 
-- **MusicKit is unverified.** Auth, catalog search, playback, and the playhead
-  have never run — the simulator cannot exercise them. Everything downstream of
-  `MusicPlayerService.playbackTime` is proven via the demo clock, so the risk is
-  concentrated in that one service.
+- **MusicKit is unverified.** Authorization, catalog resolution, playback, and
+  the playhead have never run — the simulator cannot exercise them. The blast
+  radius is now much smaller than it was: browse is public, so only
+  `MusicPlayerService.resolve` and `play` are unproven, and everything
+  downstream of `playbackTime` is exercised by the demo clock.
+- **The Spotify handshake is unverified end to end.** The state machine, the
+  single-redemption guarantee, the expiry paths, the pairing page, and every
+  endpoint are exercised locally; the one untested link is the actual token
+  exchange with Spotify, which needs the endpoints deployed and a KV bound. The
+  tvOS pairing screen is captured through `BAR4BAR_FAKE_PAIR`.
 - The live-simulator panel integration reports Xcode as unselected despite
   `xcode-select -p` being correct; fix with
   `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`. Screenshots

@@ -1,6 +1,19 @@
-// Point at your Vercel origin for NetEase yrc / Musixmatch richsync.
-// Example: LYRICS_API_BASE = https://your-app.vercel.app
-LYRICS_API_BASE =
+// Point at your Vercel origin for NetEase yrc / Musixmatch richsync, and for
+// the Apple TV Spotify pairing endpoints.
+//
+// WRITE IT AS THE HOST ONLY — no scheme, no trailing slash:
+//
+//     LYRICS_API_HOST = your-app.vercel.app
+//
+// xcconfig treats "//" as the start of a comment, with no escape. Writing
+// "https://your-app.vercel.app" here silently truncates the value to "https:",
+// which is exactly what happened before: the word-level lyric proxies looked
+// configured and had never once been reached. The scheme is glued back on
+// below, where the slashes live in their own variable and are safe.
+LYRICS_API_HOST =
+
+SLASHES = /
+LYRICS_API_BASE = https:$(SLASHES)$(SLASHES)$(LYRICS_API_HOST)
 
 // Your Apple Developer Team ID — needed only for a real device build.
 // Find it in Xcode ▸ Settings ▸ Accounts, or developer.apple.com ▸ Membership.

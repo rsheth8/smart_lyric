@@ -105,11 +105,23 @@ public struct OKLCH: Equatable, Sendable {
 /// trick: a muddy, neon, or washed-out cover still yields a tone that belongs
 /// to this app rather than to the album.
 public enum AccentMath {
-  /// The brand band.
+  /// The brand band. Champagne gold sits at L 0.827 / C 0.098, so an accent
+  /// that belongs to this app has to land near that chroma — not merely below
+  /// it.
   public static let targetL = 0.82
   public static let maxC = 0.11
-  /// Below this the artwork has no hue worth borrowing.
-  public static let minChroma = 0.02
+  /// Chroma FLOOR. Without one, "rebuild in the brand's band" was only ever a
+  /// ceiling: a washed-out cover kept its washed-out chroma and produced a pale
+  /// near-white accent (a C=0.021 sleeve rebuilt to #CFBEC5), which is exactly
+  /// the outcome taking hue-and-nothing-else is supposed to prevent. Every
+  /// accepted accent now has real presence.
+  public static let minC = 0.075
+  /// Below this the artwork has no hue worth borrowing — and, more to the
+  /// point, no hue worth *amplifying*. Near-grey pixels have hues that are
+  /// essentially sensor noise, so now that chroma gets lifted to the floor the
+  /// gate has to sit above the noise or we would confidently tint the whole
+  /// screen from a rounding error.
+  public static let minChroma = 0.035
   public static let minContrast = 4.5
   /// The espresso ground the accent has to stay readable on.
   public static let ground = RGB(0x0B0908)
@@ -126,14 +138,16 @@ public enum AccentMath {
     let lch = dominant.oklch
     guard lch.c >= minChroma else { return nil }
 
-    let c = min(lch.c, maxC)
+    // Clamped at both ends: the ceiling keeps a neon cover from shouting, the
+    // floor keeps a muted one from disappearing.
+    let c = min(max(lch.c, minC), maxC)
     let accent = OKLCH(l: targetL, c: c, h: lch.h).rgb
     guard accent.contrastRatio(against: ground) >= minContrast else { return nil }
 
     return Rebuilt(
       accent: accent,
       soft: OKLCH(l: min(0.93, targetL + 0.09), c: c * 0.72, h: lch.h).rgb,
-      glow: OKLCH(l: 0.70, c: min(lch.c, maxC * 1.3), h: lch.h).rgb
+      glow: OKLCH(l: 0.70, c: min(c * 1.3, maxC * 1.3), h: lch.h).rgb
     )
   }
 }

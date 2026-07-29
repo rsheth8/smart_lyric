@@ -4,31 +4,44 @@ import Bar4BarCore
 
 /// Catalog search.
 ///
-/// The screen has four genuinely different states — never searched, searching,
-/// found nothing, failed — and the first version rendered three of them as the
-/// same line of grey text while `music.errorMessage` was never shown at all. A
-/// search that quietly fails is worse than one that says so, because the viewer
-/// retypes the same query from across the room.
+/// Search runs against the public iTunes catalog, so this screen works with no
+/// account connected and inside the simulator. It used to sit behind an Apple
+/// Music gate, which meant the one screen whose entire job is *finding
+/// something* refused to do it until you had authorized — and then rendered
+/// nothing at all anywhere MusicKit will not run.
+///
+/// Four genuinely different states — never searched, searching, found nothing,
+/// failed — each with its own composition. A search that quietly fails is worse
+/// than one that says so, because the viewer retypes the same query from across
+/// the room.
 struct SearchView: View {
   @EnvironmentObject private var music: MusicPlayerService
+  @EnvironmentObject private var session: LyricsSession
   @Binding var path: NavigationPath
   @State private var query = ""
-  @FocusState private var fieldFocused: Bool
+
+  /// Same story as the hub: `prefersDefaultFocus` does not survive a
+  /// `ScrollView`, so focus is placed explicitly.
+  ///
+  /// The rule is about intent. Arriving with nothing typed, you came here to
+  /// type, so the field takes focus. Arriving to results — or coming back from
+  /// the keyboard — you came to pick, so the first card takes it. Leaving focus
+  /// on the field in that second case also parks tvOS's light focused-field
+  /// plate in the middle of a dark screen full of artwork.
+  private enum SearchFocus: Hashable {
+    case field
+    case card(String)
+  }
+  @FocusState private var focus: SearchFocus?
 
   var body: some View {
     ZStack {
-      AmbientBackdrop(intensity: 0.5)
+      AmbientBackdrop(accent: session.accent.glow, intensity: 0.5)
 
-      VStack(alignment: .leading, spacing: Tokens.Space.s5) {
+      VStack(alignment: .leading, spacing: Tokens.Space.s4) {
         header
-
-        if music.authStatus == .authorized || DemoLaunch.fakeResults != nil {
-          searchBar
-          results
-        } else {
-          connectGate
-        }
-
+        searchBar
+        results
         Spacer(minLength: 0)
       }
       .padding(.horizontal, Tokens.safeX)
@@ -37,8 +50,13 @@ struct SearchView: View {
     }
     .task {
       if let mode = DemoLaunch.fakeResults {
-        music.loadPlaceholderResults(term: "gold", mode: mode)
+        music.forceBrowseState(mode, term: "gold")
+      } else if let term = DemoLaunch.searchTerm {
+        query = term
+        await music.search(term)
       }
+      try? await Task.sleep(for: .milliseconds(120))
+      focus = music.searchResults.first.map { .card($0.id) } ?? .field
     }
   }
 
@@ -48,10 +66,10 @@ struct SearchView: View {
     HStack(alignment: .lastTextBaseline) {
       VStack(alignment: .leading, spacing: Tokens.Space.s1) {
         Text("Find a song")
-          .font(Tokens.display(Tokens.FontSize.xxl, .bold))
+          .font(Tokens.display(Tokens.FontSize.xl, .bold))
           .foregroundStyle(Tokens.text1)
-        Text("Apple Music catalog · press Menu to go back")
-          .font(Tokens.display(Tokens.FontSize.base, .regular))
+        Text(subtitle)
+          .font(Tokens.display(Tokens.FontSize.sm, .regular))
           .foregroundStyle(Tokens.text3)
       }
       Spacer()
@@ -61,6 +79,14 @@ struct SearchView: View {
           .foregroundStyle(Tokens.text2)
       }
     }
+  }
+
+  /// Say up front that playing needs a subscription, rather than letting someone
+  /// search, pick, and only then meet the wall.
+  private var subtitle: String {
+    music.authStatus == .authorized
+      ? "Apple Music · press Menu to go back"
+      : "Browse freely — playing a result needs Apple Music"
   }
 
   // MARK: - Search bar
@@ -73,9 +99,13 @@ struct SearchView: View {
       TextField("Song or artist", text: $query)
         .textFieldStyle(.plain)
         .font(Tokens.display(Tokens.FontSize.md, .medium))
-        .focused($fieldFocused)
+        .focused($focus, equals: .field)
         .submitLabel(.search)
         .onSubmit { runSearch() }
+        // Results arrive while the on-screen keyboard is still up, so by the
+        // time it is dismissed the grid is already there. The debounce lives in
+        // the service — the remote keyboard emits one character at a time.
+        .onChange(of: query) { _, term in music.searchDebounced(term) }
         .frame(maxWidth: 820)
 
       Button {
@@ -84,44 +114,48 @@ struct SearchView: View {
         Label("Search", systemImage: "magnifyingglass")
       }
       .buttonStyle(TVPillStyle())
-      .disabled(query.trimmingCharacters(in: .whitespaces).isEmpty)
+      .disabled(query.trimmingCharacters(in: .whitespaces).count < 2)
     }
   }
 
   private func runSearch() {
-    fieldFocused = false
-    Task { await music.search(query) }
+    Task {
+      await music.search(query)
+      // Hand focus to the answer. Leaving it on the field means the viewer has
+      // to swipe past the keyboard control to reach what they just asked for.
+      if let first = music.searchResults.first { focus = .card(first.id) }
+    }
   }
 
   // MARK: - Results
 
   @ViewBuilder
   private var results: some View {
-    if music.isSearching {
-      statusBlock(icon: nil, title: "Searching…", detail: nil, spinner: true)
-    } else if let err = music.errorMessage {
+    if let err = music.errorMessage, music.searchResults.isEmpty {
       statusBlock(
         icon: "exclamationmark.triangle.fill",
         title: "That search didn't go through",
         detail: err,
         tint: Tokens.ember
       )
-    } else if music.searchResults.isEmpty {
-      if let term = music.lastSearchTerm {
-        statusBlock(
-          icon: "questionmark.circle",
-          title: "Nothing matched “\(term)”",
-          detail: "Try the artist's name, or fewer words."
-        )
-      } else {
-        emptyGuidance
-      }
-    } else {
+    } else if music.isSearching && music.searchResults.isEmpty {
+      // A skeleton grid rather than a spinner: it holds the shape the results
+      // will take, so the screen does not reflow when they land.
+      skeletonGrid
+    } else if !music.searchResults.isEmpty {
       grid(music.searchResults)
+    } else if let term = music.lastSearchTerm {
+      statusBlock(
+        icon: "questionmark.circle",
+        title: "Nothing matched “\(term)”",
+        detail: "Try the artist's name, or fewer words."
+      )
+    } else {
+      startingPoint
     }
   }
 
-  private func grid(_ songs: [SongItem]) -> some View {
+  private func grid(_ songs: [CatalogItem]) -> some View {
     ScrollView(.vertical) {
       LazyVGrid(
         columns: Array(
@@ -132,7 +166,8 @@ struct SearchView: View {
         spacing: Tokens.Space.s4
       ) {
         ForEach(songs) { song in
-          SongCard(song: song) { start(song) }
+          PosterCard(item: song) { start(song) }
+            .focused($focus, equals: .card(song.id))
         }
       }
       // Focus lifts and scales cards; without room they clip against the
@@ -142,14 +177,60 @@ struct SearchView: View {
     }
   }
 
-  private func start(_ song: SongItem) {
+  private var skeletonGrid: some View {
+    LazyVGrid(
+      columns: Array(
+        repeating: GridItem(.fixed(Tokens.cardW), spacing: Tokens.Space.s4),
+        count: 5
+      ),
+      alignment: .leading,
+      spacing: Tokens.Space.s4
+    ) {
+      ForEach(0..<10, id: \.self) { _ in SkeletonCard() }
+    }
+    .padding(.vertical, Tokens.Space.s3)
+    .padding(.horizontal, 6)
+  }
+
+  /// Nothing typed yet. Rather than an empty screen with a hint, show something
+  /// pressable: what they played before, then what everyone is playing now.
+  private var startingPoint: some View {
+    ScrollView(.vertical) {
+      VStack(alignment: .leading, spacing: Tokens.Space.s4) {
+        if !music.recentSongs.isEmpty {
+          shelf("Recently played", music.recentSongs)
+        }
+        if !music.chartSongs.isEmpty {
+          shelf("Top songs right now", music.chartSongs)
+        }
+      }
+      .padding(.bottom, Tokens.Space.s3)
+    }
+  }
+
+  private func shelf(_ title: String, _ items: [CatalogItem]) -> some View {
+    VStack(alignment: .leading, spacing: Tokens.Space.s3) {
+      ShelfHeader(title)
+      ScrollView(.horizontal) {
+        HStack(spacing: Tokens.Space.s3) {
+          ForEach(items) { item in
+            PosterCard(item: item) { start(item) }
+              .focused($focus, equals: .card(item.id))
+          }
+        }
+        .padding(.vertical, Tokens.Space.s3)
+        .padding(.horizontal, 6)
+      }
+    }
+  }
+
+  /// Only navigate when playback actually started — `play` returns false both
+  /// when Apple Music is not connected (the root then shows the connect prompt)
+  /// and when the song will not resolve. Pushing karaoke over silence was the
+  /// original dead end here.
+  private func start(_ item: CatalogItem) {
     Task {
-      await music.play(song)
-      // Pushing from here rather than relying on the root's auto-push: that
-      // guard requires a loaded timeline, which never exists this early, so
-      // choosing a song used to drop you back on the hub with nothing playing
-      // on screen. The karaoke view has its own "fetching lyrics" state.
-      if music.errorMessage == nil {
+      if await music.play(item) {
         path.append(Route.karaoke)
       }
     }
@@ -157,88 +238,14 @@ struct SearchView: View {
 
   // MARK: - States
 
-  private var emptyGuidance: some View {
-    VStack(alignment: .leading, spacing: Tokens.Space.s5) {
-      statusBlock(
-        icon: "text.magnifyingglass",
-        title: "Search the catalog",
-        detail: "Type a song or artist above, then press Search. Anything you play here shows up on the hub afterwards."
-      )
-
-      if !music.recentSongs.isEmpty {
-        VStack(alignment: .leading, spacing: Tokens.Space.s3) {
-          Text("Recently played")
-            .font(Tokens.display(Tokens.FontSize.md, .semibold))
-            .foregroundStyle(Tokens.text1)
-          ScrollView(.horizontal) {
-            HStack(spacing: Tokens.Space.s4) {
-              ForEach(music.recentSongs) { song in
-                SongCard(song: song) { start(song) }
-              }
-            }
-            .padding(.vertical, Tokens.Space.s3)
-            .padding(.horizontal, 6)
-          }
-        }
-      }
-    }
-  }
-
-  /// Not authorized. This used to be a bare explanation with nothing to press —
-  /// a screen that names the fix and then refuses to perform it.
-  private var connectGate: some View {
-    VStack(alignment: .leading, spacing: Tokens.Space.s4) {
-      statusBlock(
-        icon: "music.note",
-        title: gateTitle,
-        detail: gateDetail,
-        tint: Tokens.ember
-      )
-      HStack(spacing: Tokens.Space.s3) {
-        if music.authStatus == .notDetermined {
-          Button("Connect Apple Music") { Task { await music.requestAccess() } }
-            .buttonStyle(TVPillStyle())
-        }
-        Button("Play the demo instead") {
-          if !music.isDemo { music.startDemo() }
-          path.append(Route.karaoke)
-        }
-        .buttonStyle(TVPillStyle())
-      }
-    }
-  }
-
-  private var gateTitle: String {
-    music.authStatus == .notDetermined
-      ? "Connect Apple Music to search"
-      : "Apple Music is turned off for Bar4Bar"
-  }
-
-  private var gateDetail: String {
-    switch music.authStatus {
-    case .denied:
-      return "tvOS will not ask again from inside the app. Turn Bar4Bar back on in Settings ▸ Apps ▸ Bar4Bar ▸ Media & Apple Music. The bundled demo works either way."
-    case .restricted:
-      return "Apple Music access is restricted on this Apple TV, most likely by Screen Time or a profile. The bundled demo works either way."
-    default:
-      return "Searching the catalog needs an Apple Music subscription on this Apple TV. The bundled demo works without one."
-    }
-  }
-
   private func statusBlock(
     icon: String?,
     title: String,
     detail: String?,
-    tint: Color = Tokens.text2,
-    spinner: Bool = false
+    tint: Color = Tokens.text2
   ) -> some View {
     HStack(alignment: .top, spacing: Tokens.Space.s3) {
-      if spinner {
-        ProgressView()
-          .tint(Tokens.accentStatic)
-          .scaleEffect(1.4)
-          .frame(width: 44, height: 44)
-      } else if let icon {
+      if let icon {
         Image(systemName: icon)
           .font(.system(size: Tokens.FontSize.lg))
           .foregroundStyle(tint)

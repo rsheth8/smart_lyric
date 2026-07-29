@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { fetchNeteaseLyrics } from './lib/netease.mjs';
 import { fetchGeniusLyrics } from './lib/genius.mjs';
 import { fetchMusixmatchRichsync } from './lib/musixmatch.mjs';
+import tvPairHandler from './api/tv-pair.js';
 
 const REPO = fileURLToPath(new URL('.', import.meta.url));
 const ROOT = join(REPO, 'app');
@@ -88,6 +89,15 @@ createServer(async (req, res) => {
           payload = (await fetchGeniusLyrics({ artist: q.get('artist') || '', track })) || payload;
         } catch { /* soft-fail → no plain lyrics */ }
       }
+
+    // The Apple TV Spotify handshake. Shares the Vercel handler outright rather
+    // than being reimplemented here — the two drifting apart would only ever be
+    // discovered in production, on the one flow that has no way to retry.
+    if (path === '/api/tv-pair' || path === '/tv') {
+      if (path === '/tv') req.url = '/api/tv-pair?action=page';
+      await tvPairHandler(req, res);
+      return;
+    }
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify(payload));
       return;

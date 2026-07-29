@@ -4,7 +4,15 @@ import Bar4BarCore
 
 @MainActor
 final class LyricsSession: ObservableObject {
-  @Published var timeline: Timeline = Timeline(lines: [])
+  @Published var timeline: Timeline = Timeline(lines: []) {
+    // A `didSet` rather than a call at each assignment site: the timeline is set
+    // from five places (demo, cache hit, fetch, fetch-failure, clear) and a
+    // rail left over from the previous song is worse than no rail at all.
+    didSet {
+      guard timeline != oldValue else { return }
+      sections = Sections.derive(timeline)
+    }
+  }
   @Published var isLoading = false
   @Published var errorMessage: String?
   @Published var statusMessage: String?
@@ -13,6 +21,10 @@ final class LyricsSession: ObservableObject {
   /// Per-song accent, rebuilt from the artwork's hue. Views must read this
   /// rather than the brand gold — see `AccentPalette`.
   @Published var accent: AccentPalette = .brand
+
+  /// Derived song structure for the rail. Recomputed once per timeline rather
+  /// than per frame — `derive` walks every line and every word.
+  @Published private(set) var sections: [Sections.Section] = []
 
   private var client = LyricsClient()
   private let cache = TimelineCache()
@@ -86,6 +98,20 @@ final class LyricsSession: ObservableObject {
     errorMessage = nil
     statusMessage = nil
     accent = .brand
+  }
+
+  // MARK: - Structure
+
+  /// Called from a view body, so it stays a pure read — `Sections.index` takes
+  /// a hint for callers that track one, but a song has a dozen sections at most
+  /// and the unhinted scan is not worth caching state for.
+  func sectionIndex(at playbackTime: Double) -> Int? {
+    Sections.index(in: sections, at: cueTime(playbackTime: playbackTime))
+  }
+
+  func sectionLabel(at playbackTime: Double) -> String? {
+    guard let idx = sectionIndex(at: playbackTime) else { return nil }
+    return sections[idx].part.rawValue
   }
 
   func cueTime(playbackTime: Double) -> Double {

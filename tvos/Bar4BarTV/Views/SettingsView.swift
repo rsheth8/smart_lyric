@@ -12,6 +12,7 @@ import Bar4BarCore
 struct SettingsView: View {
   @EnvironmentObject private var music: MusicPlayerService
   @EnvironmentObject private var session: LyricsSession
+  @EnvironmentObject private var spotify: SpotifyService
   @Binding var path: NavigationPath
 
   var body: some View {
@@ -32,6 +33,7 @@ struct SettingsView: View {
             }
             VStack(alignment: .leading, spacing: Tokens.Space.s5) {
               appleMusicGroup
+              spotifyGroup
               lyricsGroup
               aboutGroup
             }
@@ -174,6 +176,38 @@ struct SettingsView: View {
   }
 
   // MARK: - Lyrics
+
+  /// Spotify's home in Settings.
+  ///
+  /// The pairing screen can already disconnect, but nobody looks for a
+  /// connected account on the screen they used to connect it — they look here,
+  /// next to the other one.
+  private var spotifyGroup: some View {
+    TVGroup(
+      title: "Spotify",
+      footnote: "Following shows the words for whatever your Spotify account is playing, on any device. Bar4Bar never takes over playback."
+    ) {
+      TVInfoRow(
+        label: "Status",
+        value: spotify.isConnected ? "Connected" : "Not connected",
+        tint: spotify.isConnected ? Tokens.ok : Tokens.text2
+      )
+      if spotify.isConnected {
+        TVInfoRow(
+          label: "Now following",
+          value: spotify.track.map(\.title) ?? "Nothing playing",
+          tint: Tokens.text2
+        )
+        TVActionRow(title: "Disconnect Spotify", icon: "xmark.circle", tint: Tokens.ember) {
+          spotify.disconnect()
+        }
+      } else {
+        TVActionRow(title: "Connect Spotify", icon: "dot.radiowaves.left.and.right") {
+          path.append(Route.spotify)
+        }
+      }
+    }
+  }
 
   private var lyricsGroup: some View {
     TVGroup(

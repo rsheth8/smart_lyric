@@ -35,9 +35,11 @@ enum DemoSong {
   ///         does not race ahead the way a syllable spread would
   /// - 5     a second vocalist (`agent: "v2"`) → duet staging
   /// - 6     eight short words in 3.8 s → the fast/rap case
-  /// - 7     resolution line
-  /// - gap   4.0 s → a second instrumental beat before the hook returns
-  /// - 8     the hook, ending on a long tail
+  /// - 7     the hook returns — lines 0–1 repeated verbatim, which is what
+  ///         makes the song derive as Chorus / Verse / Chorus and gives the
+  ///         structure rail something true to draw
+  /// - gap   4.0 s → a second instrumental beat mid-hook
+  /// - 8     the hook's second line, ending on a long tail
   static func timeline() -> Timeline {
     Timeline(
       lines: [
@@ -81,16 +83,23 @@ enum DemoSong {
           ("it", 32.20, 32.38), ("on", 32.38, 32.58), ("the", 32.58, 32.74),
           ("up-beat", 32.74, 33.30), ("now", 33.30, 35.20),
         ]),
+        // The hook returns, word for word. It has to be a genuine repeat of
+        // lines 0–1 and not merely a similar sentiment: `Sections.derive` finds
+        // the chorus by looking for a *repeated passage*, so without this the
+        // demo could never show the structure rail — and a demo song with no
+        // chorus at all is unlike any song the app will ever meet.
         line(35.80, 40.00, [
-          ("Every", 35.80, 36.25), ("word", 36.25, 36.75), ("right", 36.90, 37.25),
-          ("on", 37.25, 37.50), ("the", 37.50, 37.70), ("one", 37.70, 40.00),
+          ("Drop", 35.80, 36.15), ("the", 36.15, 36.32), ("needle,", 36.32, 37.00),
+          ("let", 37.20, 37.45), ("the", 37.45, 37.62), ("room", 37.62, 38.10),
+          ("turn", 38.10, 38.45), ("gold", 38.45, 40.00),
         ]),
 
         // ── 4.0 s instrumental ─────────────────────────────────────────────
 
         line(44.00, 48.50, [
-          ("In", 44.00, 44.35), ("sync,", 44.35, 45.10), ("bar", 45.40, 45.90),
-          ("for", 45.90, 46.15), ("bar", 46.15, 48.50),
+          ("Every", 44.00, 44.45), ("bar", 44.45, 44.95), ("lands", 44.95, 45.45),
+          ("right", 45.60, 45.95), ("where", 45.95, 46.30), ("it's", 46.30, 46.55),
+          ("told", 46.55, 48.50),
         ]),
       ],
       duration: duration,

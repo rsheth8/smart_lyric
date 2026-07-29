@@ -88,8 +88,10 @@ struct KaraokeView: View {
 
   private var hasLyrics: Bool { !session.timeline.lines.isEmpty }
 
+  /// Read per frame from the live clock, not from the 20 Hz published snapshot —
+  /// see `MusicPlayerService.liveTime`. This is what makes the wipe continuous.
   private var cueTime: Double {
-    music.playbackTime + session.syncOffset + session.singerLead
+    music.liveTime + session.syncOffset + session.singerLead
   }
 
   private var accent: AccentPalette {
@@ -237,14 +239,28 @@ struct KaraokeView: View {
   // MARK: - Chrome
 
   private var topChrome: some View {
-    HStack(alignment: .top) {
+    HStack(alignment: .center, spacing: Tokens.Space.s3) {
+      // The cover is what tells you, at a glance from the couch, *which* song
+      // is on screen. Without it the header was two lines of text floating on
+      // black — the karaoke screen carried no artwork at all, on a surface
+      // whose whole accent system is derived from artwork.
+      if let track = music.nowPlaying {
+        CoverArt(
+          url: track.artworkURL,
+          side: 92,
+          corner: Tokens.Radius.md,
+          fallbackTint: track.isDemo ? accent.glow : nil
+        )
+      }
       VStack(alignment: .leading, spacing: Tokens.Space.s1) {
         Text(music.nowPlaying?.title ?? "No track")
           .font(Tokens.display(Tokens.FontSize.md, .semibold))
           .foregroundStyle(Tokens.text1)
+          .lineLimit(1)
         Text(music.nowPlaying?.artist ?? "")
           .font(Tokens.display(Tokens.FontSize.base, .regular))
           .foregroundStyle(Tokens.text2)
+          .lineLimit(1)
       }
       Spacer()
       statusChip
@@ -313,17 +329,72 @@ struct KaraokeView: View {
   @ViewBuilder
   private var progressBar: some View {
     if let duration = music.nowPlaying?.duration, duration > 0 {
-      let fraction = min(1, max(0, music.playbackTime / duration))
-      GeometryReader { proxy in
-        ZStack(alignment: .leading) {
-          Capsule().fill(Tokens.line1)
-          Capsule()
-            .fill(accent.accent)
-            .frame(width: proxy.size.width * fraction)
+      // Live, like the wipe: the playhead marker glides instead of ticking.
+      let fraction = min(1, max(0, music.liveTime / duration))
+      let sections = session.sections
+
+      VStack(alignment: .leading, spacing: Tokens.Space.s2) {
+        // The structure rail. Where the app knows the song's shape it says so:
+        // segment widths are real durations, so "the chorus is next and it is
+        // long" is legible at a glance instead of being a surprise.
+        GeometryReader { proxy in
+          if sections.count >= 2 {
+            HStack(spacing: 2) {
+              ForEach(Array(sections.enumerated()), id: \.offset) { index, section in
+                segment(
+                  section,
+                  width: max(2, proxy.size.width * (section.duration / duration) - 2),
+                  isCurrent: index == session.sectionIndex(at: music.playbackTime)
+                )
+              }
+            }
+            .overlay(alignment: .leading) {
+              // The playhead rides over the segments rather than filling them:
+              // a fill would hide which section is which behind it.
+              Capsule()
+                .fill(accent.accent)
+                .frame(width: 3, height: 18)
+                .offset(x: proxy.size.width * fraction - 1.5)
+                .shadow(color: accent.accent.opacity(0.6), radius: 6)
+            }
+          } else {
+            ZStack(alignment: .leading) {
+              Capsule().fill(Tokens.line1)
+              Capsule()
+                .fill(accent.accent)
+                .frame(width: proxy.size.width * fraction)
+            }
+            .frame(height: 4)
+            .frame(maxHeight: .infinity)
+          }
+        }
+        .frame(height: sections.count >= 2 ? 14 : 4)
+
+        if let label = session.sectionLabel(at: music.playbackTime) {
+          Text(label.uppercased())
+            .font(Tokens.display(Tokens.FontSize.xs, .semibold))
+            .tracking(1.6)
+            .foregroundStyle(Tokens.text3)
+            .transition(.opacity)
         }
       }
-      .frame(height: 4)
+      .animation(Tokens.Motion.easeOut, value: session.sectionIndex(at: music.playbackTime))
     }
+  }
+
+  /// One rail segment. Sung sections read as solid; instrumental ones are
+  /// hollow, which is the distinction a singer actually cares about — those are
+  /// the stretches with nothing to sing.
+  private func segment(_ section: Sections.Section, width: CGFloat, isCurrent: Bool) -> some View {
+    let solid = !section.part.isInstrumental
+    return Capsule()
+      .fill(
+        solid
+          ? (isCurrent ? accent.accent.opacity(0.85) : Tokens.line3)
+          : (isCurrent ? accent.accent.opacity(0.35) : Tokens.line1)
+      )
+      .frame(width: width, height: isCurrent ? 12 : 6)
+      .frame(height: 14)
   }
 
   private func remoteHint(icon: String, label: String, highlighted: Bool = false) -> some View {
