@@ -1,11 +1,14 @@
-# Bar4Bar
+# Bar4Bar (`smart_lyric`)
 
-Every bar. Every word. In sync.
+Projector karaoke: every bar, every word, in sync. Mic on a record player, a local file, Spotify, or Apple Music — cinematic word-by-word highlight.
 
-A projector-ready, auto-detecting lyric-follow / karaoke display. Point a mic at
-your record player, sync to a local file, connect Spotify or Apple Music, or search
-manually — the app fetches time-synced lyrics and follows along with a cinematic,
-word-by-word highlight.
+| | |
+| --- | --- |
+| **Author** | [Rahil Sheth](https://github.com/rsheth8) |
+| **Live** | [smartlyric.vercel.app](https://smartlyric.vercel.app) (streaming / search; vinyl + projector need the desktop app) |
+| **Repo** | [rsheth8/smart_lyric](https://github.com/rsheth8/smart_lyric) |
+| **Stack** | Node, Electron, native tvOS (Swift), Chromaprint/AcoustID, Spotify & Apple Music SDKs |
+| **Status** | Personal product. Vinyl auto-detect needs `fpcalc` + an AcoustID key. |
 
 ## Run it
 
@@ -14,6 +17,15 @@ npm run dev      # → http://localhost:4321  (dev server)
 npm test         # unit tests (node:test)
 npm start        # desktop app (Electron)
 ```
+
+### Apple TV (native tvOS)
+
+```sh
+cd tvos && xcodegen generate && open Bar4BarTV.xcodeproj
+cd tvos/Bar4BarCore && swift test
+```
+
+See [docs/tvos-migration.md](docs/tvos-migration.md) for MusicKit setup, `LYRICS_API_BASE`, and the Mac vs TV cut line.
 
 Copy `.env.example` to `.env` and add keys as needed:
 
