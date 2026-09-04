@@ -1,22 +1,25 @@
-# Bar4Bar (`smart_lyric`)
-
 <p align="center">
-  <img src="docs/brand/logo.png" width="168" alt="Bar4Bar">
+  <img src="docs/brand/logo.png" width="128" alt="Bar4Bar">
 </p>
 
+<h1 align="center">Bar4Bar</h1>
 
-Projector karaoke: every bar, every word, in sync. Mic on a record player, a local file, Spotify, or Apple Music — cinematic word-by-word highlight.
+<p align="center">
+  Every bar. Every word. In sync.
+</p>
 
-| | |
-| --- | --- |
-| **Author** | [Rahil Sheth](https://github.com/rsheth8) |
-| **Live** | [smartlyric.vercel.app](https://smartlyric.vercel.app) (streaming / search; vinyl + projector need the desktop app) |
-| **Repo** | [rsheth8/smart_lyric](https://github.com/rsheth8/smart_lyric) |
-| **Stack** | Node, Electron, native tvOS (Swift), Chromaprint/AcoustID, Spotify & Apple Music SDKs |
-| **Status** | Personal product. Vinyl auto-detect needs `fpcalc` + an AcoustID key. |
+<p align="center">
+  <a href="https://smartlyric.vercel.app">Live</a>&nbsp;·&nbsp;<a href="https://github.com/rsheth8/smart_lyric">Source</a>&nbsp;·&nbsp;<a href="CONTRIBUTING.md">Run locally</a>
+</p>
 
+<p align="center">
+  <img alt="Electron" src="https://img.shields.io/badge/desktop-Electron-47848F?style=flat-square&logo=electron&logoColor=white">
+  <img alt="tvOS" src="https://img.shields.io/badge/Apple%20TV-native-000000?style=flat-square">
+</p>
 
-A projector-ready, word-by-word karaoke lyric display that follows whatever you're playing — a Spotify track, a record on a turntable, a local audio file, or a manual search — with no manual timing work.
+<p align="center"><sub>Streaming on the live site. Vinyl + projector need the desktop app.</sub></p>
+
+---
 
 ## What this is
 
