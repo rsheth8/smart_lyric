@@ -1,5 +1,10 @@
 # Bar4Bar (`smart_lyric`)
 
+<p align="center">
+  <img src="docs/brand/logo.png" width="168" alt="Bar4Bar">
+</p>
+
+
 Projector karaoke: every bar, every word, in sync. Mic on a record player, a local file, Spotify, or Apple Music — cinematic word-by-word highlight.
 
 | | |
@@ -222,3 +227,9 @@ python identify.py
 - **Streaming position is eased, not snapped, to avoid visible jitter.** `StreamingClock` treats small poll-to-poll differences as noise (a deadband), eases toward moderate corrections, and only hard-snaps on genuine seeks/track changes — since digital playback runs at exactly real-time rate, the free-running clock between polls is already accurate.
 - **Vinyl clock never jumps backward** on small corrections (only forward, or on a large error suggesting a real seek/needle drop), because a backward jump would visibly look like the lyrics rewinding.
 - **Aligned timelines are cached locally** (`app/timeline-cache.js`) so the (relatively expensive) separation + forced-alignment pipeline runs at most once per song.
+
+## Contributing
+
+PRs and issues welcome. How to run tests, env vars, and the expected layout: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Don't commit `.env`, API keys, or personal recordings.
