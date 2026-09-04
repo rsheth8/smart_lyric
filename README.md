@@ -1,4 +1,15 @@
-# Bar4Bar
+# Bar4Bar (`smart_lyric`)
+
+Projector karaoke: every bar, every word, in sync. Mic on a record player, a local file, Spotify, or Apple Music — cinematic word-by-word highlight.
+
+| | |
+| --- | --- |
+| **Author** | [Rahil Sheth](https://github.com/rsheth8) |
+| **Live** | [smartlyric.vercel.app](https://smartlyric.vercel.app) (streaming / search; vinyl + projector need the desktop app) |
+| **Repo** | [rsheth8/smart_lyric](https://github.com/rsheth8/smart_lyric) |
+| **Stack** | Node, Electron, native tvOS (Swift), Chromaprint/AcoustID, Spotify & Apple Music SDKs |
+| **Status** | Personal product. Vinyl auto-detect needs `fpcalc` + an AcoustID key. |
+
 
 A projector-ready, word-by-word karaoke lyric display that follows whatever you're playing — a Spotify track, a record on a turntable, a local audio file, or a manual search — with no manual timing work.
 
