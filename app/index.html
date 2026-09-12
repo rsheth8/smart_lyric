@@ -68,6 +68,18 @@
             </div>
           </header>
 
+          <!-- TV-only hero: one big "sing this" pick (last played, else the top
+               chart song). Filled by renderHero() in app.js; hidden on desktop. -->
+          <section id="hub-hero" class="hero" hidden>
+            <img id="hero-art" class="hero-art" alt="" />
+            <div class="hero-copy">
+              <span class="hero-kicker" id="hero-kicker"></span>
+              <h2 id="hero-title"></h2>
+              <p id="hero-artist"></p>
+              <button id="hero-sing" class="btn-primary" type="button">Sing</button>
+            </div>
+          </section>
+
           <form id="search" autocomplete="off">
             <div class="hub-search">
               <div class="field" data-icon="search">

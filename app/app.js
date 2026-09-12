@@ -1315,6 +1315,7 @@ function renderContinueShelf() {
   const row = $('row-continue');
   const shelf = $('continue-shelf');
   const entries = loadLibrary().slice(0, 12);
+  renderHero();
   row.hidden = entries.length === 0;
   if (!entries.length) return;
 
@@ -1342,6 +1343,8 @@ function renderContinueShelf() {
 
 async function loadChartRecs() {
   const items = await fetchChartRecommendations();
+  heroChartPick = items?.[0] || null;
+  renderHero();
   renderRecGrid($('chart-recs'), items, 'Couldn’t load recommendations. Search for a song above.');
 }
 
@@ -2744,12 +2747,46 @@ $('tb-back')?.addEventListener('click', () => router.back());
 
 // 10-foot: the focused poster's artwork bleeds into the hub backdrop, Apple TV
 // style. Sticky — it keeps the last poster's art when focus moves to a tile.
-$('screens').addEventListener('focusin', (e) => {
-  if (document.body.dataset.surface !== 'tv') return;
-  const src = e.target.closest?.('.rec')?.querySelector('img')?.src;
-  if (!src) return;
+function setHubArt(src) {
+  if (!src || document.body.dataset.surface !== 'tv') return;
   $('screens').style.setProperty('--hub-art', `url("${src}")`);
   $('screens').dataset.art = '';
+}
+$('screens').addEventListener('focusin', (e) => {
+  const card = e.target.closest?.('.rec, #hub-hero');
+  setHubArt(card?.querySelector('img:not([hidden])')?.src);
+});
+
+// ---- TV hero: one big "sing this" pick at the top of the hub ----
+let heroPick = null;
+let heroChartPick = null;
+let heroAutoFocused = false;
+let hubTouched = false; // once the user moves, a late-loading hero never steals focus
+addEventListener('keydown', () => { hubTouched = true; }, { once: true });
+
+function renderHero() {
+  const hero = $('hub-hero');
+  const last = loadLibrary()[0];
+  heroPick = last
+    ? { ...last, duration: last.duration || undefined, kicker: 'Pick up where you left off' }
+    : heroChartPick && { ...heroChartPick, art: heroChartPick.artwork, kicker: 'Top song right now' };
+  hero.hidden = !heroPick;
+  if (!heroPick) return;
+  $('hero-kicker').textContent = heroPick.kicker;
+  $('hero-title').textContent = heroPick.track;
+  $('hero-artist').textContent = heroPick.artist;
+  const art = $('hero-art');
+  art.hidden = !heroPick.art;
+  if (heroPick.art) art.src = heroPick.art;
+  if (document.body.dataset.surface !== 'tv') return;
+  if (!$('screens').dataset.art) setHubArt(heroPick.art);
+  if (!heroAutoFocused && !hubTouched && stage.dataset.mode === 'setup') {
+    heroAutoFocused = true;
+    $('hero-sing').focus({ preventScroll: true });
+  }
+}
+$('hero-sing').addEventListener('click', () => {
+  if (heroPick) loadSong({ artist: heroPick.artist, track: heroPick.track, duration: heroPick.duration });
 });
 
 // The hub's source tiles are shortcuts to the real controls on the Sources
@@ -2893,6 +2930,7 @@ if (document.body.dataset.surface === 'tv') {
   // 10-foot: opening on the search field would pop the on-screen keyboard at
   // launch. Land on the first browse action ("Follow what's playing") instead —
   // the whole hub is D-pad navigable, and search stays one click away.
+  // The hero's Sing button takes over once the hero renders (renderHero).
   (document.querySelector('#hub-sources .tile') || document.querySelector('#screens button'))
     ?.focus({ preventScroll: true });
 } else {

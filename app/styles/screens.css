@@ -119,7 +119,41 @@
    them. `order` only changes the visual + geometry order (which is what D-pad
    nav follows via getBoundingClientRect); DOM order — and the whole desktop
    layout — stay exactly as they were. */
-body[data-surface="tv"] .screen[data-screen-panel="home"] .hub-header { order: -4; }
+body[data-surface="tv"] .screen[data-screen-panel="home"] .hub-header { order: -5; }
+body[data-surface="tv"] .screen[data-screen-panel="home"] #hub-hero { order: -4; }
+
+/* ---- TV hero: the hub's lead pick, Apple TV "featured" style ---- */
+#hub-hero { display: none; }
+body[data-surface="tv"] #hub-hero:not([hidden]) {
+  display: flex; align-items: center; gap: var(--space-6);
+  min-height: 40vh; padding: var(--space-3) 0;
+}
+.hero-art {
+  width: min(36vh, 440px); aspect-ratio: 1; flex: none;
+  border-radius: var(--r-xl); object-fit: cover;
+  box-shadow: var(--shadow-3);
+}
+.hero-copy { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); min-width: 0; }
+.hero-kicker {
+  font-size: var(--fs-sm); font-weight: 650; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--accent-soft);
+}
+.hero-copy h2 {
+  font-family: var(--font-display);
+  font-size: clamp(var(--fs-2xl), 5.4vw, 108px); font-weight: 800;
+  letter-spacing: -.03em; line-height: 1; text-wrap: balance;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.hero-copy p { font-size: var(--fs-lg); color: var(--text-2); }
+#hero-sing {
+  margin-top: var(--space-4); padding: 0 var(--space-6);
+  transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) ease;
+}
+body[data-surface="tv"] #hero-sing:focus-visible {
+  outline: none; transform: scale(1.08);
+  box-shadow: 0 0 0 var(--ring-w) var(--accent-soft),
+              0 14px 48px color-mix(in srgb, var(--accent) 45%, transparent);
+}
 body[data-surface="tv"] .screen[data-screen-panel="home"] #row-continue { order: -3; }
 body[data-surface="tv"] .screen[data-screen-panel="home"] .row:has(#hub-sources) { order: -2; }
 body[data-surface="tv"] .screen[data-screen-panel="home"] .row:has(#chart-recs) { order: -1; }
