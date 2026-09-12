@@ -555,5 +555,40 @@ kbd {
   border-bottom-width: 2px;
   border-radius: 5px;
 }
-/* The pointer hints are noise on a TV, and the mouse hints are noise on a remote. */
-body[data-surface="tv"] .hint-desktop { display: none; }
+/* Keyboard hints are noise on a remote — the whole footer steps aside on TV. */
+body[data-surface="tv"] .hint { display: none; }
+
+/* ============================ 10-FOOT FOCUS ============================
+   tvOS doesn't ring a poster — it lifts it toward you and lets the rest of the
+   shelf fall back. On TV the artwork carries the card; the chrome box goes. */
+body[data-surface="tv"] .shelf {
+  /* Room for a 1.1× lift without clipping; the negative inline margin keeps the
+     first poster aligned with the row heading. */
+  padding: var(--space-4) var(--space-3) var(--space-5);
+  margin-inline: calc(var(--space-3) * -1);
+  scroll-padding-inline: var(--space-3);
+}
+body[data-surface="tv"] .rec {
+  background: transparent; border-color: transparent;
+  transition: transform var(--dur-slow) var(--ease-out), opacity var(--dur) ease;
+}
+body[data-surface="tv"] .rec :is(img, .art) {
+  box-shadow: var(--shadow-1);
+  transition: box-shadow var(--dur-slow) var(--ease-out);
+}
+body[data-surface="tv"] .rec:focus-visible {
+  outline: none; background: transparent; box-shadow: none;
+  transform: scale(1.1);
+}
+body[data-surface="tv"] .rec:focus-visible :is(img, .art) { box-shadow: var(--shadow-3); }
+body[data-surface="tv"] .shelf:has(.rec:focus-visible) .rec:not(:focus-visible) { opacity: .5; }
+
+/* Focus-driven backdrop: the focused poster's art (--hub-art, set by app.js),
+   blurred to pure colour behind the hub. */
+body[data-surface="tv"] #screens::before {
+  content: ""; position: absolute; inset: -10%; pointer-events: none;
+  background: var(--hub-art, none) center / cover;
+  filter: blur(90px) saturate(1.4) brightness(.45);
+  opacity: 0; transition: opacity var(--dur-slow) ease;
+}
+body[data-surface="tv"] #stage[data-screen="home"] #screens[data-art]::before { opacity: .85; }

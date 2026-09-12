@@ -745,6 +745,40 @@ body:has(#stage[data-mode="setup"]) :is(#live-sep-hud, #sync-hud) { display: non
   padding: 5px 8px; font-size: 12px; max-width: 260px;
 }
 
+/* ============================ 10-FOOT CHROME ============================
+   Everything above is sized in px for a laptop; at 3m that now-bar is a postage
+   stamp. The TV surface re-sizes the playing chrome from density tokens. */
+body[data-surface="tv"] #nowbar {
+  max-width: min(1200px, 90vw); gap: var(--space-3);
+  padding: var(--space-2); border-radius: var(--r-2xl);
+}
+body[data-surface="tv"] #cover { width: var(--control-h); height: var(--control-h); border-radius: var(--r-md); }
+body[data-surface="tv"] #nowbar .meta b { font-size: var(--fs-base); }
+body[data-surface="tv"] #nowbar .meta span { font-size: var(--fs-sm); }
+body[data-surface="tv"] #nowbar button {
+  font-size: var(--fs-sm); padding: var(--space-2) var(--space-4); border-radius: var(--r-lg);
+}
+body[data-surface="tv"] #nowbar button.transport { font-size: var(--fs-base); padding: var(--space-2) var(--space-3); }
+body[data-surface="tv"] :is(#drift-chip, #mode-badge, #sync-lock) { font-size: var(--fs-xs); padding: 8px 16px; }
+body[data-surface="tv"] :is(#mode-badge, #sync-lock) { top: var(--safe-y); }
+body[data-surface="tv"] #sync-lock { right: var(--safe-x); }
+body[data-surface="tv"] #sync-toast { top: var(--safe-y); font-size: var(--fs-sm); padding: 14px 26px; }
+body[data-surface="tv"] #inspector {
+  right: var(--safe-x);
+  bottom: calc(var(--space-5) + var(--control-h) + var(--space-2) * 2 + var(--space-3));
+}
+body[data-surface="tv"] .inspector-card { width: min(540px, 86vw); }
+body[data-surface="tv"] :is(.insp-btn, .timing-dial button, .insp-link) {
+  min-height: var(--row-h); padding: var(--space-2) var(--space-3); font-size: var(--fs-sm);
+}
+body[data-surface="tv"] .panel-close { width: 48px; height: 48px; font-size: 26px; }
+body[data-surface="tv"] #mode-exits { left: var(--safe-x); bottom: var(--safe-y); }
+body[data-surface="tv"] #mode-exits button { font-size: var(--fs-xs); padding: 12px 20px; }
+body[data-surface="tv"] #listen-title { font-size: var(--fs-lg); }
+body[data-surface="tv"] #listen-detail { font-size: var(--fs-sm); }
+/* A keyboard cheat-sheet means nothing to a remote. */
+body[data-surface="tv"] #hotkeys { display: none; }
+
 /* tokens.css already zeroes every animation and transition under this query.
    What's left here is the handful of effects that must be switched OFF rather
    than sped up — a 0.01ms spinner still spins, and the karaoke wipe still needs

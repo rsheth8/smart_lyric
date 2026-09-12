@@ -2282,7 +2282,9 @@ function renderSyncDiag(d) {
     listeningSince = 0;
   }
   const stuckFor = listeningSince ? Date.now() - listeningSince : 0;
-  const show = syncHudEnabled || (stuck && stuckFor > SYNC_HUD_AUTO_AFTER_MS);
+  // Auto-surfacing a monospace debug pill is fine at a desk, not on a living-room TV.
+  const show = syncHudEnabled
+    || (document.body.dataset.surface !== 'tv' && stuck && stuckFor > SYNC_HUD_AUTO_AFTER_MS);
   if (!show) {
     hud.hidden = true;
     return;
@@ -2572,9 +2574,10 @@ initScreenFocus({
   isTyping: (e) => {
     const t = document.activeElement;
     // ↑/↓ drive the results list while it has entries; ↑ otherwise stays in the
-    // field so typing is never hijacked.
+    // field so typing is never hijacked — except on TV, where the hub demotes the
+    // field below the shelves and ↑ is the only way back out of it.
     if (t?.tagName === 'INPUT' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-      return suggestionItems.length > 0 || e.key === 'ArrowUp';
+      return suggestionItems.length > 0 || (e.key === 'ArrowUp' && document.body.dataset.surface !== 'tv');
     }
     return false;
   },
@@ -2738,6 +2741,16 @@ document.addEventListener('click', (e) => {
   if (e.target.closest?.('[data-back]')) router.back();
 });
 $('tb-back')?.addEventListener('click', () => router.back());
+
+// 10-foot: the focused poster's artwork bleeds into the hub backdrop, Apple TV
+// style. Sticky — it keeps the last poster's art when focus moves to a tile.
+$('screens').addEventListener('focusin', (e) => {
+  if (document.body.dataset.surface !== 'tv') return;
+  const src = e.target.closest?.('.rec')?.querySelector('img')?.src;
+  if (!src) return;
+  $('screens').style.setProperty('--hub-art', `url("${src}")`);
+  $('screens').dataset.art = '';
+});
 
 // The hub's source tiles are shortcuts to the real controls on the Sources
 // screen — click those rather than duplicating each handler.
