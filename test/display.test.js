@@ -161,3 +161,12 @@ test('resolveActiveLine advances immediately on continuous lines', () => {
   ];
   assert.equal(resolveActiveLine(lines, 2.01, { prevLi: 0, vocalActive: true }), 1);
 });
+
+test('assignSingers passes the mic at breaths and after long turns', async () => {
+  const { assignSingers } = await import('../app/display.js');
+  const L = (start, end) => ({ start, end });
+  // gap of 3s before line 2 → handoff; 5 back-to-back lines → handoff after 4
+  const lines = [L(0, 2), L(2.2, 4), L(7, 9), L(9.1, 10), L(10.1, 11), L(11.1, 12), L(12.1, 13)];
+  assert.deepEqual(assignSingers(lines), [0, 0, 1, 1, 1, 1, 0]);
+  assert.deepEqual(assignSingers([]), []);
+});

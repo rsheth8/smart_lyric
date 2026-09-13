@@ -376,6 +376,26 @@ body:has(#stage[data-mode="setup"]) :is(#live-sep-hud, #sync-hud) { display: non
   color: rgba(255,255,255,.88); letter-spacing: -.02em; min-height: 1em;
   text-shadow: 0 0 28px rgba(227,194,122,.35);
 }
+/* Party mode: singer 2 owns a hue opposite the song accent, so whose line it is
+   reads from across the room. Singer 1 keeps the accent. */
+#stage.party {
+  --singer-2: #7fd8ff;
+  --singer-2: oklch(from var(--accent) max(l, .78) max(c, .12) calc(h + 160));
+}
+#stage.party .line[data-singer="1"] { --current: var(--singer-2); }
+#stage.party .line[data-singer="1"].active .word.sung {
+  color: color-mix(in oklab, var(--singer-2) 35%, var(--text-1));
+  -webkit-text-fill-color: color-mix(in oklab, var(--singer-2) 35%, var(--text-1));
+}
+#count-in .ci-who {
+  font: 700 clamp(15px, 1.8vw, 24px)/1 "SF Pro Display", system-ui, sans-serif;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--accent);
+}
+#count-in .ci-who:empty { display: none; }
+:is(#count-in, #instrumental-indicator)[data-singer="1"] :is(.ci-who, .instr-next) { color: var(--singer-2); }
+#instrumental-indicator[data-singer] :is(.instr-next) { text-transform: none; }
+#instrumental-indicator[data-singer="0"] .instr-next { color: var(--accent); }
+#count-in[data-singer="1"] .ci-fill { background: var(--singer-2); }
 @media (prefers-reduced-motion: reduce) {
   #instrumental-indicator .instr-note { animation: none; }
   .line.breath::before { animation: none; opacity: .6; }

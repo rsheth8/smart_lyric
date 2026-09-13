@@ -34,6 +34,26 @@ export const SINGER_LEAD_MIN = 0;
 export const SINGER_LEAD_MAX = 0.25;
 const SINGER_LEAD_KEY = 'bar4bar.singerLead';
 const FOCUS_KEY = 'bar4bar.focusMode';
+const PARTY_KEY = 'bar4bar.partyMode';
+
+/**
+ * Party mode duet split: 0/1 singer per line. The mic passes at a real breath
+ * (gap ≥ gapSec) or after maxLines in one turn, so handoffs land between phrases.
+ * ponytail: gap heuristic, not verse/chorus structure — good enough to take turns.
+ */
+export function assignSingers(lines, { gapSec = 2.5, maxLines = 4 } = {}) {
+  let singer = 0;
+  let run = 0;
+  return lines.map((line, i) => {
+    const prev = lines[i - 1];
+    if (prev && (line.start - prev.end >= gapSec || run >= maxLines)) {
+      singer = 1 - singer;
+      run = 0;
+    }
+    run++;
+    return singer;
+  });
+}
 
 // Vertical translate that brings a line's center to the viewport center.
 // `lineTop` must be measured relative to the scrolling #lyrics element.
@@ -298,6 +318,36 @@ export class Display {
     window.addEventListener('resize', this._onResize);
     this._resize();
     if (loadFocusMode()) this.setFocusMode(true);
+    this.partyMode = false;
+    try {
+      if (localStorage.getItem(PARTY_KEY) === 'on') this.setPartyMode(true, { persist: false });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Two singers take turns: alternate line colours + "you're up" in breaks. */
+  setPartyMode(on, { persist = true } = {}) {
+    this.partyMode = !!on;
+    this.stage?.classList.toggle('party', this.partyMode);
+    if (persist) {
+      try {
+        localStorage.setItem(PARTY_KEY, this.partyMode ? 'on' : 'off');
+      } catch {
+        /* ignore */
+      }
+    }
+    return this.partyMode;
+  }
+
+  togglePartyMode() {
+    return this.setPartyMode(!this.partyMode);
+  }
+
+  // Whose turn the upcoming line is, for the break / count-in cue. '' outside party mode.
+  _turnLabel(idx) {
+    const line = this.partyMode ? this.lines[idx] : null;
+    return line ? `Singer ${line.singer + 1} · you're up` : '';
   }
 
   setSingerLead(sec, { persist = true } = {}) {
@@ -365,9 +415,12 @@ export class Display {
   setLyrics(timeline, { source, format, wordSync, aligned } = {}) {
     this.lines = timeline.lines || [];
     this.lyricsEl.innerHTML = '';
-    this.lineEls = this.lines.map((line) => {
+    const singers = assignSingers(this.lines);
+    this.lineEls = this.lines.map((line, li) => {
       const el = document.createElement('div');
       el.className = 'line';
+      line.singer = singers[li];
+      el.dataset.singer = String(line.singer);
       // Alignment wasn't confident of the per-word timing here → the display shows
       // this line at line level (whole-line highlight) rather than a false sweep.
       if (line.uncertain) el.classList.add('uncertain');
@@ -473,7 +526,7 @@ export class Display {
   // number you have to watch. Progress needs a denominator the indicator itself
   // has to remember: `nextIn` only says how much is LEFT, so the first reading
   // after the ♪ appears is captured as the span the bar fills across.
-  _setInstrumental(on, nextIn = null) {
+  _setInstrumental(on, nextIn = null, nextIdx = -1) {
     if (on !== this._instrumental) {
       this._instrumental = on;
       this.lyricsEl.classList.toggle('instrumental', on);
@@ -501,8 +554,10 @@ export class Display {
     // denominator: track the largest remaining time seen for this gap.
     if (known && (this._instrSpan == null || nextIn > this._instrSpan)) this._instrSpan = nextIn;
 
-    const label = known ? 'until next line' : '';
+    const turn = known ? this._turnLabel(nextIdx) : '';
+    const label = turn || (known ? 'until next line' : '');
     if (this._instrNext && this._instrNext.textContent !== label) this._instrNext.textContent = label;
+    this._instrEl.dataset.singer = turn ? String(this.lines[nextIdx].singer) : '';
 
     const secsLabel = known ? String(Math.max(1, Math.ceil(nextIn))) : '';
     if (this._instrSecs && this._instrSecs.textContent !== secsLabel) {
@@ -556,15 +611,19 @@ export class Display {
     this._ciEl = document.createElement('div');
     this._ciEl.id = 'count-in';
     this._ciEl.innerHTML =
-      '<div class="ci-track"><div class="ci-fill"></div></div><span class="ci-num"></span>';
+      '<span class="ci-who"></span><div class="ci-track"><div class="ci-fill"></div></div><span class="ci-num"></span>';
     this.stage.appendChild(this._ciEl);
     this._ciFill = this._ciEl.querySelector('.ci-fill');
     this._ciNum = this._ciEl.querySelector('.ci-num');
+    this._ciWho = this._ciEl.querySelector('.ci-who');
   }
 
-  _showCountIn({ progress, beat, until }) {
+  _showCountIn({ progress, beat, until, idx }) {
     this._ensureCountIn();
     this._ciEl.classList.add('show');
+    const who = this._turnLabel(idx);
+    if (this._ciWho.textContent !== who) this._ciWho.textContent = who;
+    this._ciEl.dataset.singer = who ? String(this.lines[idx].singer) : '';
     const pct = `${Math.round(Math.min(1, Math.max(0, progress)) * 1000) / 10}%`;
     if (this._ciFill && this._ciFill.style.width !== pct) this._ciFill.style.width = pct;
     // Numeric 3-2-1 only in the final three seconds; earlier just the runway.
@@ -846,7 +905,7 @@ export class Display {
       this._showCountIn(ci);
     } else {
       this._hideCountIn();
-      this._setInstrumental(inst, inst ? vs.nextVocalIn : null);
+      this._setInstrumental(inst, inst ? vs.nextVocalIn : null, li + 1);
     }
 
     // Next-line peek + breath inhale on the upcoming line. Keep the peek visible

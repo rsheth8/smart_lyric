@@ -2662,6 +2662,11 @@ $('btn-focus')?.addEventListener('click', () => {
   syncFocusUi();
   showToast(on ? 'Focus mode — Esc or “Exit focus” to leave' : 'Full lyric view');
 });
+$('btn-party')?.addEventListener('click', () => {
+  const on = display.togglePartyMode();
+  syncInspectorUi();
+  showToast(on ? 'Party mode — take turns, colours show whose line' : 'Party mode off');
+});
 $('btn-practice')?.addEventListener('click', () => {
   if (!haveAudio) {
     showToast('Practice slowdown needs a local audio file');
@@ -2977,6 +2982,7 @@ function toggleReading(force) {
 function syncInspectorUi() {
   $('btn-reading')?.setAttribute('aria-pressed', display.readingMode ? 'true' : 'false');
   $('btn-focus')?.setAttribute('aria-pressed', display.focusMode ? 'true' : 'false');
+  $('btn-party')?.setAttribute('aria-pressed', display.partyMode ? 'true' : 'false');
   $('btn-practice')?.setAttribute('aria-pressed', practiceSlow ? 'true' : 'false');
   const aid = $('btn-aid');
   if (aid) aid.setAttribute('aria-pressed', (display.aidMode || 'off') !== 'off' ? 'true' : 'false');
