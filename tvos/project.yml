@@ -16,6 +16,9 @@ targets:
       - path: Bar4Bar
     dependencies:
       - package: Bar4BarKit
+    scheme:
+      testTargets:
+        - Bar4BarUITests
     info:
       path: Bar4Bar/Info.plist
       properties:
@@ -28,3 +31,17 @@ targets:
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "3"
+  # Siri Remote smoke test: focus, the stage, pause, Menu. Screenshots go to the result bundle.
+  Bar4BarUITests:
+    type: bundle.ui-testing
+    platform: tvOS
+    sources:
+      - path: Bar4BarUITests
+    dependencies:
+      - target: Bar4Bar
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.bar4bar.tv.uitests
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "3"
+        GENERATE_INFOPLIST_FILE: YES

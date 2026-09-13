@@ -16,6 +16,16 @@ cd tvos/Bar4BarKit && swift test
 cd tvos && xcodegen && open Bar4Bar.xcodeproj
 ```
 
+`RemoteFlowTests` drives the app with the Siri Remote (tabs, shelves, the stage, pause,
+a timing nudge, Menu back) and attaches a screenshot of every step to the result bundle:
+
+```bash
+cd tvos && xcodebuild test -scheme Bar4Bar -destination 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation) (at 1080p)'
+```
+
+Look and motion live in `Bar4Bar/Design.swift`: colours, one set of animation curves, glass
+panels, and artwork that is cached and pre-blurred, so the backdrop moves without a live blur.
+
 `project.yml` is the source of truth for the Xcode project (`brew install xcodegen`).
 Debug builds accept `-room ABCDEFGH` as a launch argument to pin the phone room code.
 
