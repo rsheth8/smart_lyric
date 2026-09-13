@@ -12,3 +12,8 @@ public/
 *.mp3
 *.lrc
 .env*
+
+# Native Apple TV app build output
+tvos/**/.build
+tvos/**/.swiftpm
+xcuserdata/

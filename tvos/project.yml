@@ -1,0 +1,30 @@
+# XcodeGen spec for the native Apple TV app. Regenerate the project with:
+#   cd tvos && xcodegen
+name: Bar4Bar
+options:
+  bundleIdPrefix: app.bar4bar
+  deploymentTarget:
+    tvOS: "17.0"
+packages:
+  Bar4BarKit:
+    path: Bar4BarKit
+targets:
+  Bar4Bar:
+    type: application
+    platform: tvOS
+    sources:
+      - path: Bar4Bar
+    dependencies:
+      - package: Bar4BarKit
+    info:
+      path: Bar4Bar/Info.plist
+      properties:
+        CFBundleDisplayName: Bar4Bar
+        UIUserInterfaceStyle: Dark
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.bar4bar.tv
+        SWIFT_VERSION: "5.0"
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "3"

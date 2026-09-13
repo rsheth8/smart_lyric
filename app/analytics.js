@@ -4,7 +4,7 @@
 // events need a Pro plan, so this rides the Upstash store the phone relay
 // already uses (api/event.js). Read them with scripts/events.mjs.
 
-const SURFACE = ['tv', 'desktop'];
+const SURFACE = ['tv', 'desktop', 'tvos']; // tvos = the native Apple TV app (tvos/)
 
 // Allowlist: every event name, data key and value is fixed, so a forged beacon
 // can't create unbounded counter fields.

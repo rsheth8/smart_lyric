@@ -1,0 +1,341 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0961E8F961C7ABB2B9B4487C /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B8AB244E5499E131B7F87C0 /* HomeView.swift */; };
+		2BE8EC22D3FCF436FFECA0E9 /* RemoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE5F36D12FE9F9C9D28993AD /* RemoteView.swift */; };
+		3172CC40B4D572466DB03599 /* Bar4BarKit in Frameworks */ = {isa = PBXBuildFile; productRef = B7158DB0EA4CA604AD1723A6 /* Bar4BarKit */; };
+		B248037ADC95D0DACFC762E5 /* SingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DD2B402EFCF53A5216BDA04 /* SingView.swift */; };
+		DB7E3B2F3926A8E17820D9E5 /* Bar4BarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E2582CFF3CF4C77F50F82D /* Bar4BarApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0DD2B402EFCF53A5216BDA04 /* SingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingView.swift; sourceTree = "<group>"; };
+		2B8AB244E5499E131B7F87C0 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		2E17A5A82B9B393AE7E8596C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		8F103C2521F2C3121A289C0D /* Bar4Bar.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Bar4Bar.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BB555299DC3A96BB638BB7BC /* Bar4BarKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Bar4BarKit; path = Bar4BarKit; sourceTree = SOURCE_ROOT; };
+		D0E2582CFF3CF4C77F50F82D /* Bar4BarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bar4BarApp.swift; sourceTree = "<group>"; };
+		DE5F36D12FE9F9C9D28993AD /* RemoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		9E2DB54BF28DBBCF8927A516 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3172CC40B4D572466DB03599 /* Bar4BarKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		3ABF574BF112A6941004F709 /* Bar4Bar */ = {
+			isa = PBXGroup;
+			children = (
+				D0E2582CFF3CF4C77F50F82D /* Bar4BarApp.swift */,
+				2B8AB244E5499E131B7F87C0 /* HomeView.swift */,
+				2E17A5A82B9B393AE7E8596C /* Info.plist */,
+				DE5F36D12FE9F9C9D28993AD /* RemoteView.swift */,
+				0DD2B402EFCF53A5216BDA04 /* SingView.swift */,
+			);
+			path = Bar4Bar;
+			sourceTree = "<group>";
+		};
+		6DB319E2E6B84CBA540BABFA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8F103C2521F2C3121A289C0D /* Bar4Bar.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		7B62841ED6BE2937F378BFDC /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				BB555299DC3A96BB638BB7BC /* Bar4BarKit */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		FC5E565C8B8F5D0F43652ABC = {
+			isa = PBXGroup;
+			children = (
+				3ABF574BF112A6941004F709 /* Bar4Bar */,
+				7B62841ED6BE2937F378BFDC /* Packages */,
+				6DB319E2E6B84CBA540BABFA /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0B77748FB92E6DAC04CA69E6 /* Bar4Bar */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 67D113DFCAD42DF0D87389F4 /* Build configuration list for PBXNativeTarget "Bar4Bar" */;
+			buildPhases = (
+				1BD27FA32A2AF9F40735A892 /* Sources */,
+				9E2DB54BF28DBBCF8927A516 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Bar4Bar;
+			packageProductDependencies = (
+				B7158DB0EA4CA604AD1723A6 /* Bar4BarKit */,
+			);
+			productName = Bar4Bar;
+			productReference = 8F103C2521F2C3121A289C0D /* Bar4Bar.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		BA6F5D5701D04572C9D857FB /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 0F8B4ABCCB93E617F6A227F8 /* Build configuration list for PBXProject "Bar4Bar" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = FC5E565C8B8F5D0F43652ABC;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				150ADD7BF8C06F6E66C45ABA /* XCLocalSwiftPackageReference "Bar4BarKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 6DB319E2E6B84CBA540BABFA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				0B77748FB92E6DAC04CA69E6 /* Bar4Bar */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1BD27FA32A2AF9F40735A892 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DB7E3B2F3926A8E17820D9E5 /* Bar4BarApp.swift in Sources */,
+				0961E8F961C7ABB2B9B4487C /* HomeView.swift in Sources */,
+				2BE8EC22D3FCF436FFECA0E9 /* RemoteView.swift in Sources */,
+				B248037ADC95D0DACFC762E5 /* SingView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		0CB7ECBEC7F1576984D40FBB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Release;
+		};
+		3C869B35BA057E3371376D3D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
+				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = Bar4Bar/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.bar4bar.tv;
+				SDKROOT = appletvos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 3;
+			};
+			name = Release;
+		};
+		5A206AFE6CE56CBB5986F835 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Debug;
+		};
+		96BB7C096EF00CE4EF84EB9A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
+				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = Bar4Bar/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.bar4bar.tv;
+				SDKROOT = appletvos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 3;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0F8B4ABCCB93E617F6A227F8 /* Build configuration list for PBXProject "Bar4Bar" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5A206AFE6CE56CBB5986F835 /* Debug */,
+				0CB7ECBEC7F1576984D40FBB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		67D113DFCAD42DF0D87389F4 /* Build configuration list for PBXNativeTarget "Bar4Bar" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				96BB7C096EF00CE4EF84EB9A /* Debug */,
+				3C869B35BA057E3371376D3D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		150ADD7BF8C06F6E66C45ABA /* XCLocalSwiftPackageReference "Bar4BarKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Bar4BarKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B7158DB0EA4CA604AD1723A6 /* Bar4BarKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Bar4BarKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = BA6F5D5701D04572C9D857FB /* Project object */;
+}
