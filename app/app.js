@@ -37,6 +37,9 @@ import { getMedium } from './mediums/index.js';
 import { createRouter } from './ui/router.js';
 import { initScreenFocus } from './ui/focus.js';
 import { initRemote, Intent } from './remote.js';
+import { newRoomCode, openLink, parseCommand, songFinished, QUEUE_MAX } from './companion.js';
+// Aliased: `track` is the song-title field all over this file (e.g. loadSong's params).
+import { track as trackEvent, waitBucket, sungBucket } from './analytics.js';
 import { initSurface } from './ui/surface.js';
 import { accentFromPalette, applyAccent } from './theme.js';
 import { loadLibrary, recordPlay, clearLibrary, relativeWhen, updateArt } from './library.js';
@@ -395,7 +398,33 @@ function ingestTimingSamples(samples) {
   updateTimingReadout();
 }
 
+// Funnel analytics (app/analytics.js): open → load → ready → how much got sung.
+const funnelSurface = () => (document.body.dataset.surface === 'tv' ? 'tv' : 'desktop');
+let songLoadAt = 0;
+addEventListener('load', () => trackEvent('app_open', { surface: funnelSurface() }));
+
+// Guest rooms: the guest who queued the loading song gets called up when it starts.
+// Its own element, not showToast — the loader's timing toasts would cover it.
+let singerUpNext = '';
+function announceSinger(name) {
+  let el = $('singer-up');
+  if (!el) {
+    el = Object.assign(document.createElement('div'), { id: 'singer-up' });
+    el.setAttribute('role', 'status');
+    stage.append(el);
+  }
+  el.textContent = `${name}, you're up`;
+  el.classList.remove('show');
+  void el.offsetWidth; // restart the fade for back-to-back guests
+  el.classList.add('show');
+}
+
 function enterSetup() {
+  if (stage.dataset.mode === 'playing') {
+    const dur = session.timeline?.duration || session.timeline?.lines?.at(-1)?.end;
+    const pos = liveAlignNowSec();
+    if (dur > 0 && pos != null) trackEvent('song_exit', { surface: funnelSurface(), sung: sungBucket(pos / dur) });
+  }
   stage.dataset.mode = 'setup';
   clearTimeout(idleTimer);
   stage.dataset.chrome = 'awake';
@@ -420,6 +449,14 @@ function enterSetup() {
 }
 
 function enterPlaying() {
+  if (songLoadAt) {
+    trackEvent('song_ready', { surface: funnelSurface(), wait: waitBucket(performance.now() - songLoadAt) });
+    songLoadAt = 0;
+  }
+  if (singerUpNext) {
+    announceSinger(singerUpNext);
+    singerUpNext = '';
+  }
   stage.dataset.mode = 'playing';
   updateTransport();
   updatePlayBtn();
@@ -559,7 +596,7 @@ function escapeHtml(s) {
 }
 
 // ------------------------------ pick a song ------------------------------
-async function loadSong({ artist, track, duration }) {
+async function loadSong({ artist, track, duration, by }) {
   stopActiveMedium();
   hideSuggestions();
   $('in-track').value = track || '';
@@ -570,6 +607,9 @@ async function loadSong({ artist, track, duration }) {
     $('in-track').focus();
     return;
   }
+  songLoadAt = performance.now();
+  singerUpNext = by || ''; // set (or cleared) on every load, so a failed guest pick can't leak
+  trackEvent('song_load', { surface: funnelSurface() });
   // Prefer an attached audio file; otherwise, if Spotify is connected, play the
   // song on Spotify and follow it; otherwise fall back to the local demo clock.
   if (!haveAudio && loadToken('spotify')) {
@@ -1257,7 +1297,11 @@ function renderRecGrid(el, items, emptyMsg) {
       (s, i) => `
     <button type="button" class="rec" data-i="${i}">
       ${s.artwork ? `<img src="${s.artwork}" alt="" loading="lazy" />` : '<span class="art">♪</span>'}
-      <span class="meta"><b>${escapeHtml(s.track)}</b><span>${escapeHtml(s.artist)}</span></span>
+      <span class="meta"><b>${escapeHtml(s.track)}</b>${
+        getCachedTimeline(s)
+          ? '<span class="ready">Aligned · instant</span>'
+          : `<span>${escapeHtml(s.artist)}</span>`
+      }</span>
     </button>`
     )
     .join('');
@@ -1315,6 +1359,7 @@ function renderContinueShelf() {
   const row = $('row-continue');
   const shelf = $('continue-shelf');
   const entries = loadLibrary().slice(0, 12);
+  renderHero();
   row.hidden = entries.length === 0;
   if (!entries.length) return;
 
@@ -1342,6 +1387,8 @@ function renderContinueShelf() {
 
 async function loadChartRecs() {
   const items = await fetchChartRecommendations();
+  heroChartPick = items?.[0] || null;
+  renderHero();
   renderRecGrid($('chart-recs'), items, 'Couldn’t load recommendations. Search for a song above.');
 }
 
@@ -1544,8 +1591,177 @@ function closePanel(id) {
 
 /** Close whichever dismissible popup is open. Returns true if one closed. */
 function closeAnyOpenPopup() {
-  return closePanel('inspector') || closePanel('listen-panel');
+  return closePanel('inspector') || closePanel('listen-panel') || closePanel('companion-panel');
 }
+
+// ------------------ companion: your phone as the remote --------------------
+// The TV mints a room code, shows a QR for the phone page (companion.html), and
+// acts on the phone's commands — every one gated by parseCommand(). Relay: this
+// machine's LAN server when there is one (dev server / Electron), otherwise the
+// hosted relay on the same origin (Vercel). Protocol: app/companion.js.
+const companion = { room: newRoomCode(), link: null, phoneUrl: '', queue: [], phoneSeen: false, guests: new Set(), lastSent: '', lastBeat: 0 };
+const QR_LIB = {
+  src: 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js',
+  integrity: 'sha384-mZT2gIty7ZDdOGkxfP6joZcYdMW1Jvj9dRlfpTmaJAKKXTqzygtB22k7FLe+KZC1',
+};
+
+async function companionEndpoints() {
+  const local = location.protocol === 'file:' ? 'http://localhost:4321' : location.origin;
+  try {
+    const res = await fetch(`${local}/api/companion/info`, { signal: AbortSignal.timeout(2000) });
+    if (res.ok) {
+      const { lan } = await res.json();
+      if (lan) return { relay: local, phone: lan };
+    }
+  } catch {
+    /* no LAN server here — use the hosted relay */
+  }
+  return { relay: location.origin, phone: location.origin };
+}
+
+function loadQrLib() {
+  if (window.qrcode) return Promise.resolve(window.qrcode);
+  return new Promise((resolve, reject) => {
+    const s = Object.assign(document.createElement('script'), {
+      ...QR_LIB,
+      crossOrigin: 'anonymous',
+      onload: () => resolve(window.qrcode),
+      onerror: reject,
+    });
+    document.head.append(s);
+  });
+}
+
+function updateCompanionStatus() {
+  const el = $('companion-status');
+  if (!el) return;
+  const names = [...companion.guests];
+  el.textContent = names.length
+    ? `${names.length > 3 ? `${names.length} guests` : names.join(', ')} connected ✓`
+    : companion.phoneSeen
+      ? 'Phone connected ✓'
+      : 'Waiting for your phone…';
+  el.toggleAttribute('data-on', companion.phoneSeen);
+}
+
+async function openCompanion() {
+  $('companion-panel').hidden = false;
+  $('companion-code').textContent = companion.room.replace(/^(.{4})/, '$1 ');
+  $('companion-done').focus({ preventScroll: true });
+  updateCompanionStatus();
+  if (!companion.link) {
+    const { relay, phone } = await companionEndpoints();
+    companion.phoneUrl = `${phone}/companion.html?room=${companion.room}`;
+    companion.link = openLink({ base: relay, room: companion.room, role: 'tv', onMessage: onCompanionMessage });
+  }
+  $('companion-url').textContent = companion.phoneUrl.replace(/^https?:\/\//, '');
+  try {
+    const qr = (await loadQrLib())(0, 'M');
+    qr.addData(companion.phoneUrl);
+    qr.make();
+    const img = Object.assign(new Image(), { src: qr.createDataURL(10, 2), alt: '' });
+    $('companion-qr').replaceChildren(img);
+  } catch {
+    $('companion-qr').textContent = 'QR unavailable — type the address instead.';
+  }
+}
+$('btn-companion')?.addEventListener('click', openCompanion);
+
+function playFromRemote(song) {
+  closePanel('companion-panel');
+  if (stage.dataset.mode === 'playing') $('btn-change').click();
+  loadSong(song);
+}
+
+function playNextQueued() {
+  const next = companion.queue.shift();
+  if (next) playFromRemote(next);
+}
+
+function onCompanionMessage(raw) {
+  const cmd = parseCommand(raw);
+  if (!cmd) return;
+  if (!companion.phoneSeen) {
+    companion.phoneSeen = true;
+    trackEvent('remote_paired');
+    updateCompanionStatus();
+    showToast('Phone remote connected');
+  }
+  if (cmd.by && !companion.guests.has(cmd.by)) {
+    companion.guests.add(cmd.by);
+    updateCompanionStatus();
+    showToast(`${cmd.by} joined`);
+  }
+  const playing = stage.dataset.mode === 'playing';
+  switch (cmd.type) {
+    case 'play':
+      playFromRemote({ ...cmd.song, by: cmd.by });
+      break;
+    case 'queue':
+      if (companion.queue.length >= QUEUE_MAX) {
+        showToast('Queue is full');
+      } else {
+        companion.queue.push({ ...cmd.song, by: cmd.by });
+        showToast(`Up next: ${cmd.song.track}${cmd.by ? ` · ${cmd.by}` : ''}`);
+      }
+      break;
+    case 'unqueue':
+      companion.queue.splice(cmd.index, 1);
+      break;
+    case 'next':
+      playNextQueued();
+      break;
+    case 'toggle':
+      // Nothing on screen but songs waiting? Play starts the queue.
+      if (!playing && companion.queue.length) playNextQueued();
+      else togglePlay();
+      break;
+    case 'change':
+      if (playing) $('btn-change').click();
+      break;
+    case 'nudge':
+      if (playing) applyTimingNudge(cmd.ms / 1000);
+      break;
+    case 'feel':
+      if (playing) applyFeelRecal(cmd.sense);
+      break;
+    default: // 'hello' — just answer with state below
+  }
+  pushCompanionState(true);
+}
+
+/** Send the phone what's on screen; unchanged state goes out as a 3s heartbeat. */
+function pushCompanionState(force = false) {
+  if (!companion.link) return;
+  const state = {
+    type: 'state',
+    mode: stage.dataset.mode,
+    track: session.meta?.track || '',
+    artist: session.meta?.artist || '',
+    art: currentArtUrl || '',
+    playing: stage.dataset.playback === 'playing',
+    offsetMs: Math.round((display.syncOffset || 0) * 1000),
+    queue: companion.queue.map(({ track, artist, artwork, by }) => ({ track, artist, artwork, by })),
+  };
+  const json = JSON.stringify(state);
+  const now = Date.now();
+  if (!force && json === companion.lastSent && now - companion.lastBeat < 3000) return;
+  companion.lastSent = json;
+  companion.lastBeat = now;
+  companion.link.send(state);
+}
+
+setInterval(() => {
+  if (!companion.link) return;
+  if (
+    companion.queue.length &&
+    stage.dataset.mode === 'playing' &&
+    songFinished({ now: session.clock?.now?.(), timeline: session.timeline })
+  ) {
+    playNextQueued();
+  }
+  pushCompanionState();
+}, 1000);
 
 document.addEventListener('click', (e) => {
   const closer = e.target.closest?.('[data-close]');
@@ -2282,7 +2498,9 @@ function renderSyncDiag(d) {
     listeningSince = 0;
   }
   const stuckFor = listeningSince ? Date.now() - listeningSince : 0;
-  const show = syncHudEnabled || (stuck && stuckFor > SYNC_HUD_AUTO_AFTER_MS);
+  // Auto-surfacing a monospace debug pill is fine at a desk, not on a living-room TV.
+  const show = syncHudEnabled
+    || (document.body.dataset.surface !== 'tv' && stuck && stuckFor > SYNC_HUD_AUTO_AFTER_MS);
   if (!show) {
     hud.hidden = true;
     return;
@@ -2494,6 +2712,12 @@ $('btn-focus')?.addEventListener('click', () => {
   syncFocusUi();
   showToast(on ? 'Focus mode — Esc or “Exit focus” to leave' : 'Full lyric view');
 });
+$('btn-party')?.addEventListener('click', () => {
+  const on = display.togglePartyMode();
+  if (on) trackEvent('party_on');
+  syncInspectorUi();
+  showToast(on ? 'Party mode — take turns, colours show whose line' : 'Party mode off');
+});
 $('btn-practice')?.addEventListener('click', () => {
   if (!haveAudio) {
     showToast('Practice slowdown needs a local audio file');
@@ -2572,9 +2796,10 @@ initScreenFocus({
   isTyping: (e) => {
     const t = document.activeElement;
     // ↑/↓ drive the results list while it has entries; ↑ otherwise stays in the
-    // field so typing is never hijacked.
+    // field so typing is never hijacked — except on TV, where the hub demotes the
+    // field below the shelves and ↑ is the only way back out of it.
     if (t?.tagName === 'INPUT' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-      return suggestionItems.length > 0 || e.key === 'ArrowUp';
+      return suggestionItems.length > 0 || (e.key === 'ArrowUp' && document.body.dataset.surface !== 'tv');
     }
     return false;
   },
@@ -2739,6 +2964,91 @@ document.addEventListener('click', (e) => {
 });
 $('tb-back')?.addEventListener('click', () => router.back());
 
+// 10-foot: the focused poster's artwork bleeds into the hub backdrop, Apple TV
+// style. Sticky — it keeps the last poster's art when focus moves to a tile.
+function setHubArt(src) {
+  if (!src || document.body.dataset.surface !== 'tv') return;
+  $('screens').style.setProperty('--hub-art', `url("${src}")`);
+  $('screens').dataset.art = '';
+}
+// Motion: there's no touch surface to drive tvOS parallax, so a focused poster
+// leans in from the side focus arrived from, then settles.
+const LEAN = { ArrowRight: ['0deg', '14deg'], ArrowLeft: ['0deg', '-14deg'], ArrowDown: ['-14deg', '0deg'], ArrowUp: ['14deg', '0deg'] };
+let lastArrow = '';
+addEventListener('keydown', (e) => { lastArrow = e.key; }, true);
+$('screens').addEventListener('focusin', (e) => {
+  const card = e.target.closest?.('.rec, #hub-hero');
+  setHubArt(card?.querySelector('img:not([hidden])')?.src);
+  const lean = card?.classList.contains('rec') && LEAN[lastArrow];
+  if (!lean) return;
+  card.style.setProperty('--lean-x', lean[0]);
+  card.style.setProperty('--lean-y', lean[1]);
+  card.classList.remove('lean');
+  void card.offsetWidth; // restart the animation on re-focus
+  card.classList.add('lean');
+});
+
+// Motion: the chosen poster's art zooms up to fill the screen and dissolves
+// into the lyric view's ambient glow while the song loads.
+function diveInto(img) {
+  if (!img || img.hidden || document.body.dataset.surface !== 'tv') return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const r = img.getBoundingClientRect();
+  if (!r.width) return;
+  const ghost = Object.assign(new Image(), { src: img.src, alt: '', className: 'dive-ghost' });
+  Object.assign(ghost.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
+  document.body.append(ghost);
+  const scale = Math.max(innerWidth / r.width, innerHeight / r.height) * 1.15;
+  const dx = innerWidth / 2 - (r.left + r.width / 2);
+  const dy = innerHeight / 2 - (r.top + r.height / 2);
+  ghost
+    .animate(
+      [
+        { transform: 'none', filter: 'blur(0)', opacity: 1 },
+        { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, filter: 'blur(60px)', opacity: 0 },
+      ],
+      { duration: 950, easing: 'cubic-bezier(.5,0,.2,1)' }
+    )
+    .finished.finally(() => ghost.remove());
+}
+// One delegated listener covers every shelf (each builds its own posters) and the hero.
+$('screens').addEventListener('click', (e) => {
+  const card = e.target.closest?.('.rec, #hero-sing');
+  if (card) diveInto(card.id === 'hero-sing' ? $('hero-art') : card.querySelector('img'));
+});
+
+// ---- TV hero: one big "sing this" pick at the top of the hub ----
+let heroPick = null;
+let heroChartPick = null;
+let heroAutoFocused = false;
+let hubTouched = false; // once the user moves, a late-loading hero never steals focus
+addEventListener('keydown', () => { hubTouched = true; }, { once: true });
+
+function renderHero() {
+  const hero = $('hub-hero');
+  const last = loadLibrary()[0];
+  heroPick = last
+    ? { ...last, duration: last.duration || undefined, kicker: 'Pick up where you left off' }
+    : heroChartPick && { ...heroChartPick, art: heroChartPick.artwork, kicker: 'Top song right now' };
+  hero.hidden = !heroPick;
+  if (!heroPick) return;
+  $('hero-kicker').textContent = heroPick.kicker;
+  $('hero-title').textContent = heroPick.track;
+  $('hero-artist').textContent = heroPick.artist;
+  const art = $('hero-art');
+  art.hidden = !heroPick.art;
+  if (heroPick.art) art.src = heroPick.art;
+  if (document.body.dataset.surface !== 'tv') return;
+  if (!$('screens').dataset.art) setHubArt(heroPick.art);
+  if (!heroAutoFocused && !hubTouched && stage.dataset.mode === 'setup') {
+    heroAutoFocused = true;
+    $('hero-sing').focus({ preventScroll: true });
+  }
+}
+$('hero-sing').addEventListener('click', () => {
+  if (heroPick) loadSong({ artist: heroPick.artist, track: heroPick.track, duration: heroPick.duration });
+});
+
 // The hub's source tiles are shortcuts to the real controls on the Sources
 // screen — click those rather than duplicating each handler.
 $('hub-sources').addEventListener('click', (e) => {
@@ -2764,6 +3074,7 @@ function toggleReading(force) {
 function syncInspectorUi() {
   $('btn-reading')?.setAttribute('aria-pressed', display.readingMode ? 'true' : 'false');
   $('btn-focus')?.setAttribute('aria-pressed', display.focusMode ? 'true' : 'false');
+  $('btn-party')?.setAttribute('aria-pressed', display.partyMode ? 'true' : 'false');
   $('btn-practice')?.setAttribute('aria-pressed', practiceSlow ? 'true' : 'false');
   const aid = $('btn-aid');
   if (aid) aid.setAttribute('aria-pressed', (display.aidMode || 'off') !== 'off' ? 'true' : 'false');
@@ -2880,6 +3191,7 @@ if (document.body.dataset.surface === 'tv') {
   // 10-foot: opening on the search field would pop the on-screen keyboard at
   // launch. Land on the first browse action ("Follow what's playing") instead —
   // the whole hub is D-pad navigable, and search stays one click away.
+  // The hero's Sing button takes over once the hero renders (renderHero).
   (document.querySelector('#hub-sources .tile') || document.querySelector('#screens button'))
     ?.focus({ preventScroll: true });
 } else {

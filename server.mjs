@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { fetchNeteaseLyrics } from './lib/netease.mjs';
 import { fetchGeniusLyrics } from './lib/genius.mjs';
 import { fetchMusixmatchRichsync } from './lib/musixmatch.mjs';
+import { networkInterfaces } from 'node:os';
+import { ROOM_RE, ROLES, MAX_MESSAGE_BYTES } from './app/companion.js';
 
 const REPO = fileURLToPath(new URL('.', import.meta.url));
 const ROOT = join(REPO, 'app');
@@ -38,10 +40,85 @@ function publicConfig() {
   };
 }
 
+// ---- companion relay (phone ⇄ TV), LAN flavour ----
+// In-memory rooms are fine for one machine on one Wi-Fi. The hosted twin with
+// the same API is api/companion.js; the protocol lives in app/companion.js.
+const rooms = new Map(); // room → { tv: Set<res>, phone: Set<res> }
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' };
+
+function lanOrigin() {
+  for (const addrs of Object.values(networkInterfaces())) {
+    for (const a of addrs || []) {
+      if (a.family === 'IPv4' && !a.internal) return `http://${a.address}:${PORT}`;
+    }
+  }
+  return null;
+}
+
+async function handleCompanion(req, res, q) {
+  const room = q.get('room') || '';
+  const role = q.get('role');
+  if (!ROOM_RE.test(room) || !ROLES.includes(role)) {
+    res.writeHead(400, CORS).end();
+    return;
+  }
+  if (!rooms.has(room)) rooms.set(room, { tv: new Set(), phone: new Set() });
+  const peers = rooms.get(room);
+
+  if (req.method === 'POST') {
+    let body = '';
+    for await (const chunk of req) {
+      body += chunk;
+      if (body.length > MAX_MESSAGE_BYTES) {
+        res.writeHead(413, CORS).end();
+        return;
+      }
+    }
+    let msg;
+    try {
+      msg = JSON.parse(body);
+    } catch {
+      res.writeHead(400, CORS).end();
+      return;
+    }
+    // Re-serialised, so an untrusted body can't smuggle newlines into the SSE frame.
+    const frame = `data: ${JSON.stringify(msg)}\n\n`;
+    for (const peer of peers[role === 'tv' ? 'phone' : 'tv']) peer.write(frame);
+    res.writeHead(204, CORS).end();
+    return;
+  }
+
+  res.writeHead(200, { ...CORS, 'Content-Type': 'text/event-stream', Connection: 'keep-alive' });
+  res.write(': open\n\n');
+  peers[role].add(res);
+  const ping = setInterval(() => res.write(': ping\n\n'), 25000);
+  req.on('close', () => {
+    clearInterval(ping);
+    peers[role].delete(res);
+    if (!peers.tv.size && !peers.phone.size) rooms.delete(room);
+  });
+}
+
 createServer(async (req, res) => {
   try {
     let path = decodeURIComponent(new URL(req.url, `http://localhost`).pathname);
     if (path === '/') path = '/index.html';
+
+    if (path === '/api/companion/info') {
+      res.writeHead(200, { ...CORS, 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ lan: lanOrigin() }));
+      return;
+    }
+    if (path === '/api/companion') {
+      await handleCompanion(req, res, new URL(req.url, 'http://localhost').searchParams);
+      return;
+    }
+    // Local runs don't count toward the hosted funnel (api/event.js).
+    if (path === '/api/event') {
+      res.writeHead(204, CORS);
+      res.end();
+      return;
+    }
 
     if (path === '/config.js') {
       const body = `window.__SL_CONFIG__ = ${JSON.stringify(publicConfig())};`;
@@ -108,4 +185,8 @@ createServer(async (req, res) => {
   } catch {
     res.writeHead(404, { 'Content-Type': 'text/plain' }).end('Not found');
   }
-}).listen(PORT, () => console.log(`Bar4Bar dev server → http://localhost:${PORT}`));
+})
+  .listen(PORT, () => console.log(`Bar4Bar dev server → http://localhost:${PORT}`))
+  // Electron also starts this server; if `npm run dev` already holds the port,
+  // log instead of crashing the main process — the running server serves both.
+  .on('error', (e) => console.error(`[server] ${e.code === 'EADDRINUSE' ? `port ${PORT} already in use` : e.message}`));

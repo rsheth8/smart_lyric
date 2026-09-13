@@ -11,3 +11,4 @@ public/
 # Local test media (copyrighted audio/lyrics) — never commit
 *.mp3
 *.lrc
+.env*

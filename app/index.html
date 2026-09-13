@@ -63,10 +63,23 @@
               </div>
             </div>
             <div class="hub-actions">
+              <button id="btn-companion" class="chip ghost" type="button" title="Control Bar4Bar from your phone">Phone remote</button>
               <button id="btn-projector" class="chip ghost" type="button" title="Projector / OBS">Projector</button>
               <button class="chip ghost" type="button" data-go="settings" title="Settings">Settings</button>
             </div>
           </header>
+
+          <!-- TV-only hero: one big "sing this" pick (last played, else the top
+               chart song). Filled by renderHero() in app.js; hidden on desktop. -->
+          <section id="hub-hero" class="hero" hidden>
+            <img id="hero-art" class="hero-art" alt="" />
+            <div class="hero-copy">
+              <span class="hero-kicker" id="hero-kicker"></span>
+              <h2 id="hero-title"></h2>
+              <p id="hero-artist"></p>
+              <button id="hero-sing" class="btn-primary" type="button">Sing</button>
+            </div>
+          </section>
 
           <form id="search" autocomplete="off">
             <div class="hub-search">
@@ -418,6 +431,22 @@
       </div>
     </div>
 
+    <!-- Phone remote pairing: QR → companion.html?room=… (app/companion.js). -->
+    <div id="companion-panel" class="companion" hidden role="dialog" aria-modal="true" aria-labelledby="companion-title">
+      <div class="companion-card">
+        <div class="companion-qr" id="companion-qr" aria-hidden="true"></div>
+        <div class="companion-copy">
+          <span class="hero-kicker">Phone remote</span>
+          <h2 id="companion-title">Scan to take control</h2>
+          <p>Search with your phone's keyboard, queue up songs, and nudge the timing — no remote typing.</p>
+          <p class="companion-url" id="companion-url"></p>
+          <p class="companion-code">Room <b id="companion-code"></b></p>
+          <p class="companion-status" id="companion-status" role="status"></p>
+          <button id="companion-done" class="btn-primary" type="button" data-close="companion-panel">Done</button>
+        </div>
+      </div>
+    </div>
+
     <div id="busy" class="busy" hidden aria-live="assertive">
       <div class="busy-card">
         <div class="busy-vinyl" aria-hidden="true"><i></i></div>
@@ -490,6 +519,7 @@
           <b>View</b>
           <div class="insp-actions">
             <button id="btn-focus" class="insp-btn" type="button" title="Only active lyrics (O)" aria-pressed="false">Focus</button>
+            <button id="btn-party" class="insp-btn" type="button" title="Duet: two singers take turns" aria-pressed="false">Party</button>
             <button id="btn-reading" class="insp-btn" type="button" title="Static, scrollable lyrics (P)" aria-pressed="false">Reading</button>
             <button id="btn-practice" class="insp-btn" type="button" title="Practice at 0.8× (local files · S)" aria-pressed="false" hidden>0.8×</button>
             <button id="btn-aid" class="insp-btn" type="button" title="Pronunciation / English (T)">Language</button>

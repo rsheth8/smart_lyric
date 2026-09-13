@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0908" />
+  <title>Bar4Bar Remote</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles/tokens.css" />
+  <style>
+    /* Phone remote: one thumb-driven column. Tokens come from tokens.css (the
+       body has no data-surface, so it gets the desktop density fallback). */
+    body { height: auto; min-height: 100vh; overflow-y: auto; }
+    .remote {
+      max-width: 520px; margin: 0 auto;
+      padding: max(16px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    button { min-height: 48px; border-radius: var(--r-md); font-weight: 600; touch-action: manipulation; }
+    button:active { transform: scale(.97); }
+
+    .r-head { display: flex; align-items: center; gap: 12px; }
+    .r-head .mark {
+      width: 40px; height: 40px; border-radius: 11px; flex: none;
+      display: grid; place-items: center; font: 750 12px/1 var(--font-display); letter-spacing: -.06em;
+      color: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 46%, transparent);
+    }
+    .r-head .mark span { color: var(--ember); }
+    .r-head b { display: block; font-size: 17px; }
+    .r-head small { font-size: 13px; color: var(--text-3); }
+    .r-head small::before {
+      content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px;
+      border-radius: 50%; background: var(--text-3); vertical-align: 1px;
+    }
+    body[data-link="on"] .r-head small { color: var(--ok); }
+    body[data-link="on"] .r-head small::before { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+
+    .r-now { display: flex; align-items: center; gap: 14px; }
+    .r-now img, .r-now .r-art-empty {
+      width: 88px; height: 88px; border-radius: var(--r-lg); object-fit: cover; flex: none;
+      box-shadow: var(--shadow-2);
+      background: linear-gradient(135deg, #3a2c17, #6e5528 55%, var(--ember));
+    }
+    .r-now-copy { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .r-now-copy b { font: 700 22px/1.15 var(--font-display); letter-spacing: -.01em; overflow-wrap: anywhere; }
+    .r-now-copy span { font-size: 15px; color: var(--text-2); }
+
+    .r-transport { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 8px; }
+    .r-transport button { background: var(--surface-2); border: 1px solid var(--line-1); }
+    #r-toggle { color: var(--accent-ink); background: linear-gradient(135deg, var(--accent-soft), var(--accent)); border: 0; }
+
+    .r-card {
+      display: flex; flex-direction: column; gap: 10px; padding: 14px;
+      background: var(--surface-1); border: 1px solid var(--line-1); border-radius: var(--r-lg);
+    }
+    .r-card h2 {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 12px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--text-2);
+    }
+    #r-offset { font: 600 14px/1 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--accent-soft); font-variant-numeric: tabular-nums; }
+    .r-dial { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .r-dial.two { grid-template-columns: 1fr 1fr; }
+    .r-dial button { background: var(--surface-2); border: 1px solid var(--line-1); font-variant-numeric: tabular-nums; }
+
+    #r-q, #r-name {
+      width: 100%; height: 48px; padding: 0 14px; font-size: 16px; /* ≥16px stops iOS zoom-on-focus */
+      color: var(--text-1); background: var(--surface-2);
+      border: 1px solid var(--line-2); border-radius: var(--r-md);
+    }
+    #r-q:focus, #r-name:focus { outline: none; border-color: var(--accent); }
+
+    .r-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    .r-list li { display: flex; align-items: center; gap: 10px; min-height: 56px; }
+    .r-list img { width: 48px; height: 48px; border-radius: var(--r-sm); object-fit: cover; flex: none; background: var(--surface-3); }
+    .r-list .t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .r-list .t b, .r-list .t span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .r-list .t b { font-size: 15px; font-weight: 600; }
+    .r-list .t span { font-size: 13px; color: var(--text-2); }
+    .r-list button { min-height: 40px; padding: 0 12px; font-size: 13px; flex: none; background: var(--surface-2); border: 1px solid var(--line-1); }
+    .r-list button.go { color: var(--accent-ink); background: var(--accent-soft); border: 0; }
+    .r-list .n { width: 20px; text-align: center; color: var(--text-3); font-variant-numeric: tabular-nums; flex: none; }
+    .r-empty { color: var(--text-3); font-size: 14px; justify-content: center; }
+
+    .r-lost { text-align: center; padding: 40px 12px; color: var(--text-2); line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <main class="remote">
+    <header class="r-head">
+      <div class="mark" aria-hidden="true">B<span>4</span>B</div>
+      <div><b>Bar4Bar Remote</b><small id="r-status" role="status">Connecting…</small></div>
+    </header>
+
+    <div id="r-app" hidden>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <section class="r-card" aria-label="Your name">
+          <h2>Your name</h2>
+          <input id="r-name" type="text" maxlength="24" placeholder="So the TV can call you up"
+            autocomplete="nickname" enterkeyhint="done" aria-label="Your name" />
+        </section>
+
+        <section class="r-now" aria-label="Now playing">
+          <img id="r-art" alt="" hidden /><span class="r-art-empty" id="r-art-empty" aria-hidden="true"></span>
+          <div class="r-now-copy"><b id="r-title">Nothing playing</b><span id="r-artist">Pick a song below</span></div>
+        </section>
+
+        <div class="r-transport">
+          <button id="r-toggle" type="button">Play</button>
+          <button id="r-next" type="button">Next</button>
+          <button id="r-change" type="button">Stop</button>
+        </div>
+
+        <section class="r-card" aria-label="Timing">
+          <h2>Timing <span id="r-offset">0 ms</span></h2>
+          <div class="r-dial">
+            <button type="button" data-nudge="-100" aria-label="Lyrics 100 milliseconds later">−100</button>
+            <button type="button" data-nudge="-25" aria-label="Lyrics 25 milliseconds later">−25</button>
+            <button type="button" data-nudge="25" aria-label="Lyrics 25 milliseconds earlier">+25</button>
+            <button type="button" data-nudge="100" aria-label="Lyrics 100 milliseconds earlier">+100</button>
+          </div>
+          <div class="r-dial two">
+            <button type="button" data-feel="early">Feels early</button>
+            <button type="button" data-feel="late">Feels late</button>
+          </div>
+        </section>
+
+        <section class="r-card" aria-label="Search">
+          <form id="r-search" role="search">
+            <input id="r-q" type="search" placeholder="Search songs…" enterkeyhint="search"
+              autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Search songs" />
+          </form>
+          <ul id="r-results" class="r-list" aria-live="polite"></ul>
+        </section>
+
+        <section class="r-card" aria-label="Up next">
+          <h2>Up next</h2>
+          <ul id="r-queue" class="r-list"></ul>
+        </section>
+      </div>
+    </div>
+
+    <p id="r-bad-room" class="r-lost" hidden>This link is missing its room code.<br />Open <b>Phone remote</b> on the TV and scan the QR code again.</p>
+  </main>
+
+  <script type="module">
+    import { openLink, newPeerId, parseName, ROOM_RE } from './companion.js';
+    import { searchSuggestions } from './recommendations.js';
+
+    const $ = (id) => document.getElementById(id);
+    const room = (new URLSearchParams(location.search).get('room') || '').toUpperCase();
+    const TV_TIMEOUT_MS = 8000; // the TV heartbeats its state every few seconds
+
+    function el(tag, props = {}, children = []) {
+      const node = Object.assign(document.createElement(tag), props);
+      node.append(...children);
+      return node;
+    }
+
+    // A song row. textContent only — titles come from iTunes and the TV.
+    function songRow(song, actions) {
+      const art = song.artwork ? el('img', { src: song.artwork, alt: '', loading: 'lazy' }) : el('img', { alt: '' });
+      return el('li', {}, [
+        art,
+        el('span', { className: 't' }, [el('b', { textContent: song.track }), el('span', { textContent: song.artist || '' })]),
+        ...actions,
+      ]);
+    }
+
+    function flash(btn, label) {
+      const was = btn.textContent;
+      btn.textContent = label;
+      btn.disabled = true;
+      setTimeout(() => { btn.textContent = was; btn.disabled = false; }, 1100);
+    }
+
+    if (!ROOM_RE.test(room)) {
+      $('r-bad-room').hidden = false;
+      $('r-status').textContent = 'Not paired';
+    } else {
+      $('r-app').hidden = false;
+      let lastState = 0;
+
+      // Guest name, remembered on this phone and attached to everything it sends;
+      // the TV re-validates it (parseCommand) before showing it.
+      const NAME_KEY = 'bar4bar.guestName';
+      let myName = '';
+      try { myName = parseName(localStorage.getItem(NAME_KEY)); } catch { /* private mode */ }
+      $('r-name').value = myName;
+
+      const link = openLink({
+        base: location.origin,
+        room,
+        role: 'phone',
+        peer: newPeerId(),
+        onStatus: (s) => { if (s === 'open') send({ type: 'hello' }); },
+        onMessage: (msg) => { if (msg?.type === 'state') renderState(msg); },
+      });
+      const send = (msg) => link.send(myName ? { ...msg, by: myName } : msg);
+
+      $('r-name').addEventListener('change', () => {
+        myName = parseName($('r-name').value);
+        $('r-name').value = myName;
+        try { localStorage.setItem(NAME_KEY, myName); } catch { /* private mode */ }
+        send({ type: 'hello' });
+      });
+
+      setInterval(() => {
+        const on = Date.now() - lastState < TV_TIMEOUT_MS;
+        document.body.dataset.link = on ? 'on' : 'off';
+        $('r-status').textContent = on ? 'Connected to TV' : 'Looking for the TV…';
+      }, 1000);
+
+      function renderState(s) {
+        lastState = Date.now();
+        const playing = s.mode === 'playing';
+        $('r-title').textContent = playing && s.track ? s.track : 'Nothing playing';
+        $('r-artist').textContent = playing ? s.artist || '' : 'Pick a song below';
+        $('r-art').hidden = !(playing && s.art);
+        $('r-art-empty').hidden = !$('r-art').hidden;
+        if (playing && s.art && $('r-art').src !== s.art) $('r-art').src = s.art;
+        $('r-toggle').textContent = s.playing ? 'Pause' : 'Play';
+        $('r-offset').textContent = `${s.offsetMs > 0 ? '+' : ''}${s.offsetMs || 0} ms`;
+
+        const q = Array.isArray(s.queue) ? s.queue : [];
+        $('r-next').disabled = !q.length;
+        $('r-queue').replaceChildren(
+          ...(q.length
+            ? q.map((song, i) => {
+                const rm = el('button', { type: 'button', textContent: 'Remove' });
+                rm.addEventListener('click', () => send({ type: 'unqueue', index: i }));
+                const who = typeof song.by === 'string' && song.by ? ` · ${song.by}` : '';
+                const row = songRow({ ...song, artist: `${song.artist || ''}${who}` }, [rm]);
+                row.prepend(el('span', { className: 'n', textContent: String(i + 1) }));
+                return row;
+              })
+            : [el('li', { className: 'r-empty', textContent: 'Queue a few songs to keep the party going' })])
+        );
+      }
+
+      $('r-toggle').addEventListener('click', () => send({ type: 'toggle' }));
+      $('r-next').addEventListener('click', () => send({ type: 'next' }));
+      $('r-change').addEventListener('click', () => send({ type: 'change' }));
+      document.querySelectorAll('[data-nudge]').forEach((b) =>
+        b.addEventListener('click', () => send({ type: 'nudge', ms: Number(b.dataset.nudge) })));
+      document.querySelectorAll('[data-feel]').forEach((b) =>
+        b.addEventListener('click', () => send({ type: 'feel', sense: b.dataset.feel })));
+
+      let searchTimer;
+      let searchSeq = 0;
+      async function runSearch() {
+        const seq = ++searchSeq;
+        const items = await searchSuggestions($('r-q').value, { limit: 10 });
+        if (seq !== searchSeq) return; // a newer keystroke already won
+        $('r-results').replaceChildren(
+          ...items.map((song) => {
+            const play = el('button', { type: 'button', className: 'go', textContent: 'Play' });
+            const queue = el('button', { type: 'button', textContent: '+ Queue' });
+            play.addEventListener('click', () => { send({ type: 'play', song }); flash(play, 'Sent ✓'); });
+            queue.addEventListener('click', () => { send({ type: 'queue', song }); flash(queue, 'Queued ✓'); });
+            return songRow(song, [play, queue]);
+          })
+        );
+      }
+      $('r-q').addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(runSearch, 300);
+      });
+      $('r-search').addEventListener('submit', (e) => {
+        e.preventDefault();
+        clearTimeout(searchTimer);
+        $('r-q').blur(); // drop the keyboard so the results are visible
+        runSearch();
+      });
+    }
+  </script>
+</body>
+</html>
