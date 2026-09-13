@@ -625,6 +625,20 @@ body[data-surface="tv"] .rec .meta {
   transition: opacity var(--dur) ease, transform var(--dur) var(--ease-out);
 }
 body[data-surface="tv"] .rec:is(:focus-visible, :hover) .meta { opacity: 1; transform: none; }
+/* Focus lean (vars set by app.js from the arrow that moved focus). */
+body[data-surface="tv"] .rec { perspective: 900px; }
+body[data-surface="tv"] .rec.lean :is(img, .art) { animation: poster-lean .7s var(--ease-out); }
+@keyframes poster-lean {
+  from { transform: rotateX(var(--lean-x, 0deg)) rotateY(var(--lean-y, 0deg)); }
+}
+/* Poster → lyrics zoom ghost (app.js diveInto). */
+.dive-ghost {
+  position: fixed; z-index: 1000; margin: 0; pointer-events: none;
+  object-fit: cover; border-radius: var(--r-md); will-change: transform, filter, opacity;
+}
+@media (prefers-reduced-motion: reduce) {
+  body[data-surface="tv"] .rec.lean :is(img, .art) { animation: none; }
+}
 
 /* Focus-driven backdrop: the focused poster's art (--hub-art, set by app.js),
    blurred to pure colour behind the hub. */

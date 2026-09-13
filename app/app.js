@@ -2920,9 +2920,50 @@ function setHubArt(src) {
   $('screens').style.setProperty('--hub-art', `url("${src}")`);
   $('screens').dataset.art = '';
 }
+// Motion: there's no touch surface to drive tvOS parallax, so a focused poster
+// leans in from the side focus arrived from, then settles.
+const LEAN = { ArrowRight: ['0deg', '14deg'], ArrowLeft: ['0deg', '-14deg'], ArrowDown: ['-14deg', '0deg'], ArrowUp: ['14deg', '0deg'] };
+let lastArrow = '';
+addEventListener('keydown', (e) => { lastArrow = e.key; }, true);
 $('screens').addEventListener('focusin', (e) => {
   const card = e.target.closest?.('.rec, #hub-hero');
   setHubArt(card?.querySelector('img:not([hidden])')?.src);
+  const lean = card?.classList.contains('rec') && LEAN[lastArrow];
+  if (!lean) return;
+  card.style.setProperty('--lean-x', lean[0]);
+  card.style.setProperty('--lean-y', lean[1]);
+  card.classList.remove('lean');
+  void card.offsetWidth; // restart the animation on re-focus
+  card.classList.add('lean');
+});
+
+// Motion: the chosen poster's art zooms up to fill the screen and dissolves
+// into the lyric view's ambient glow while the song loads.
+function diveInto(img) {
+  if (!img || img.hidden || document.body.dataset.surface !== 'tv') return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const r = img.getBoundingClientRect();
+  if (!r.width) return;
+  const ghost = Object.assign(new Image(), { src: img.src, alt: '', className: 'dive-ghost' });
+  Object.assign(ghost.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
+  document.body.append(ghost);
+  const scale = Math.max(innerWidth / r.width, innerHeight / r.height) * 1.15;
+  const dx = innerWidth / 2 - (r.left + r.width / 2);
+  const dy = innerHeight / 2 - (r.top + r.height / 2);
+  ghost
+    .animate(
+      [
+        { transform: 'none', filter: 'blur(0)', opacity: 1 },
+        { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, filter: 'blur(60px)', opacity: 0 },
+      ],
+      { duration: 950, easing: 'cubic-bezier(.5,0,.2,1)' }
+    )
+    .finished.finally(() => ghost.remove());
+}
+// One delegated listener covers every shelf (each builds its own posters) and the hero.
+$('screens').addEventListener('click', (e) => {
+  const card = e.target.closest?.('.rec, #hero-sing');
+  if (card) diveInto(card.id === 'hero-sing' ? $('hero-art') : card.querySelector('img'));
 });
 
 // ---- TV hero: one big "sing this" pick at the top of the hub ----
