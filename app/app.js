@@ -37,6 +37,7 @@ import { getMedium } from './mediums/index.js';
 import { createRouter } from './ui/router.js';
 import { initScreenFocus } from './ui/focus.js';
 import { initRemote, Intent } from './remote.js';
+import { newRoomCode, openLink, parseCommand, songFinished, QUEUE_MAX } from './companion.js';
 import { initSurface } from './ui/surface.js';
 import { accentFromPalette, applyAccent } from './theme.js';
 import { loadLibrary, recordPlay, clearLibrary, relativeWhen, updateArt } from './library.js';
@@ -1547,8 +1548,166 @@ function closePanel(id) {
 
 /** Close whichever dismissible popup is open. Returns true if one closed. */
 function closeAnyOpenPopup() {
-  return closePanel('inspector') || closePanel('listen-panel');
+  return closePanel('inspector') || closePanel('listen-panel') || closePanel('companion-panel');
 }
+
+// ------------------ companion: your phone as the remote --------------------
+// The TV mints a room code, shows a QR for the phone page (companion.html), and
+// acts on the phone's commands — every one gated by parseCommand(). Relay: this
+// machine's LAN server when there is one (dev server / Electron), otherwise the
+// hosted relay on the same origin (Vercel). Protocol: app/companion.js.
+const companion = { room: newRoomCode(), link: null, phoneUrl: '', queue: [], phoneSeen: false, lastSent: '', lastBeat: 0 };
+const QR_LIB = {
+  src: 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js',
+  integrity: 'sha384-mZT2gIty7ZDdOGkxfP6joZcYdMW1Jvj9dRlfpTmaJAKKXTqzygtB22k7FLe+KZC1',
+};
+
+async function companionEndpoints() {
+  const local = location.protocol === 'file:' ? 'http://localhost:4321' : location.origin;
+  try {
+    const res = await fetch(`${local}/api/companion/info`, { signal: AbortSignal.timeout(2000) });
+    if (res.ok) {
+      const { lan } = await res.json();
+      if (lan) return { relay: local, phone: lan };
+    }
+  } catch {
+    /* no LAN server here — use the hosted relay */
+  }
+  return { relay: location.origin, phone: location.origin };
+}
+
+function loadQrLib() {
+  if (window.qrcode) return Promise.resolve(window.qrcode);
+  return new Promise((resolve, reject) => {
+    const s = Object.assign(document.createElement('script'), {
+      ...QR_LIB,
+      crossOrigin: 'anonymous',
+      onload: () => resolve(window.qrcode),
+      onerror: reject,
+    });
+    document.head.append(s);
+  });
+}
+
+function updateCompanionStatus() {
+  const el = $('companion-status');
+  if (!el) return;
+  el.textContent = companion.phoneSeen ? 'Phone connected ✓' : 'Waiting for your phone…';
+  el.toggleAttribute('data-on', companion.phoneSeen);
+}
+
+async function openCompanion() {
+  $('companion-panel').hidden = false;
+  $('companion-code').textContent = companion.room.replace(/^(.{4})/, '$1 ');
+  $('companion-done').focus({ preventScroll: true });
+  updateCompanionStatus();
+  if (!companion.link) {
+    const { relay, phone } = await companionEndpoints();
+    companion.phoneUrl = `${phone}/companion.html?room=${companion.room}`;
+    companion.link = openLink({ base: relay, room: companion.room, role: 'tv', onMessage: onCompanionMessage });
+  }
+  $('companion-url').textContent = companion.phoneUrl.replace(/^https?:\/\//, '');
+  try {
+    const qr = (await loadQrLib())(0, 'M');
+    qr.addData(companion.phoneUrl);
+    qr.make();
+    const img = Object.assign(new Image(), { src: qr.createDataURL(10, 2), alt: '' });
+    $('companion-qr').replaceChildren(img);
+  } catch {
+    $('companion-qr').textContent = 'QR unavailable — type the address instead.';
+  }
+}
+$('btn-companion')?.addEventListener('click', openCompanion);
+
+function playFromRemote(song) {
+  closePanel('companion-panel');
+  if (stage.dataset.mode === 'playing') $('btn-change').click();
+  loadSong(song);
+}
+
+function playNextQueued() {
+  const next = companion.queue.shift();
+  if (next) playFromRemote(next);
+}
+
+function onCompanionMessage(raw) {
+  const cmd = parseCommand(raw);
+  if (!cmd) return;
+  if (!companion.phoneSeen) {
+    companion.phoneSeen = true;
+    updateCompanionStatus();
+    showToast('Phone remote connected');
+  }
+  const playing = stage.dataset.mode === 'playing';
+  switch (cmd.type) {
+    case 'play':
+      playFromRemote(cmd.song);
+      break;
+    case 'queue':
+      if (companion.queue.length >= QUEUE_MAX) {
+        showToast('Queue is full');
+      } else {
+        companion.queue.push(cmd.song);
+        showToast(`Up next: ${cmd.song.track}`);
+      }
+      break;
+    case 'unqueue':
+      companion.queue.splice(cmd.index, 1);
+      break;
+    case 'next':
+      playNextQueued();
+      break;
+    case 'toggle':
+      // Nothing on screen but songs waiting? Play starts the queue.
+      if (!playing && companion.queue.length) playNextQueued();
+      else togglePlay();
+      break;
+    case 'change':
+      if (playing) $('btn-change').click();
+      break;
+    case 'nudge':
+      if (playing) applyTimingNudge(cmd.ms / 1000);
+      break;
+    case 'feel':
+      if (playing) applyFeelRecal(cmd.sense);
+      break;
+    default: // 'hello' — just answer with state below
+  }
+  pushCompanionState(true);
+}
+
+/** Send the phone what's on screen; unchanged state goes out as a 3s heartbeat. */
+function pushCompanionState(force = false) {
+  if (!companion.link) return;
+  const state = {
+    type: 'state',
+    mode: stage.dataset.mode,
+    track: session.meta?.track || '',
+    artist: session.meta?.artist || '',
+    art: currentArtUrl || '',
+    playing: stage.dataset.playback === 'playing',
+    offsetMs: Math.round((display.syncOffset || 0) * 1000),
+    queue: companion.queue.map(({ track, artist, artwork }) => ({ track, artist, artwork })),
+  };
+  const json = JSON.stringify(state);
+  const now = Date.now();
+  if (!force && json === companion.lastSent && now - companion.lastBeat < 3000) return;
+  companion.lastSent = json;
+  companion.lastBeat = now;
+  companion.link.send(state);
+}
+
+setInterval(() => {
+  if (!companion.link) return;
+  if (
+    companion.queue.length &&
+    stage.dataset.mode === 'playing' &&
+    songFinished({ now: session.clock?.now?.(), timeline: session.timeline })
+  ) {
+    playNextQueued();
+  }
+  pushCompanionState();
+}, 1000);
 
 document.addEventListener('click', (e) => {
   const closer = e.target.closest?.('[data-close]');

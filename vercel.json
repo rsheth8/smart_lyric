@@ -6,10 +6,12 @@
     { "src": "api/lyrics.js", "use": "@vercel/node" },
     { "src": "api/richsync.js", "use": "@vercel/node" },
     { "src": "api/genius.js", "use": "@vercel/node" },
+    { "src": "api/companion.js", "use": "@vercel/node" },
     { "src": "app/**", "use": "@vercel/static" }
   ],
   "routes": [
     { "src": "/config.js", "dest": "/api/config.js" },
+    { "src": "/api/companion", "dest": "/api/companion.js" },
     { "src": "/api/lyrics", "dest": "/api/lyrics.js" },
     { "src": "/api/richsync", "dest": "/api/richsync.js" },
     { "src": "/api/genius", "dest": "/api/genius.js" },

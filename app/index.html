@@ -63,6 +63,7 @@
               </div>
             </div>
             <div class="hub-actions">
+              <button id="btn-companion" class="chip ghost" type="button" title="Control Bar4Bar from your phone">Phone remote</button>
               <button id="btn-projector" class="chip ghost" type="button" title="Projector / OBS">Projector</button>
               <button class="chip ghost" type="button" data-go="settings" title="Settings">Settings</button>
             </div>
@@ -427,6 +428,22 @@
           <span>Input (mic / loopback)</span>
           <select id="listen-input" aria-label="Audio input device"></select>
         </label>
+      </div>
+    </div>
+
+    <!-- Phone remote pairing: QR → companion.html?room=… (app/companion.js). -->
+    <div id="companion-panel" class="companion" hidden role="dialog" aria-modal="true" aria-labelledby="companion-title">
+      <div class="companion-card">
+        <div class="companion-qr" id="companion-qr" aria-hidden="true"></div>
+        <div class="companion-copy">
+          <span class="hero-kicker">Phone remote</span>
+          <h2 id="companion-title">Scan to take control</h2>
+          <p>Search with your phone's keyboard, queue up songs, and nudge the timing — no remote typing.</p>
+          <p class="companion-url" id="companion-url"></p>
+          <p class="companion-code">Room <b id="companion-code"></b></p>
+          <p class="companion-status" id="companion-status" role="status"></p>
+          <button id="companion-done" class="btn-primary" type="button" data-close="companion-panel">Done</button>
+        </div>
       </div>
     </div>
 

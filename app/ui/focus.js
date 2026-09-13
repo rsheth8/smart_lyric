@@ -21,6 +21,9 @@ import { initTvNav } from '../tv-nav.js';
  */
 export function initScreenFocus({ stage, router, isTyping = () => false }) {
   const activeRoot = () => {
+    // A modal dialog owns focus until it closes.
+    const modal = stage.querySelector('#companion-panel:not([hidden])');
+    if (modal) return modal;
     if (stage.dataset.mode === 'playing') {
       // While a song is up, arrows belong to the chrome only when it's awake —
       // otherwise a keypress moves focus onto an invisible bar.

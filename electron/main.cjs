@@ -461,6 +461,9 @@ app.setAboutPanelOptions({
 });
 
 app.whenReady().then(() => {
+  // The phone remote (app/companion.js) can't open file://, so the main process
+  // also serves the app + companion relay on this machine's Wi-Fi.
+  import('../server.mjs').catch((e) => console.error('[companion] LAN server failed:', e.message));
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
