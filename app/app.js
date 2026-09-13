@@ -38,6 +38,8 @@ import { createRouter } from './ui/router.js';
 import { initScreenFocus } from './ui/focus.js';
 import { initRemote, Intent } from './remote.js';
 import { newRoomCode, openLink, parseCommand, songFinished, QUEUE_MAX } from './companion.js';
+// Aliased: `track` is the song-title field all over this file (e.g. loadSong's params).
+import { track as trackEvent, waitBucket, sungBucket } from './analytics.js';
 import { initSurface } from './ui/surface.js';
 import { accentFromPalette, applyAccent } from './theme.js';
 import { loadLibrary, recordPlay, clearLibrary, relativeWhen, updateArt } from './library.js';
@@ -396,7 +398,17 @@ function ingestTimingSamples(samples) {
   updateTimingReadout();
 }
 
+// Funnel analytics (app/analytics.js): open → load → ready → how much got sung.
+const funnelSurface = () => (document.body.dataset.surface === 'tv' ? 'tv' : 'desktop');
+let songLoadAt = 0;
+addEventListener('load', () => trackEvent('app_open', { surface: funnelSurface() }));
+
 function enterSetup() {
+  if (stage.dataset.mode === 'playing') {
+    const dur = session.timeline?.duration || session.timeline?.lines?.at(-1)?.end;
+    const pos = liveAlignNowSec();
+    if (dur > 0 && pos != null) trackEvent('song_exit', { surface: funnelSurface(), sung: sungBucket(pos / dur) });
+  }
   stage.dataset.mode = 'setup';
   clearTimeout(idleTimer);
   stage.dataset.chrome = 'awake';
@@ -421,6 +433,10 @@ function enterSetup() {
 }
 
 function enterPlaying() {
+  if (songLoadAt) {
+    trackEvent('song_ready', { surface: funnelSurface(), wait: waitBucket(performance.now() - songLoadAt) });
+    songLoadAt = 0;
+  }
   stage.dataset.mode = 'playing';
   updateTransport();
   updatePlayBtn();
@@ -571,6 +587,8 @@ async function loadSong({ artist, track, duration }) {
     $('in-track').focus();
     return;
   }
+  songLoadAt = performance.now();
+  trackEvent('song_load', { surface: funnelSurface() });
   // Prefer an attached audio file; otherwise, if Spotify is connected, play the
   // song on Spotify and follow it; otherwise fall back to the local demo clock.
   if (!haveAudio && loadToken('spotify')) {
@@ -1639,6 +1657,7 @@ function onCompanionMessage(raw) {
   if (!cmd) return;
   if (!companion.phoneSeen) {
     companion.phoneSeen = true;
+    trackEvent('remote_paired');
     updateCompanionStatus();
     showToast('Phone remote connected');
   }
@@ -2664,6 +2683,7 @@ $('btn-focus')?.addEventListener('click', () => {
 });
 $('btn-party')?.addEventListener('click', () => {
   const on = display.togglePartyMode();
+  if (on) trackEvent('party_on');
   syncInspectorUi();
   showToast(on ? 'Party mode — take turns, colours show whose line' : 'Party mode off');
 });

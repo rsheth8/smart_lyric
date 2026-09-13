@@ -18,7 +18,7 @@ const POLL_IDLE_MS = 1500;
 const TTL_S = 120; // messages for a peer that never shows up expire
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function redis(commands) {
+export async function redis(commands) {
   const res = await fetch(`${process.env.KV_REST_API_URL}/pipeline`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}` },
@@ -28,7 +28,7 @@ async function redis(commands) {
   return res.json(); // [{ result } | { error }]
 }
 
-async function readBody(req) {
+export async function readBody(req) {
   if (typeof req.body === 'string') return req.body; // runtime already buffered text/plain
   let body = '';
   for await (const chunk of req) {

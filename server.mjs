@@ -113,6 +113,12 @@ createServer(async (req, res) => {
       await handleCompanion(req, res, new URL(req.url, 'http://localhost').searchParams);
       return;
     }
+    // Local runs don't count toward the hosted funnel (api/event.js).
+    if (path === '/api/event') {
+      res.writeHead(204, CORS);
+      res.end();
+      return;
+    }
 
     if (path === '/config.js') {
       const body = `window.__SL_CONFIG__ = ${JSON.stringify(publicConfig())};`;
