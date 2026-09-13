@@ -378,6 +378,12 @@ export class Display {
     this.clock = clock;
   }
 
+  /** Singer-cue playhead (s) the highlight follows, as in _frame; null without a clock. */
+  cueTime() {
+    if (!this.clock) return null;
+    return this.clock.now() + this.syncOffset + (this._reduceMotion ? 0 : this.singerLead || 0);
+  }
+
   setPalette(colors) {
     if (colors && colors.length) this.palette = colors;
   }
