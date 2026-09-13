@@ -1258,7 +1258,11 @@ function renderRecGrid(el, items, emptyMsg) {
       (s, i) => `
     <button type="button" class="rec" data-i="${i}">
       ${s.artwork ? `<img src="${s.artwork}" alt="" loading="lazy" />` : '<span class="art">♪</span>'}
-      <span class="meta"><b>${escapeHtml(s.track)}</b><span>${escapeHtml(s.artist)}</span></span>
+      <span class="meta"><b>${escapeHtml(s.track)}</b>${
+        getCachedTimeline(s)
+          ? '<span class="ready">Aligned · instant</span>'
+          : `<span>${escapeHtml(s.artist)}</span>`
+      }</span>
     </button>`
     )
     .join('');

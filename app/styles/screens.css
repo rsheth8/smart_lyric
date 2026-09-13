@@ -616,6 +616,15 @@ body[data-surface="tv"] .rec:focus-visible {
 }
 body[data-surface="tv"] .rec:focus-visible :is(img, .art) { box-shadow: var(--shadow-3); }
 body[data-surface="tv"] .shelf:has(.rec:focus-visible) .rec:not(:focus-visible) { opacity: .5; }
+/* Focus reveals the caption: on TV only the focused poster carries its title
+   and status, Apple TV style, so a shelf reads as artwork rather than a grid of
+   text. Opacity (not display) keeps the row height still, and the title stays
+   in the button's accessible name. */
+body[data-surface="tv"] .rec .meta {
+  opacity: 0; transform: translateY(-6px);
+  transition: opacity var(--dur) ease, transform var(--dur) var(--ease-out);
+}
+body[data-surface="tv"] .rec:is(:focus-visible, :hover) .meta { opacity: 1; transform: none; }
 
 /* Focus-driven backdrop: the focused poster's art (--hub-art, set by app.js),
    blurred to pure colour behind the hub. */
