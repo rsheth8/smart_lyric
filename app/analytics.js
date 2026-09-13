@@ -15,6 +15,7 @@ export const EVENTS = {
   song_exit: { surface: SURFACE, sung: ['<25%', '25-75%', '>75%'] },
   remote_paired: {},
   party_on: {},
+  clip_made: { surface: SURFACE },
 };
 
 export function waitBucket(ms) {

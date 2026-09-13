@@ -40,6 +40,7 @@ import { initRemote, Intent } from './remote.js';
 import { newRoomCode, openLink, parseCommand, songFinished, QUEUE_MAX } from './companion.js';
 // Aliased: `track` is the song-title field all over this file (e.g. loadSong's params).
 import { track as trackEvent, waitBucket, sungBucket } from './analytics.js';
+import { recordClip, CLIP_SECONDS } from './clip.js';
 import { initSurface } from './ui/surface.js';
 import { accentFromPalette, applyAccent } from './theme.js';
 import { loadLibrary, recordPlay, clearLibrary, relativeWhen, updateArt } from './library.js';
@@ -2712,6 +2713,56 @@ $('btn-focus')?.addEventListener('click', () => {
   syncFocusUi();
   showToast(on ? 'Focus mode — Esc or “Exit focus” to leave' : 'Full lyric view');
 });
+// Shareable clip (app/clip.js): 15s vertical video of the lyrics + the singer's mic.
+function saveClip(blob, name) {
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: name });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+}
+$('btn-clip')?.addEventListener('click', async () => {
+  const btn = $('btn-clip');
+  if (btn.disabled) return;
+  if (stage.dataset.mode !== 'playing') {
+    showToast('Start a song, then record a clip');
+    return;
+  }
+  btn.disabled = true;
+  showToast(`Recording ${CLIP_SECONDS}s — sing!`);
+  try {
+    const { blob, ext, hasVoice } = await recordClip({
+      display,
+      stage,
+      meta: session.meta || {},
+      artUrl: currentArtUrl,
+      onTick: (left) => {
+        const label = `● ${Math.ceil(left)}s`;
+        if (btn.textContent !== label) btn.textContent = label;
+      },
+    });
+    trackEvent('clip_made', { surface: funnelSurface() });
+    const slug = (session.meta?.track || 'clip').replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+    const file = new File([blob], `bar4bar-${slug || 'clip'}.${ext}`, { type: blob.type });
+    let shared = false;
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: session.meta?.track || 'Bar4Bar clip' });
+        shared = true;
+      } catch (e) {
+        // Cancelled share sheet = done. Anything else (e.g. the 15s outlived the
+        // tap's user activation) falls back to saving the file.
+        shared = e?.name === 'AbortError';
+      }
+    }
+    if (!shared) saveClip(file, file.name);
+    showToast(hasVoice ? 'Clip ready' : 'Clip ready — no mic, so no voice');
+  } catch (e) {
+    showToast(e?.message || 'Couldn’t record a clip');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Clip';
+  }
+});
+
 $('btn-party')?.addEventListener('click', () => {
   const on = display.togglePartyMode();
   if (on) trackEvent('party_on');
