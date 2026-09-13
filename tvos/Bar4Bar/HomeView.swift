@@ -1,197 +1,264 @@
 import Bar4BarKit
 import SwiftUI
 
-enum Theme {
-  static let accent = Color(red: 0.89, green: 0.76, blue: 0.48)
-  static let sung = Color(red: 0.965, green: 0.94, blue: 0.894)
-}
-
 struct RootView: View {
   @Environment(AppModel.self) private var model
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
-    @Bindable var model = model
-    TabView {
-      HomeView().tabItem { Text("Home") }
-      SearchView().tabItem { Text("Search") }
-      RemoteView().tabItem { Text("Phone Remote") }
+    let singing = model.session != nil
+    ZStack {
+      TabView {
+        HomeView().tabItem { Text("Home") }
+        SearchView().tabItem { Text("Search") }
+        RemoteView().tabItem { Text("Phone Remote") }
+      }
+      .disabled(singing)
+      .scaleEffect(singing && !reduceMotion ? 0.94 : 1)
+      .opacity(singing ? 0 : 1)
+
+      if let session = model.session {
+        SingView(session: session)
+          .id(session.id)
+          // Reduce Motion gets a plain crossfade instead of the zoom.
+          .transition(reduceMotion ? AnyTransition.opacity : .asymmetric(
+            insertion: .scale(scale: 1.06).combined(with: .opacity),
+            removal: .scale(scale: 0.97).combined(with: .opacity)
+          ))
+          .zIndex(1)
+      }
     }
-    .overlay(alignment: .top) { ToastView(text: model.session == nil ? model.toast : nil) }
-    .fullScreenCover(item: $model.session) { session in
-      SingView(session: session).environment(model)
-    }
+    .animation(Motion.present, value: model.session?.id)
+    .overlay(alignment: .top) { ToastView(text: model.toast) }
   }
+}
+
+/// The song lit up at the top of Home: whichever card has focus.
+struct Spotlight: Equatable {
+  var song: Song
+  var eyebrow: String
 }
 
 struct HomeView: View {
   @Environment(AppModel.self) private var model
+  @State private var spotlight: Spotlight?
 
   var body: some View {
-    let hero = model.recent.first ?? model.chart.first
-    ScrollView {
-      VStack(alignment: .leading, spacing: 64) {
-        if let hero {
-          Hero(song: hero, eyebrow: model.recent.isEmpty ? "Number one right now" : "Pick up where you left off")
+    let shown = spotlight ?? model.chart.first.map { Spotlight(song: $0, eyebrow: "Number 1 right now") }
+    VStack(alignment: .leading, spacing: 0) {
+      SpotlightHeader(spotlight: shown)
+        .frame(height: 290, alignment: .bottomLeading)
+        .padding(.bottom, 36)
+      ScrollViewReader { rows in
+        ScrollView {
+          VStack(alignment: .leading, spacing: 12) {
+            if !model.queue.isEmpty {
+              Shelf(title: "Up next", songs: model.queue) { _, song in
+                focus(song, song.by.map { "Queued by \($0)" } ?? "Up next", row: "Up next", rows)
+              }
+            }
+            if !model.recent.isEmpty {
+              Shelf(title: "Sing again", songs: model.recent) { _, song in
+                focus(song, "You sang this recently", row: "Sing again", rows)
+              }
+            }
+            if model.chart.isEmpty {
+              SkeletonShelf()
+            } else {
+              Shelf(title: "Top songs", songs: model.chart, ranked: true) { i, song in
+                focus(song, "Number \(i + 1) right now", row: "Top songs", rows)
+              }
+            }
+          }
+          .padding(.bottom, 80)
+          .animation(Motion.glide, value: model.queue.map(\.id))
         }
-        if !model.queue.isEmpty { Shelf(title: "Up next", songs: model.queue) }
-        if model.recent.count > 1 { Shelf(title: "Sing again", songs: Array(model.recent.dropFirst())) }
-        if model.chart.isEmpty {
-          ProgressView().frame(maxWidth: .infinity)
-        } else {
-          Shelf(title: "Top songs", songs: model.chart)
+        .mask {
+          // Rows soften into the header above and the screen edge below.
+          LinearGradient(
+            stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.04), .init(color: .black, location: 0.9), .init(color: .clear, location: 1)],
+            startPoint: .top, endPoint: .bottom
+          )
         }
       }
-      .padding(.bottom, 80)
     }
-    .background { Backdrop(url: hero?.artwork) }
+    .background { Backdrop(url: shown?.song.artwork) }
+  }
+
+  /// Light up the focused song and glide its whole row, title included, to the top.
+  private func focus(_ song: Song, _ eyebrow: String, row: String, _ rows: ScrollViewProxy) {
+    spotlight = Spotlight(song: song, eyebrow: eyebrow)
+    withAnimation(Motion.glide) { rows.scrollTo(row, anchor: .top) }
   }
 }
 
-struct Hero: View {
-  let song: Song
-  let eyebrow: String
-  @Environment(AppModel.self) private var model
+struct SpotlightHeader: View {
+  let spotlight: Spotlight?
 
   var body: some View {
-    HStack(spacing: 64) {
-      Artwork(url: song.artwork)
-        .frame(width: 440, height: 440)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: .black.opacity(0.5), radius: 40, y: 24)
-      VStack(alignment: .leading, spacing: 16) {
-        Text(eyebrow.uppercased())
-          .font(.caption.weight(.semibold)).tracking(3)
-          .foregroundStyle(Theme.accent)
-        Text(song.track)
-          .font(.system(size: 84, weight: .bold))
-          .lineLimit(2)
-        Text(song.artist)
-          .font(.title2)
-          .foregroundStyle(.secondary)
-        Button { model.sing(song) } label: {
-          Label("Sing", systemImage: "music.mic").padding(.horizontal, 28)
+    ZStack(alignment: .bottomLeading) {
+      if let spotlight {
+        VStack(alignment: .leading, spacing: 12) {
+          Text(spotlight.eyebrow.uppercased())
+            .font(.caption.weight(.semibold)).tracking(4)
+            .foregroundStyle(Theme.accent)
+          Text(spotlight.song.track)
+            .font(.system(size: 80, weight: .bold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+          HStack(spacing: 28) {
+            Text(spotlight.song.artist).foregroundStyle(.secondary)
+            Label("Press to sing", systemImage: "music.mic").foregroundStyle(.tertiary)
+          }
+          .font(.title3)
         }
-        .padding(.top, 28)
+        .frame(maxWidth: 1400, alignment: .leading)
+        .id(spotlight.song.id)
+        // The old title gets out of the way before the new one rises in, so they never overlap.
+        .transition(.asymmetric(
+          insertion: .opacity.combined(with: .offset(y: 18)).animation(Motion.glide.delay(0.12)),
+          removal: .opacity.animation(.easeOut(duration: 0.14))
+        ))
       }
-      Spacer(minLength: 0)
     }
-    .padding(.top, 30)
-    .focusSection()
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
   }
 }
 
 struct Shelf: View {
   let title: String
   let songs: [Song]
+  var ranked = false
+  let onFocus: (Int, Song) -> Void
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
+    VStack(alignment: .leading, spacing: 0) {
       Text(title).font(.title3.weight(.semibold)).foregroundStyle(.secondary)
       ScrollView(.horizontal) {
-        LazyHStack(alignment: .top, spacing: 48) {
-          ForEach(songs) { SongCard(song: $0) }
+        LazyHStack(alignment: .bottom, spacing: 56) {
+          ForEach(Array(songs.enumerated()), id: \.element.id) { i, song in
+            SongCard(song: song, rank: ranked ? i + 1 : nil) { onFocus(i, song) }
+              .transition(.opacity.combined(with: .scale(scale: 0.9)))
+          }
         }
-        .padding(.vertical, 32)
+        .padding(.vertical, 36)
       }
       .scrollClipDisabled()
     }
+    .padding(.top, 8)
+    .id(title)
     .focusSection()
   }
 }
 
 struct SongCard: View {
   let song: Song
-  var size: CGFloat = 280
+  var rank: Int?
+  var size: CGFloat = 260
+  var onFocus: () -> Void = {}
   @Environment(AppModel.self) private var model
+  @FocusState private var focused: Bool
+  /// This card opened the stage.
+  @State private var picked = false
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 20) {
-      Button { model.sing(song) } label: {
-        Artwork(url: song.artwork).frame(width: size, height: size)
+    HStack(alignment: .bottom, spacing: -26) {
+      if let rank {
+        Text("\(rank)")
+          .font(.system(size: 190, weight: .black, design: .rounded))
+          .foregroundStyle(LinearGradient(colors: [.white.opacity(focused ? 0.5 : 0.28), .white.opacity(0.02)], startPoint: .top, endPoint: .bottom))
+          .offset(y: 52)
+          .accessibilityHidden(true)
       }
-      .buttonStyle(.card)
-      VStack(alignment: .leading, spacing: 4) {
-        Text(song.track).font(.callout.weight(.semibold))
-        Text(song.by.map { "\(song.artist) · \($0)" } ?? song.artist)
-          .font(.caption).foregroundStyle(.secondary)
+      VStack(alignment: .leading, spacing: 18) {
+        Button {
+          picked = true
+          model.sing(song)
+        } label: {
+          Artwork(url: song.artwork).frame(width: size, height: size)
+        }
+        .buttonStyle(.card)
+        .focused($focused)
+        .accessibilityLabel("\(song.track), \(song.artist)")
+        VStack(alignment: .leading, spacing: 4) {
+          Text(song.track).font(.callout.weight(.semibold)).foregroundStyle(focused ? .primary : .secondary)
+          Text(song.by.map { "\(song.artist) · \($0)" } ?? song.artist).font(.caption).foregroundStyle(.tertiary)
+        }
+        .lineLimit(1)
+        .frame(width: size, alignment: .leading)
+        .offset(y: focused ? 18 : 0)
+        .accessibilityHidden(true)
       }
-      .lineLimit(1)
-      .frame(width: size, alignment: .leading)
     }
+    .animation(Motion.snappy, value: focused)
+    .onChange(of: focused) { _, isFocused in
+      if isFocused { onFocus() }
+    }
+    // The stage is an overlay, not a presentation, so nothing restores focus when it
+    // closes: the card the song was picked from takes it back.
+    .onChange(of: model.session == nil) { _, closed in
+      if closed && picked {
+        picked = false
+        focused = true
+      }
+    }
+  }
+}
+
+/// Where the chart will be, breathing while it loads.
+struct SkeletonShelf: View {
+  @State private var lit = false
+
+  var body: some View {
+    HStack(spacing: 56) {
+      ForEach(0..<6, id: \.self) { _ in
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+          .fill(.white.opacity(lit ? 0.1 : 0.04))
+          .frame(width: 260, height: 260)
+      }
+    }
+    .padding(.vertical, 36)
+    .onAppear { withAnimation(.easeInOut(duration: 0.9).repeatForever()) { lit = true } }
   }
 }
 
 struct SearchView: View {
+  @Environment(AppModel.self) private var model
   @State private var query = ""
   @State private var results: [Song] = []
+  @State private var searching = false
 
   var body: some View {
+    let browsing = query.trimmingCharacters(in: .whitespaces).count < 2
+    let songs = browsing ? model.chart : results
     NavigationStack {
       ScrollView {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 280, maximum: 280), spacing: 48)], spacing: 56) {
-          ForEach(results) { SongCard(song: $0) }
+        VStack(alignment: .leading, spacing: 0) {
+          Text(browsing ? "Popular right now" : searching ? "Searching…" : results.isEmpty ? "No songs match “\(query)”" : "Songs")
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .contentTransition(.opacity)
+          LazyVGrid(columns: [GridItem(.adaptive(minimum: 260, maximum: 260), spacing: 56)], spacing: 64) {
+            ForEach(songs) { song in
+              SongCard(song: song).transition(.opacity.combined(with: .scale(scale: 0.94)))
+            }
+          }
+          .padding(.vertical, 40)
         }
-        .padding(.vertical, 40)
+        .animation(Motion.glide, value: songs.map(\.id))
+        .animation(Motion.snappy, value: searching)
       }
       .searchable(text: $query, prompt: "Songs or artists")
       .task(id: query) {
+        guard !browsing else { return }
         try? await Task.sleep(for: .milliseconds(350)) // debounce typing
         guard !Task.isCancelled else { return }
-        results = await Catalog.search(query)
+        searching = true
+        let found = await Catalog.search(query)
+        guard !Task.isCancelled else { return }
+        results = found
+        searching = false
       }
-    }
-  }
-}
-
-struct Artwork: View {
-  let url: String?
-
-  var body: some View {
-    Color(white: 0.14)
-      .overlay {
-        AsyncImage(url: url.flatMap(URL.init(string:))) { phase in
-          if let image = phase.image {
-            image.resizable().scaledToFill()
-          } else {
-            Image(systemName: "music.note").font(.system(size: 64)).foregroundStyle(.tertiary)
-          }
-        }
-      }
-      .clipped()
-  }
-}
-
-/// The song's own artwork, blown up and blurred into light behind everything.
-struct Backdrop: View {
-  let url: String?
-
-  var body: some View {
-    Color.black
-      .overlay {
-        AsyncImage(url: url.flatMap(URL.init(string:))) { image in
-          image.resizable().scaledToFill().blur(radius: 90).saturation(1.4).opacity(0.55)
-        } placeholder: {
-          Color.clear
-        }
-      }
-      .overlay(LinearGradient(colors: [.black.opacity(0.1), .black.opacity(0.85)], startPoint: .top, endPoint: .bottom))
-      .clipped()
-      .ignoresSafeArea()
-  }
-}
-
-struct ToastView: View {
-  let text: String?
-
-  var body: some View {
-    if let text {
-      Text(text)
-        .font(.headline)
-        .padding(.horizontal, 36)
-        .padding(.vertical, 18)
-        .background(.regularMaterial, in: Capsule())
-        .padding(.top, 40)
-        .transition(.move(edge: .top).combined(with: .opacity))
     }
   }
 }

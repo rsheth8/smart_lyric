@@ -87,15 +87,13 @@ final class AppModel {
 
   func togglePlay() {
     guard let session, session.status == .ready else { return }
-    session.toggle()
-    flash(session.playing ? "Playing" : "Paused")
+    session.toggle() // the stage shows the pause badge
     pushState(force: true)
   }
 
   func nudge(ms: Int) {
     guard let session, session.status == .ready else { return }
-    session.nudge(ms: ms)
-    flash(String(format: "Timing %+.2fs", session.offset))
+    session.nudge(ms: ms) // the now-playing bar shows the offset
     pushState(force: true)
   }
 
@@ -139,10 +137,10 @@ final class AppModel {
   func flash(_ text: String) {
     toastID += 1
     let id = toastID
-    withAnimation(.snappy) { toast = text }
+    toast = text // ToastView animates its own entrances and exits
     Task {
-      try? await Task.sleep(for: .seconds(1.8))
-      if toastID == id { withAnimation(.easeOut) { toast = nil } }
+      try? await Task.sleep(for: .seconds(2.2))
+      if toastID == id { toast = nil }
     }
   }
 

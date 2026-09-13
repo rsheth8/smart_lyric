@@ -5,30 +5,45 @@ import SwiftUI
 struct SingView: View {
   let session: SingSession
   @Environment(AppModel.self) private var model
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  /// Remote hints show on arrival and after any change, then get out of the way.
+  @State private var hints = true
+  @State private var poke = 0
 
   var body: some View {
     ZStack {
-      Backdrop(url: session.song.artwork)
+      Backdrop(url: session.song.artwork, dim: 0.2)
       switch session.status {
       case .loading:
-        VStack(spacing: 32) {
-          ProgressView()
-          Text("Finding lyrics for “\(session.song.track)”…").font(.title3).foregroundStyle(.secondary)
-        }
+        LoadingStage(song: session.song)
+          .transition(.opacity.combined(with: .scale(scale: 0.96)))
       case .failed(let message):
-        VStack(spacing: 40) {
-          Text(message).font(.title2)
-          Button("Back to songs") { model.endSing() }
-        }
+        FailedStage(song: session.song, message: message)
+          .transition(.opacity)
       case .ready:
         TimelineView(.animation) { _ in
-          LyricsStage(timeline: session.timeline, t: session.cueTime, singer: session.song.by)
+          LyricsStage(timeline: session.timeline, t: session.cueTime, singer: session.song.by, reduceMotion: reduceMotion)
         }
+        .opacity(session.playing ? 1 : 0.35)
+        .blur(radius: session.playing || reduceMotion ? 0 : 8)
+        .transition(.opacity)
       }
-      NowPlaying(session: session)
-        .frame(maxHeight: .infinity, alignment: .bottom)
+      if session.status == .ready && !session.playing {
+        Image(systemName: "pause.fill")
+          .font(.system(size: 64, weight: .semibold))
+          .frame(width: 170, height: 170)
+          .glass(Circle())
+          .accessibilityLabel("Paused")
+          .transition(.scale(scale: 0.7).combined(with: .opacity))
+      }
+      if session.status == .ready {
+        NowPlaying(session: session, upNext: model.queue.first, hints: hints)
+          .frame(maxHeight: .infinity, alignment: .bottom)
+          .transition(.move(edge: .bottom).combined(with: .opacity))
+      }
     }
-    .overlay(alignment: .top) { ToastView(text: model.toast) }
+    .animation(Motion.glide, value: session.status)
+    .animation(Motion.snappy, value: session.playing)
     .focusable(!isFailed)
     .focusEffectDisabled()
     .onPlayPauseCommand { model.togglePlay() }
@@ -36,10 +51,19 @@ struct SingView: View {
       switch direction {
       case .left: model.nudge(ms: -100)
       case .right: model.nudge(ms: 100)
-      default: break
+      default: poke += 1
       }
     }
     .onExitCommand { model.endSing() }
+    .onChange(of: session.status) { poke += 1 } // lyrics landing restarts the hint timer
+    .onChange(of: session.playing) { poke += 1 }
+    .onChange(of: session.offset) { poke += 1 }
+    .task(id: poke) {
+      withAnimation(Motion.snappy) { hints = true }
+      try? await Task.sleep(for: .seconds(4))
+      guard !Task.isCancelled, session.playing else { return }
+      withAnimation(Motion.glide) { hints = false }
+    }
   }
 
   private var isFailed: Bool {
@@ -52,53 +76,112 @@ struct LyricsStage: View {
   let timeline: Timeline
   let t: Double
   let singer: String?
+  let reduceMotion: Bool
 
   var body: some View {
     let lines = timeline.lines
     let current = max(0, timeline.activeLine(at: t))
-    let window = max(0, current - 1)...min(lines.count - 1, current + 2)
+    let countIn = timeline.countIn(at: t)
     ZStack {
-      VStack(spacing: 36) {
-        ForEach(Array(window), id: \.self) { i in
-          LineView(line: lines[i], t: t, role: i < current ? .past : i == current ? .current : .upcoming)
-            .transition(.asymmetric(insertion: .move(edge: .bottom), removal: .move(edge: .top)).combined(with: .opacity))
+      LyricColumn(focusY: 0.44, spacing: 34) {
+        ForEach(max(0, current - 2)...min(lines.count - 1, current + 3), id: \.self) { i in
+          let distance = i - current
+          let scale = distance == 0 ? 1 : 0.62
+          LineView(line: lines[i], t: t, active: distance == 0 && !reduceMotion)
+            .scaleEffect(scale)
+            .opacity(Self.opacity(distance))
+            .blur(radius: reduceMotion ? 0 : min(Double(abs(distance)) * 1.6, 5))
+            .layoutValue(key: LineScale.self, value: scale)
+            .layoutValue(key: IsCurrentLine.self, value: distance == 0)
+            .transition(.opacity)
         }
       }
-      .padding(.horizontal, 60)
-      .animation(.smooth(duration: 0.6), value: current)
+      .padding(.horizontal, 90)
+      // Lines further ahead fade out before they reach the now-playing bar.
+      .mask {
+        LinearGradient(stops: [.init(color: .black, location: 0.7), .init(color: .clear, location: 0.82)], startPoint: .top, endPoint: .bottom)
+      }
+      .animation(reduceMotion ? .easeInOut(duration: 0.25) : Motion.glide, value: current)
 
-      if let seconds = timeline.countIn(at: t) {
-        CountIn(seconds: seconds, singer: t < (lines.first?.start ?? 0) ? singer : nil)
+      if let countIn {
+        CountIn(seconds: countIn, singer: t < (lines.first?.start ?? 0) ? singer : nil)
           .frame(maxHeight: .infinity, alignment: .top)
           .padding(.top, 70)
+          .transition(.opacity.combined(with: .scale(scale: 0.9)))
       }
+    }
+    .animation(Motion.snappy, value: countIn == nil)
+  }
+
+  /// Sung lines fade quickly; upcoming ones stay readable further ahead.
+  static func opacity(_ distance: Int) -> Double {
+    switch distance {
+    case 0: 1
+    case -1: 0.3
+    case 1: 0.6
+    case 2: 0.34
+    case 3: 0.14
+    default: 0
+    }
+  }
+}
+
+private struct LineScale: LayoutValueKey {
+  static let defaultValue: CGFloat = 1
+}
+
+private struct IsCurrentLine: LayoutValueKey {
+  static let defaultValue = false
+}
+
+/// Stacks lyric lines and slides the whole column so the current line sits at
+/// `focusY`. SwiftUI animates the placements, which is the scroll.
+struct LyricColumn: Layout {
+  var focusY: CGFloat
+  var spacing: CGFloat
+
+  func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    proposal.replacingUnspecifiedDimensions()
+  }
+
+  func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    let width = ProposedViewSize(width: bounds.width, height: nil)
+    let sizes = subviews.map { $0.sizeThatFits(width) }
+    var centers: [CGFloat] = []
+    var y: CGFloat = 0
+    var focus: CGFloat = 0
+    for (subview, size) in zip(subviews, sizes) {
+      let height = size.height * subview[LineScale.self]
+      centers.append(y + height / 2)
+      if subview[IsCurrentLine.self] { focus = y + height / 2 }
+      y += height + spacing
+    }
+    let shift = bounds.minY + bounds.height * focusY - focus
+    for (i, subview) in subviews.enumerated() {
+      subview.place(
+        at: CGPoint(x: bounds.midX, y: centers[i] + shift),
+        anchor: .center,
+        proposal: ProposedViewSize(width: bounds.width, height: sizes[i].height)
+      )
     }
   }
 }
 
 struct LineView: View {
-  enum Role { case past, current, upcoming }
   let line: Line
   let t: Double
-  let role: Role
+  /// The line being sung: its words get the bounce and glow.
+  let active: Bool
 
   var body: some View {
-    if role == .current {
-      FlowLayout(spacing: 26, lineSpacing: 4) {
-        ForEach(line.words.indices, id: \.self) { i in
-          let word = line.words[i]
-          WordView(text: word.text, progress: wipeProgress(t, word.start, word.end))
-        }
+    FlowLayout(spacing: 24, lineSpacing: 2) {
+      ForEach(line.words.indices, id: \.self) { i in
+        let word = line.words[i]
+        WordView(text: word.text, progress: wipeProgress(t, word.start, word.end), active: active)
       }
-      .font(.system(size: 92, weight: .heavy))
-      .shadow(color: .black.opacity(0.35), radius: 24)
-    } else {
-      Text(line.text)
-        .font(.system(size: 54, weight: .bold))
-        .multilineTextAlignment(.center)
-        .foregroundStyle(.white.opacity(role == .past ? 0.2 : 0.42))
-        .lineLimit(2)
     }
+    .font(.system(size: 88, weight: .heavy))
+    .shadow(color: .black.opacity(0.3), radius: 20)
   }
 }
 
@@ -106,19 +189,27 @@ struct LineView: View {
 struct WordView: View {
   let text: String
   let progress: Double
+  let active: Bool
 
   var body: some View {
+    let singing = progress > 0 && progress < 1
     Text(text)
-      .foregroundStyle(progress >= 1 ? Theme.sung : .white.opacity(0.38))
+      .foregroundStyle(progress >= 1 ? Theme.sung : .white.opacity(0.5))
       .overlay {
-        if progress > 0 && progress < 1 {
+        if singing {
           Text(text)
             .foregroundStyle(Theme.accent)
-            .mask(alignment: .leading) {
-              GeometryReader { geo in Rectangle().frame(width: geo.size.width * progress) }
+            .mask {
+              // A soft leading edge instead of a hard cut.
+              LinearGradient(
+                stops: [.init(color: .black, location: progress), .init(color: .clear, location: min(1, progress + 0.14))],
+                startPoint: .leading, endPoint: .trailing
+              )
             }
+            .shadow(color: Theme.accent.opacity(active ? 0.6 : 0), radius: 18)
         }
       }
+      .scaleEffect(active && singing ? 1 + 0.05 * sin(.pi * progress) : 1, anchor: .bottom)
   }
 }
 
@@ -127,43 +218,147 @@ struct CountIn: View {
   let singer: String?
 
   var body: some View {
-    VStack(spacing: 12) {
+    let remaining = Int(seconds.rounded(.up))
+    VStack(spacing: 18) {
       if let singer {
         Text("\(singer), you’re up").font(.title2.weight(.semibold)).foregroundStyle(Theme.accent)
       }
-      HStack(spacing: 22) {
-        ForEach(0..<3) { beat in
-          Circle()
-            .fill(Theme.accent.opacity(Double(beat) < 3 - seconds.rounded(.up) + 1 ? 1 : 0.25))
-            .frame(width: 22, height: 22)
+      HStack(spacing: 18) {
+        ForEach(0..<3, id: \.self) { beat in
+          let lit = beat < 4 - remaining
+          Capsule()
+            .fill(Theme.accent.opacity(lit ? 1 : 0.22))
+            .frame(width: lit ? 64 : 22, height: 22)
         }
       }
+      .animation(Motion.snappy, value: remaining)
     }
+    .padding(.horizontal, 40)
+    .padding(.vertical, 24)
+    .glass(RoundedRectangle(cornerRadius: 34, style: .continuous))
   }
 }
 
 struct NowPlaying: View {
   let session: SingSession
+  let upNext: Song?
+  let hints: Bool
 
   var body: some View {
-    HStack(spacing: 26) {
-      Artwork(url: session.song.artwork)
-        .frame(width: 84, height: 84)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-      VStack(alignment: .leading, spacing: 4) {
-        Text(session.song.track).font(.headline)
-        Text(session.song.artist).font(.callout).foregroundStyle(.secondary)
-      }
-      Spacer()
-      if session.status == .ready {
-        Text(session.playing ? "◀ ▶  timing    ⏯  pause    Menu  back" : "Paused — ⏯ to resume")
+    VStack(spacing: 20) {
+      HStack(spacing: 24) {
+        Artwork(url: session.song.artwork)
+          .frame(width: 76, height: 76)
+          .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        VStack(alignment: .leading, spacing: 2) {
+          Text(session.song.track).font(.headline)
+          Text(session.song.by.map { "\(session.song.artist) · \($0) singing" } ?? session.song.artist)
+            .font(.callout).foregroundStyle(.secondary)
+        }
+        Spacer(minLength: 40)
+        if session.offset != 0 {
+          Text(String(format: "%+.1fs", session.offset))
+            .font(.callout.monospacedDigit().weight(.semibold))
+            .foregroundStyle(Theme.accent)
+            .contentTransition(.numericText(value: session.offset))
+            .padding(.horizontal, 18)
+            .padding(.vertical, 8)
+            .background(Theme.accent.opacity(0.16), in: Capsule())
+            .transition(.scale.combined(with: .opacity))
+        }
+        if hints {
+          HStack(spacing: 30) {
+            Label("Timing", systemImage: "arrow.left.and.right")
+            Label(session.playing ? "Pause" : "Resume", systemImage: "playpause.fill")
+            Label("Back", systemImage: "chevron.backward")
+          }
           .font(.caption)
-          .foregroundStyle(.tertiary)
+          .foregroundStyle(.secondary)
+          .transition(.opacity)
+        } else if let upNext {
+          Text("Up next · \(upNext.track)\(upNext.by.map { " · \($0)" } ?? "")")
+            .font(.callout).foregroundStyle(.secondary)
+            .transition(.opacity)
+        }
+      }
+      TimelineView(.animation(minimumInterval: 0.1)) { _ in
+        let duration = session.timeline.duration
+        let progress = duration > 0 ? min(1, max(0, session.position / duration)) : 0
+        Capsule()
+          .fill(.white.opacity(0.14))
+          .overlay(alignment: .leading) {
+            GeometryReader { geo in
+              Capsule().fill(Theme.accent).frame(width: geo.size.width * progress)
+            }
+          }
+          .frame(height: 6)
       }
     }
     .lineLimit(1)
-    .padding(.horizontal, 20)
-    .padding(.bottom, 10)
+    .padding(.horizontal, 36)
+    .padding(.vertical, 24)
+    .glass(RoundedRectangle(cornerRadius: 32, style: .continuous))
+    .padding(.horizontal, 40)
+    .padding(.bottom, 20)
+    .animation(Motion.snappy, value: session.offset)
+    .animation(Motion.glide, value: hints)
+  }
+}
+
+struct LoadingStage: View {
+  let song: Song
+  @State private var breathe = false
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  var body: some View {
+    VStack(spacing: 48) {
+      Artwork(url: song.artwork)
+        .frame(width: 380, height: 380)
+        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .shadow(color: .black.opacity(0.5), radius: 60, y: 30)
+        .scaleEffect(breathe ? 1.03 : 0.98)
+      VStack(spacing: 12) {
+        if let by = song.by {
+          Text("\(by), get ready".uppercased()).font(.caption.weight(.semibold)).tracking(4).foregroundStyle(Theme.accent)
+        }
+        Text(song.track).font(.system(size: 60, weight: .bold)).lineLimit(1)
+        Text(song.artist).font(.title3).foregroundStyle(.secondary)
+      }
+      HStack(spacing: 16) {
+        ProgressView()
+        Text("Finding the lyrics").foregroundStyle(.secondary)
+      }
+    }
+    .onAppear {
+      guard !reduceMotion else { return }
+      withAnimation(.easeInOut(duration: 1.8).repeatForever()) { breathe = true }
+    }
+  }
+}
+
+struct FailedStage: View {
+  let song: Song
+  let message: String
+  @Environment(AppModel.self) private var model
+
+  var body: some View {
+    VStack(spacing: 36) {
+      Artwork(url: song.artwork)
+        .frame(width: 240, height: 240)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .saturation(0.3)
+      Text(message).font(.title2.weight(.semibold))
+      Text("Lyrics come from public databases, and not every song has them yet.")
+        .font(.callout).foregroundStyle(.secondary)
+      HStack(spacing: 32) {
+        if let next = model.queue.first {
+          Button("Sing “\(next.track)”") { model.playNext() }
+        }
+        Button("Choose another song") { model.endSing() }
+      }
+      .padding(.top, 12)
+    }
+    .multilineTextAlignment(.center)
   }
 }
 

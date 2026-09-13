@@ -10,16 +10,31 @@
 		0961E8F961C7ABB2B9B4487C /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B8AB244E5499E131B7F87C0 /* HomeView.swift */; };
 		2BE8EC22D3FCF436FFECA0E9 /* RemoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE5F36D12FE9F9C9D28993AD /* RemoteView.swift */; };
 		3172CC40B4D572466DB03599 /* Bar4BarKit in Frameworks */ = {isa = PBXBuildFile; productRef = B7158DB0EA4CA604AD1723A6 /* Bar4BarKit */; };
+		5396A54389741436A8AF8C60 /* RemoteFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F8CF357415421196838FA40 /* RemoteFlowTests.swift */; };
+		7B50B76F4B39F1830BC6226F /* Design.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CEAECCBFA38080CF8387DB0 /* Design.swift */; };
 		B248037ADC95D0DACFC762E5 /* SingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DD2B402EFCF53A5216BDA04 /* SingView.swift */; };
 		DB7E3B2F3926A8E17820D9E5 /* Bar4BarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E2582CFF3CF4C77F50F82D /* Bar4BarApp.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		F8F7376CB3E9CB71F7C2B45A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA6F5D5701D04572C9D857FB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0B77748FB92E6DAC04CA69E6;
+			remoteInfo = Bar4Bar;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		0DD2B402EFCF53A5216BDA04 /* SingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingView.swift; sourceTree = "<group>"; };
 		2B8AB244E5499E131B7F87C0 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		2E17A5A82B9B393AE7E8596C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		3CEAECCBFA38080CF8387DB0 /* Design.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Design.swift; sourceTree = "<group>"; };
+		4F8CF357415421196838FA40 /* RemoteFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteFlowTests.swift; sourceTree = "<group>"; };
 		8F103C2521F2C3121A289C0D /* Bar4Bar.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Bar4Bar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB555299DC3A96BB638BB7BC /* Bar4BarKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Bar4BarKit; path = Bar4BarKit; sourceTree = SOURCE_ROOT; };
+		BB6FEDAAF5D002D1A7241F46 /* Bar4BarUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = Bar4BarUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D0E2582CFF3CF4C77F50F82D /* Bar4BarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bar4BarApp.swift; sourceTree = "<group>"; };
 		DE5F36D12FE9F9C9D28993AD /* RemoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -40,6 +55,7 @@
 			isa = PBXGroup;
 			children = (
 				D0E2582CFF3CF4C77F50F82D /* Bar4BarApp.swift */,
+				3CEAECCBFA38080CF8387DB0 /* Design.swift */,
 				2B8AB244E5499E131B7F87C0 /* HomeView.swift */,
 				2E17A5A82B9B393AE7E8596C /* Info.plist */,
 				DE5F36D12FE9F9C9D28993AD /* RemoteView.swift */,
@@ -52,6 +68,7 @@
 			isa = PBXGroup;
 			children = (
 				8F103C2521F2C3121A289C0D /* Bar4Bar.app */,
+				BB6FEDAAF5D002D1A7241F46 /* Bar4BarUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -64,10 +81,19 @@
 			name = Packages;
 			sourceTree = "<group>";
 		};
+		8EE503B1DB331E0209417652 /* Bar4BarUITests */ = {
+			isa = PBXGroup;
+			children = (
+				4F8CF357415421196838FA40 /* RemoteFlowTests.swift */,
+			);
+			path = Bar4BarUITests;
+			sourceTree = "<group>";
+		};
 		FC5E565C8B8F5D0F43652ABC = {
 			isa = PBXGroup;
 			children = (
 				3ABF574BF112A6941004F709 /* Bar4Bar */,
+				8EE503B1DB331E0209417652 /* Bar4BarUITests */,
 				7B62841ED6BE2937F378BFDC /* Packages */,
 				6DB319E2E6B84CBA540BABFA /* Products */,
 			);
@@ -95,6 +121,24 @@
 			productReference = 8F103C2521F2C3121A289C0D /* Bar4Bar.app */;
 			productType = "com.apple.product-type.application";
 		};
+		806D1F122D3C49770B2ADC1B /* Bar4BarUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 90113E67F2B4D35EC8551BD1 /* Build configuration list for PBXNativeTarget "Bar4BarUITests" */;
+			buildPhases = (
+				3DBB80F4D23FA5EF5E5FA39B /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CA29C267677B797815A1C96E /* PBXTargetDependency */,
+			);
+			name = Bar4BarUITests;
+			packageProductDependencies = (
+			);
+			productName = Bar4BarUITests;
+			productReference = BB6FEDAAF5D002D1A7241F46 /* Bar4BarUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -104,6 +148,9 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					806D1F122D3C49770B2ADC1B = {
+						TestTargetID = 0B77748FB92E6DAC04CA69E6;
+					};
 				};
 			};
 			buildConfigurationList = 0F8B4ABCCB93E617F6A227F8 /* Build configuration list for PBXProject "Bar4Bar" */;
@@ -124,6 +171,7 @@
 			projectRoot = "";
 			targets = (
 				0B77748FB92E6DAC04CA69E6 /* Bar4Bar */,
+				806D1F122D3C49770B2ADC1B /* Bar4BarUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -134,13 +182,30 @@
 			buildActionMask = 2147483647;
 			files = (
 				DB7E3B2F3926A8E17820D9E5 /* Bar4BarApp.swift in Sources */,
+				7B50B76F4B39F1830BC6226F /* Design.swift in Sources */,
 				0961E8F961C7ABB2B9B4487C /* HomeView.swift in Sources */,
 				2BE8EC22D3FCF436FFECA0E9 /* RemoteView.swift in Sources */,
 				B248037ADC95D0DACFC762E5 /* SingView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3DBB80F4D23FA5EF5E5FA39B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5396A54389741436A8AF8C60 /* RemoteFlowTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		CA29C267677B797815A1C96E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0B77748FB92E6DAC04CA69E6 /* Bar4Bar */;
+			targetProxy = F8F7376CB3E9CB71F7C2B45A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		0CB7ECBEC7F1576984D40FBB /* Release */ = {
@@ -217,6 +282,24 @@
 				TARGETED_DEVICE_FAMILY = 3;
 			};
 			name = Release;
+		};
+		40AD3465C3A750F4C90AAD37 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.bar4bar.tv.uitests;
+				SDKROOT = appletvos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 3;
+				TEST_TARGET_NAME = Bar4Bar;
+			};
+			name = Debug;
 		};
 		5A206AFE6CE56CBB5986F835 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -300,6 +383,24 @@
 			};
 			name = Debug;
 		};
+		CE5857F2A8AC2DBE6A2AA011 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.bar4bar.tv.uitests;
+				SDKROOT = appletvos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 3;
+				TEST_TARGET_NAME = Bar4Bar;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -317,6 +418,15 @@
 			buildConfigurations = (
 				96BB7C096EF00CE4EF84EB9A /* Debug */,
 				3C869B35BA057E3371376D3D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		90113E67F2B4D35EC8551BD1 /* Build configuration list for PBXNativeTarget "Bar4BarUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				40AD3465C3A750F4C90AAD37 /* Debug */,
+				CE5857F2A8AC2DBE6A2AA011 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
