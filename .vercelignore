@@ -7,4 +7,11 @@ test
 identify.py
 *.wav
 .env
+.env.*
+!.env.example
 .DS_Store
+.claude
+.claude-flow
+**/.claude-flow
+.agents
+skills-lock.json
