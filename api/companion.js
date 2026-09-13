@@ -10,7 +10,7 @@
 // Fine for a living room; move to Upstash's SSE subscribe (or WebSockets on
 // Fluid) if usage outgrows the Redis plan.
 
-import { ROOM_RE, ROLES, MAX_MESSAGE_BYTES } from '../app/companion.js';
+import { ROOM_RE, ROLES, PEER_RE, MAX_MESSAGE_BYTES } from '../app/companion.js';
 
 const STREAM_MS = 240_000; // under the function timeout; EventSource reconnects
 const POLL_FAST_MS = 250;
@@ -66,10 +66,17 @@ export default async function handler(req, res) {
       res.end();
       return;
     }
-    const key = `companion:${room}:${role === 'tv' ? 'phone' : 'tv'}`;
+    // Re-serialised, so an untrusted body can't smuggle newlines into the SSE frame.
+    const data = JSON.stringify(msg);
+    const keys = [`companion:${room}:${role === 'tv' ? 'phone' : 'tv'}`];
     try {
-      // Re-serialised, so an untrusted body can't smuggle newlines into the SSE frame.
-      await redis([['RPUSH', key, JSON.stringify(msg)], ['LTRIM', key, -100, -1], ['EXPIRE', key, TTL_S]]);
+      if (role === 'tv') {
+        // Fan out to every registered guest phone (the shared list above still
+        // serves a phone page from before guest rooms, which sends no peer id).
+        const [{ result: peers = [] }] = await redis([['SMEMBERS', `companion:${room}:phones`]]);
+        for (const p of peers) keys.push(`companion:${room}:phone:${p}`);
+      }
+      await redis(keys.flatMap((k) => [['RPUSH', k, data], ['LTRIM', k, -100, -1], ['EXPIRE', k, TTL_S]]));
       res.statusCode = 204;
     } catch {
       res.statusCode = 502;
@@ -84,7 +91,16 @@ export default async function handler(req, res) {
     return;
   }
 
-  const key = `companion:${room}:${role}`;
+  // Each guest phone drains its own list: with one shared list, LPOP would hand
+  // every TV update to whichever phone polled first and starve the rest.
+  const peer = role === 'phone' && PEER_RE.test(q.get('peer') || '') ? q.get('peer') : null;
+  const key = peer ? `companion:${room}:phone:${peer}` : `companion:${room}:${role}`;
+  const phonesKey = `companion:${room}:phones`;
+  // ponytail: a phone whose function dies without cleanup lingers in the set until
+  // its TTL lapses, costing a few wasted RPUSHes per TV update; bounded by TTL_S.
+  const register = () =>
+    peer ? redis([['SADD', phonesKey, peer], ['EXPIRE', phonesKey, TTL_S]]).catch(() => {}) : null;
+  await register();
   res.writeHead(200, { 'Content-Type': 'text/event-stream', Connection: 'keep-alive' });
   res.write(': open\n\n');
 
@@ -106,8 +122,12 @@ export default async function handler(req, res) {
     if (Date.now() - lastPing > 20_000) {
       res.write(': ping\n\n');
       lastPing = Date.now();
+      register(); // keep this phone's membership alive past TTL_S
     }
     await sleep(delay);
   }
+  // Phone left for good (not just this stream's time limit, where EventSource
+  // reconnects straight away and re-registers).
+  if (peer && !open) await redis([['SREM', phonesKey, peer]]).catch(() => {});
   res.end();
 }

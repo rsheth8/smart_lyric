@@ -356,6 +356,18 @@ body:has(#stage[data-mode="setup"]) :is(#live-sep-hud, #sync-hud) { display: non
   transition: width .18s linear;
 }
 @keyframes instr-pulse { 0%,100% { opacity: .55; transform: scale(1); } 50% { opacity: 1; transform: scale(1.08); } }
+/* Guest rooms: whoever queued this song, called up as it starts. Opacity only,
+   so it stays calm under reduced motion. */
+#singer-up {
+  position: absolute; top: 12%; left: 50%; transform: translateX(-50%);
+  z-index: 9; pointer-events: none; opacity: 0; white-space: nowrap;
+  font: 750 clamp(28px, 4.2vw, 64px)/1 var(--font-display), system-ui, sans-serif;
+  letter-spacing: -.02em; color: var(--accent);
+  text-shadow: 0 0 40px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+#singer-up.show { animation: singer-up 3.4s ease both; }
+@keyframes singer-up { 0% { opacity: 0; } 12%, 78% { opacity: 1; } 100% { opacity: 0; } }
+#stage[data-mode="setup"] #singer-up { display: none; }
 /* Line count-in: runway fills before a phrase with a real gap; 3-2-1 in the last beats. */
 #count-in {
   position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%) translateY(8px);

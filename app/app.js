@@ -403,6 +403,22 @@ const funnelSurface = () => (document.body.dataset.surface === 'tv' ? 'tv' : 'de
 let songLoadAt = 0;
 addEventListener('load', () => trackEvent('app_open', { surface: funnelSurface() }));
 
+// Guest rooms: the guest who queued the loading song gets called up when it starts.
+// Its own element, not showToast — the loader's timing toasts would cover it.
+let singerUpNext = '';
+function announceSinger(name) {
+  let el = $('singer-up');
+  if (!el) {
+    el = Object.assign(document.createElement('div'), { id: 'singer-up' });
+    el.setAttribute('role', 'status');
+    stage.append(el);
+  }
+  el.textContent = `${name}, you're up`;
+  el.classList.remove('show');
+  void el.offsetWidth; // restart the fade for back-to-back guests
+  el.classList.add('show');
+}
+
 function enterSetup() {
   if (stage.dataset.mode === 'playing') {
     const dur = session.timeline?.duration || session.timeline?.lines?.at(-1)?.end;
@@ -436,6 +452,10 @@ function enterPlaying() {
   if (songLoadAt) {
     trackEvent('song_ready', { surface: funnelSurface(), wait: waitBucket(performance.now() - songLoadAt) });
     songLoadAt = 0;
+  }
+  if (singerUpNext) {
+    announceSinger(singerUpNext);
+    singerUpNext = '';
   }
   stage.dataset.mode = 'playing';
   updateTransport();
@@ -576,7 +596,7 @@ function escapeHtml(s) {
 }
 
 // ------------------------------ pick a song ------------------------------
-async function loadSong({ artist, track, duration }) {
+async function loadSong({ artist, track, duration, by }) {
   stopActiveMedium();
   hideSuggestions();
   $('in-track').value = track || '';
@@ -588,6 +608,7 @@ async function loadSong({ artist, track, duration }) {
     return;
   }
   songLoadAt = performance.now();
+  singerUpNext = by || ''; // set (or cleared) on every load, so a failed guest pick can't leak
   trackEvent('song_load', { surface: funnelSurface() });
   // Prefer an attached audio file; otherwise, if Spotify is connected, play the
   // song on Spotify and follow it; otherwise fall back to the local demo clock.
@@ -1578,7 +1599,7 @@ function closeAnyOpenPopup() {
 // acts on the phone's commands — every one gated by parseCommand(). Relay: this
 // machine's LAN server when there is one (dev server / Electron), otherwise the
 // hosted relay on the same origin (Vercel). Protocol: app/companion.js.
-const companion = { room: newRoomCode(), link: null, phoneUrl: '', queue: [], phoneSeen: false, lastSent: '', lastBeat: 0 };
+const companion = { room: newRoomCode(), link: null, phoneUrl: '', queue: [], phoneSeen: false, guests: new Set(), lastSent: '', lastBeat: 0 };
 const QR_LIB = {
   src: 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js',
   integrity: 'sha384-mZT2gIty7ZDdOGkxfP6joZcYdMW1Jvj9dRlfpTmaJAKKXTqzygtB22k7FLe+KZC1',
@@ -1614,7 +1635,12 @@ function loadQrLib() {
 function updateCompanionStatus() {
   const el = $('companion-status');
   if (!el) return;
-  el.textContent = companion.phoneSeen ? 'Phone connected ✓' : 'Waiting for your phone…';
+  const names = [...companion.guests];
+  el.textContent = names.length
+    ? `${names.length > 3 ? `${names.length} guests` : names.join(', ')} connected ✓`
+    : companion.phoneSeen
+      ? 'Phone connected ✓'
+      : 'Waiting for your phone…';
   el.toggleAttribute('data-on', companion.phoneSeen);
 }
 
@@ -1661,17 +1687,22 @@ function onCompanionMessage(raw) {
     updateCompanionStatus();
     showToast('Phone remote connected');
   }
+  if (cmd.by && !companion.guests.has(cmd.by)) {
+    companion.guests.add(cmd.by);
+    updateCompanionStatus();
+    showToast(`${cmd.by} joined`);
+  }
   const playing = stage.dataset.mode === 'playing';
   switch (cmd.type) {
     case 'play':
-      playFromRemote(cmd.song);
+      playFromRemote({ ...cmd.song, by: cmd.by });
       break;
     case 'queue':
       if (companion.queue.length >= QUEUE_MAX) {
         showToast('Queue is full');
       } else {
-        companion.queue.push(cmd.song);
-        showToast(`Up next: ${cmd.song.track}`);
+        companion.queue.push({ ...cmd.song, by: cmd.by });
+        showToast(`Up next: ${cmd.song.track}${cmd.by ? ` · ${cmd.by}` : ''}`);
       }
       break;
     case 'unqueue':
@@ -1710,7 +1741,7 @@ function pushCompanionState(force = false) {
     art: currentArtUrl || '',
     playing: stage.dataset.playback === 'playing',
     offsetMs: Math.round((display.syncOffset || 0) * 1000),
-    queue: companion.queue.map(({ track, artist, artwork }) => ({ track, artist, artwork })),
+    queue: companion.queue.map(({ track, artist, artwork, by }) => ({ track, artist, artwork, by })),
   };
   const json = JSON.stringify(state);
   const now = Date.now();

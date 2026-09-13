@@ -19,6 +19,10 @@ export const ROLES = ['tv', 'phone'];
 // for QUEUE_MAX songs at ~300 bytes each.
 export const MAX_MESSAGE_BYTES = 16384;
 export const QUEUE_MAX = 30;
+// Guest rooms: several phones share one room. Each gets its own id so the hosted
+// relay can give every phone its own copy of the TV's updates.
+export const PEER_RE = /^[a-hj-np-z2-9]{12}$/;
+export const NAME_MAX = 24;
 
 const NUDGES_MS = [-100, -25, 25, 100];
 
@@ -26,8 +30,17 @@ export function newRoomCode() {
   return [...crypto.getRandomValues(new Uint8Array(8))].map((b) => ALPHABET[b & 31]).join('');
 }
 
+export function newPeerId() {
+  return [...crypto.getRandomValues(new Uint8Array(12))].map((b) => ALPHABET[b & 31].toLowerCase()).join('');
+}
+
 function text(v, max = 200) {
   return typeof v === 'string' ? v.trim().slice(0, max) : '';
+}
+
+/** A guest's display name: control characters removed, trimmed, capped. '' if none. */
+export function parseName(v) {
+  return typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, NAME_MAX) : '';
 }
 
 /**
@@ -51,8 +64,12 @@ export function parseSong(s) {
  */
 export function parseCommand(msg) {
   if (!msg || typeof msg !== 'object') return null;
+  // Guests sign what they add; the name is display-only (textContent on both ends).
+  const by = parseName(msg.by);
+  const signed = (cmd) => (by ? { ...cmd, by } : cmd);
   switch (msg.type) {
     case 'hello':
+      return signed({ type: 'hello' });
     case 'toggle':
     case 'change':
     case 'next':
@@ -60,7 +77,7 @@ export function parseCommand(msg) {
     case 'play':
     case 'queue': {
       const song = parseSong(msg.song);
-      return song ? { type: msg.type, song } : null;
+      return song ? signed({ type: msg.type, song }) : null;
     }
     case 'unqueue':
       return Number.isInteger(msg.index) && msg.index >= 0 ? { type: 'unqueue', index: msg.index } : null;
@@ -84,8 +101,8 @@ export function songFinished({ now, timeline, graceSec = 6 }) {
   return end > 0 && now > end + graceSec;
 }
 
-export function relayUrl(base, room, role) {
-  return `${base}/api/companion?room=${room}&role=${role}`;
+export function relayUrl(base, room, role, peer = '') {
+  return `${base}/api/companion?room=${room}&role=${role}${peer ? `&peer=${peer}` : ''}`;
 }
 
 /**
@@ -93,8 +110,8 @@ export function relayUrl(base, room, role) {
  * stays a CORS "simple request" — the Electron renderer (file:// origin) needs
  * no preflight. EventSource reconnects on its own after drops.
  */
-export function openLink({ base, room, role, onMessage, onStatus = () => {} }) {
-  const url = relayUrl(base, room, role);
+export function openLink({ base, room, role, peer = '', onMessage, onStatus = () => {} }) {
+  const url = relayUrl(base, room, role, peer);
   const es = new EventSource(url);
   es.onopen = () => onStatus('open');
   es.onerror = () => onStatus('retrying');

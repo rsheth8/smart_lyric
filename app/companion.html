@@ -62,12 +62,12 @@
     .r-dial.two { grid-template-columns: 1fr 1fr; }
     .r-dial button { background: var(--surface-2); border: 1px solid var(--line-1); font-variant-numeric: tabular-nums; }
 
-    #r-q {
+    #r-q, #r-name {
       width: 100%; height: 48px; padding: 0 14px; font-size: 16px; /* ≥16px stops iOS zoom-on-focus */
       color: var(--text-1); background: var(--surface-2);
       border: 1px solid var(--line-2); border-radius: var(--r-md);
     }
-    #r-q:focus { outline: none; border-color: var(--accent); }
+    #r-q:focus, #r-name:focus { outline: none; border-color: var(--accent); }
 
     .r-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
     .r-list li { display: flex; align-items: center; gap: 10px; min-height: 56px; }
@@ -93,6 +93,12 @@
 
     <div id="r-app" hidden>
       <div style="display:flex;flex-direction:column;gap:14px">
+        <section class="r-card" aria-label="Your name">
+          <h2>Your name</h2>
+          <input id="r-name" type="text" maxlength="24" placeholder="So the TV can call you up"
+            autocomplete="nickname" enterkeyhint="done" aria-label="Your name" />
+        </section>
+
         <section class="r-now" aria-label="Now playing">
           <img id="r-art" alt="" hidden /><span class="r-art-empty" id="r-art-empty" aria-hidden="true"></span>
           <div class="r-now-copy"><b id="r-title">Nothing playing</b><span id="r-artist">Pick a song below</span></div>
@@ -137,7 +143,7 @@
   </main>
 
   <script type="module">
-    import { openLink, ROOM_RE } from './companion.js';
+    import { openLink, newPeerId, parseName, ROOM_RE } from './companion.js';
     import { searchSuggestions } from './recommendations.js';
 
     const $ = (id) => document.getElementById(id);
@@ -174,14 +180,29 @@
       $('r-app').hidden = false;
       let lastState = 0;
 
+      // Guest name, remembered on this phone and attached to everything it sends;
+      // the TV re-validates it (parseCommand) before showing it.
+      const NAME_KEY = 'bar4bar.guestName';
+      let myName = '';
+      try { myName = parseName(localStorage.getItem(NAME_KEY)); } catch { /* private mode */ }
+      $('r-name').value = myName;
+
       const link = openLink({
         base: location.origin,
         room,
         role: 'phone',
-        onStatus: (s) => { if (s === 'open') link.send({ type: 'hello' }); },
+        peer: newPeerId(),
+        onStatus: (s) => { if (s === 'open') send({ type: 'hello' }); },
         onMessage: (msg) => { if (msg?.type === 'state') renderState(msg); },
       });
-      const send = (msg) => link.send(msg);
+      const send = (msg) => link.send(myName ? { ...msg, by: myName } : msg);
+
+      $('r-name').addEventListener('change', () => {
+        myName = parseName($('r-name').value);
+        $('r-name').value = myName;
+        try { localStorage.setItem(NAME_KEY, myName); } catch { /* private mode */ }
+        send({ type: 'hello' });
+      });
 
       setInterval(() => {
         const on = Date.now() - lastState < TV_TIMEOUT_MS;
@@ -207,7 +228,8 @@
             ? q.map((song, i) => {
                 const rm = el('button', { type: 'button', textContent: 'Remove' });
                 rm.addEventListener('click', () => send({ type: 'unqueue', index: i }));
-                const row = songRow(song, [rm]);
+                const who = typeof song.by === 'string' && song.by ? ` · ${song.by}` : '';
+                const row = songRow({ ...song, artist: `${song.artist || ''}${who}` }, [rm]);
                 row.prepend(el('span', { className: 'n', textContent: String(i + 1) }));
                 return row;
               })

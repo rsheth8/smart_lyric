@@ -1,6 +1,17 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseCommand, parseSong, newRoomCode, ROOM_RE, songFinished } from '../app/companion.js';
+import {
+  parseCommand,
+  parseSong,
+  parseName,
+  newRoomCode,
+  newPeerId,
+  relayUrl,
+  ROOM_RE,
+  PEER_RE,
+  NAME_MAX,
+  songFinished,
+} from '../app/companion.js';
 
 describe('companion — room codes', () => {
   it('mints codes the relay accepts, with no ambiguous characters', () => {
@@ -83,6 +94,34 @@ describe('parseCommand', () => {
     ]) {
       assert.equal(parseCommand(bad), null, JSON.stringify(bad));
     }
+  });
+});
+
+describe('guest rooms', () => {
+  it('signs hello / play / queue with a cleaned-up guest name', () => {
+    assert.deepEqual(parseCommand({ type: 'hello', by: '  Maya ' }), { type: 'hello', by: 'Maya' });
+    assert.deepEqual(parseCommand({ type: 'queue', song: { track: 'T' }, by: 'Sam' }), {
+      type: 'queue',
+      song: { track: 'T', artist: '' },
+      by: 'Sam',
+    });
+    // Transport commands stay unsigned.
+    assert.deepEqual(parseCommand({ type: 'next', by: 'Sam' }), { type: 'next' });
+  });
+
+  it('drops empty, non-string and control-character names; caps length', () => {
+    assert.deepEqual(parseCommand({ type: 'hello', by: '   ' }), { type: 'hello' });
+    assert.deepEqual(parseCommand({ type: 'hello', by: 42 }), { type: 'hello' });
+    assert.equal(parseName('Ma\u0000y\u001ba\n'), 'Maya');
+    assert.equal(parseName('x'.repeat(99)).length, NAME_MAX);
+  });
+
+  it('mints phone ids the relay accepts and puts them in the URL', () => {
+    for (let i = 0; i < 100; i++) assert.match(newPeerId(), PEER_RE);
+    assert.doesNotMatch('ABCDEFGHJKLM', PEER_RE);
+    assert.equal(relayUrl('https://x', 'ABCDEFGH', 'phone', 'abcdefghjkmn'),
+      'https://x/api/companion?room=ABCDEFGH&role=phone&peer=abcdefghjkmn');
+    assert.equal(relayUrl('https://x', 'ABCDEFGH', 'tv'), 'https://x/api/companion?room=ABCDEFGH&role=tv');
   });
 });
 
