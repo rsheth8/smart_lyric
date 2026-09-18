@@ -9,7 +9,6 @@
     { "src": "api/companion.js", "use": "@vercel/node" },
     { "src": "api/event.js", "use": "@vercel/node" },
     { "src": "api/tv-pair.js", "use": "@vercel/node" },
-    { "src": "lib/transcript-text.mjs", "use": "@vercel/static" },
     { "src": "app/**", "use": "@vercel/static" }
   ],
   "routes": [
@@ -21,7 +20,6 @@
     { "src": "/api/genius", "dest": "/api/genius.js" },
     { "src": "/api/tv-pair", "dest": "/api/tv-pair.js" },
     { "src": "/tv", "dest": "/api/tv-pair.js?action=page" },
-    { "src": "/lib/transcript-text.mjs", "dest": "/lib/transcript-text.mjs" },
     { "src": "/", "dest": "/app/index.html" },
     { "src": "/(.*)", "dest": "/app/$1" }
   ],
