@@ -128,13 +128,19 @@ function installBridge(scores) {
           })),
         })),
       }),
-      separateAvailable: async () => false,
+      // Word CTC requires a stem; echo the window so placement stays CTC-driven
+      // (silent mic PCM below → onset snap no-ops).
+      separateAvailable: async () => true,
+      separateVocals: async ({ left, sampleRate }) => {
+        const n = (left.byteLength || left.length) / 4;
+        return { left: new Float32Array(n), right: new Float32Array(n), sampleRate };
+      },
     },
   };
 }
 beforeEach(() => {
-  setVocalSeparationEnabled(false);
-  setLiveVocalSeparationEnabled(false);
+  setVocalSeparationEnabled(true);
+  setLiveVocalSeparationEnabled(true);
 });
 afterEach(() => {
   delete global.window;
@@ -165,6 +171,7 @@ test('soft first word: line anchors back to its real onset, not to word 2', asyn
     Math.abs(tl.lines[0].start - w[0].start) < 1e-6,
     'the line starts exactly where its first word does'
   );
+  assert.ok(Number.isFinite(tl.lines[0]._reanchorDelta), 'reanchor delta recorded for global lag');
 });
 
 test('confident first word: anchoring is unchanged', async () => {

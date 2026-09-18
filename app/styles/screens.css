@@ -271,8 +271,15 @@ body[data-surface="tv"] .screen[data-screen-panel="home"] #search {
   border-color: color-mix(in srgb, var(--spotify) 50%, transparent);
 }
 .tile.vinyl .tile-icon { color: #d9a06b; background: rgba(217,160,107,.12); }
+.tile.video .tile-icon { color: #7eb8ff; background: rgba(126,184,255,.12); }
 .tile.lyrics .tile-icon { color: var(--text-1); background: var(--surface-3); }
 .tile.apple .tile-icon { color: #fa586a; background: rgba(250,88,106,.12); }
+
+#youtube-panel {
+  margin-top: var(--space-5);
+}
+#youtube-panel .hub-search { margin-top: var(--space-2); }
+#youtube-hint { margin-top: var(--space-2); }
 
 /* ============================ SEARCH SCREEN ============================ */
 
@@ -443,6 +450,9 @@ body[data-surface="tv"] .screen[data-screen-panel="home"] #search {
 .segmented button:hover { color: var(--text-1); }
 .segmented button[aria-pressed="true"] {
   color: var(--accent-ink); background: var(--accent-soft);
+}
+.insp-scope {
+  margin: 0 0 var(--space-2);
 }
 
 .set-note {

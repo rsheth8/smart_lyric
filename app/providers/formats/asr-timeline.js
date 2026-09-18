@@ -1,7 +1,7 @@
 // Build a Display timeline from Whisper-style timestamped ASR chunks.
 
 import { tokenizeLine, wordsAcrossSpan } from './estimate.js';
-import { normalizeTranscriptText, splitLongSentence } from '../../../lib/transcript-text.mjs';
+import { normalizeTranscriptText, splitLongSentence } from '../../lib/transcript-text.mjs';
 
 const MAX_LINE_CHARS = 44;
 

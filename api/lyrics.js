@@ -6,7 +6,7 @@ import { fetchNeteaseLyrics } from '../lib/netease.mjs';
 
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.setHeader('Cache-Control', 'no-store');
 
   const { artist = '', track = '', duration = '' } = req.query || {};
   if (!track) {
@@ -21,6 +21,7 @@ export default async function handler(req, res) {
       track: String(track),
       duration: Number(duration) || undefined,
     });
+    if (result?.yrc) res.setHeader('Cache-Control', 'public, max-age=86400');
     res.statusCode = 200;
     res.end(JSON.stringify(result || { yrc: '', lrc: '', meta: null }));
   } catch (err) {

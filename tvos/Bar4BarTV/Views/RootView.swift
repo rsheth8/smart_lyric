@@ -18,7 +18,11 @@ struct RootView: View {
           case .settings:
             SettingsView(path: $path)
           case .spotify:
-            SpotifyPairingView(path: $path)
+            if AppConfig.spotifyFollowEnabled {
+              SpotifyPairingView(path: $path)
+            } else {
+              HubView(path: $path)
+            }
           }
         }
     }
@@ -36,7 +40,7 @@ struct RootView: View {
     ) { item in
       Button("Connect") {
         Task {
-          if await music.connectAndPlayPrompted() {
+          if await music.connectAndPlayPrompted(item) {
             path.append(Route.karaoke)
           }
         }
@@ -50,14 +54,38 @@ struct RootView: View {
     } message: { item in
       Text("“\(item.title)” streams from Apple Music, which needs a subscription on this Apple TV. Browsing and the bundled demo work without one.")
     }
-    .onChange(of: music.nowPlaying) { _, track in
-      // The demo and the song cards push karaoke themselves; this only catches
-      // playback that started from outside the app (Siri, Control Center).
-      guard let track, !track.isDemo else { return }
-      guard !session.timeline.isEmpty || session.isLoading else { return }
-      if path.isEmpty {
-        path.append(Route.karaoke)
+    .alert("Unable to start music", isPresented: Binding(
+      get: { music.errorMessage != nil },
+      set: { if !$0 { music.errorMessage = nil } }
+    )) {
+      Button("OK") { music.errorMessage = nil }
+    } message: {
+      Text(music.errorMessage ?? "Please try again.")
+    }
+    .overlay {
+      if music.isStartingPlayback || music.isConnecting {
+        ZStack {
+          Tokens.scrim.ignoresSafeArea()
+          VStack(spacing: 24) {
+            ProgressView().scaleEffect(1.5).tint(Tokens.accentStatic)
+            Text(music.isConnecting ? "Connecting Apple Music…" : "Starting your song…")
+              .font(Tokens.display(28, .medium))
+              .foregroundStyle(Tokens.text1)
+          }
+          .padding(60)
+          .background(Tokens.surfaceSolid2, in: RoundedRectangle(cornerRadius: 28))
+        }
       }
+    }
+    .animation(Tokens.Motion.chrome, value: music.isStartingPlayback)
+    .animation(Tokens.Motion.chrome, value: music.isConnecting)
+    .onAppear { presentKaraokeIfNeeded() }
+    .onChange(of: music.nowPlaying) { _, _ in presentKaraokeIfNeeded() }
+    .onChange(of: music.isPlaying) { _, playing in
+      if playing { presentKaraokeIfNeeded() }
+    }
+    .onChange(of: music.isFollowing) { _, following in
+      if following { presentKaraokeIfNeeded() }
     }
     .task {
       if DemoLaunch.autoStart {
@@ -76,6 +104,19 @@ struct RootView: View {
       }
     }
   }
+
+  /// `.onChange` does not fire for the value already present, so launch has to
+  /// check on appear as well — Music may already be playing when Bar4Bar opens.
+  private func presentKaraokeIfNeeded() {
+    if PlaybackNavigation.shouldPresentKaraoke(
+      for: music.nowPlaying,
+      isStartingPlayback: music.isStartingPlayback,
+      isAtHub: path.isEmpty,
+      isPlaying: music.isPlaying
+    ) {
+      path.append(Route.karaoke)
+    }
+  }
 }
 
 /// Launch-time demo controls.
@@ -90,8 +131,13 @@ struct RootView: View {
 enum DemoLaunch {
   private static var env: [String: String] { ProcessInfo.processInfo.environment }
 
+  /// Deterministic accessibility review without changing simulator preferences.
+  static var browseFixture: Bool { env["BAR4BAR_BROWSE_FIXTURE"] == "1" }
+  static var reduceMotion: Bool { env["BAR4BAR_REDUCE_MOTION"] == "1" }
   static var autoStart: Bool { env["BAR4BAR_AUTODEMO"] == "1" }
   static var paused: Bool { env["BAR4BAR_DEMO_PAUSED"] == "1" }
+  /// Deterministic, control-free stage captures at a paused cue.
+  static var cleanStage: Bool { env["BAR4BAR_STAGE_CLEAN"] == "1" }
   static var seek: Double? {
     guard let raw = env["BAR4BAR_DEMO_SEEK"], let v = Double(raw) else { return nil }
     return v
@@ -147,4 +193,31 @@ enum Route: Hashable {
   case karaoke
   case settings
   case spotify
+}
+
+/// Keeps automatic navigation conservative: never interrupt another screen,
+/// never double-push for an in-app play request, never treat the demo as
+/// externally started playback, and never open over a paused track.
+enum PlaybackNavigation {
+  static func shouldPresentKaraoke(
+    for track: NowPlayingTrack?,
+    isStartingPlayback: Bool,
+    isAtHub: Bool,
+    isPlaying: Bool
+  ) -> Bool {
+    guard let track, isPlaying else { return false }
+    return isAtHub && !isStartingPlayback && !track.isDemo
+  }
+
+  /// Pairing is a waiting room. Once Spotify is actually playing a song, the
+  /// lyrics screen is the destination — same as Apple Music auto-opening from
+  /// the hub.
+  static func shouldOpenFollowKaraoke(connected: Bool, hasTrack: Bool, isPlaying: Bool) -> Bool {
+    connected && hasTrack && isPlaying
+  }
+}
+
+enum ChromeIdle {
+  /// Lean-back delay. Longer than desktop: a viewer across the room needs it.
+  static let seconds: TimeInterval = 4.8
 }

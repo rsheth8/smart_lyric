@@ -1,0 +1,319 @@
+{
+  "checkedAt": "2026-09-11T04:34:41.490Z",
+  "sampleSize": 6,
+  "counts": {
+    "word_timestamps": 3,
+    "audio_refined_mixed": 0,
+    "estimated_words_only": 2,
+    "missing": 1
+  },
+  "warning": "Availability only. Returned word timestamps have not been auditioned or measured against the recording. This sample is not representative of the whole catalog.",
+  "rows": [
+    {
+      "artist": "Brent Faiyaz",
+      "track": "other side.",
+      "duration": 195.015,
+      "group": "user-reported",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 2242,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Brent Faiyaz",
+            "track": "other side.",
+            "album": "Icon",
+            "duration": 195.015
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 1788,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 246,
+          "result": "rejected_match",
+          "returnedRecording": {
+            "artist": "Brent Faiyaz",
+            "track": "other side.",
+            "album": "Icon"
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 303,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "artist": "Drake",
+      "track": "Too Spent",
+      "duration": null,
+      "group": "user-reported-title-unresolved",
+      "recordingDurationKnown": false,
+      "result": "missing",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 822,
+          "result": "rejected_match",
+          "returnedRecording": {
+            "artist": "Drake, Sampha",
+            "track": "Too Much",
+            "album": "Nothing Was The Same (Deluxe)",
+            "duration": 261.921
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 497,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 156,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 153,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "artist": "Adele",
+      "track": "Someone Like You",
+      "duration": 285.24,
+      "group": "sparse-vocals",
+      "recordingDurationKnown": true,
+      "result": "word_timestamps",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 912,
+          "result": "word_timestamps",
+          "returnedRecording": {
+            "artist": "Adele",
+            "track": "Someone Like You",
+            "album": "Someone Like You",
+            "duration": 285.24
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 1044,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 171,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Adele, Adele",
+            "track": "Someone Like You",
+            "album": "21",
+            "duration": 285
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 94,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "artist": "The Weeknd",
+      "track": "Blinding Lights",
+      "duration": 200.045,
+      "group": "dense-pop",
+      "recordingDurationKnown": true,
+      "result": "word_timestamps",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 838,
+          "result": "word_timestamps",
+          "returnedRecording": {
+            "artist": "The Weeknd",
+            "track": "Blinding Lights",
+            "album": "Blinding Lights",
+            "duration": 200.045
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 427,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 162,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "The Weeknd",
+            "track": "Blinding Lights",
+            "album": "The Com-Bil-ation",
+            "duration": 202
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 222,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "artist": "Taylor Swift",
+      "track": "Cruel Summer",
+      "duration": 178.491,
+      "group": "pop",
+      "recordingDurationKnown": true,
+      "result": "word_timestamps",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 790,
+          "result": "word_timestamps",
+          "returnedRecording": {
+            "artist": "Taylor Swift",
+            "track": "Cruel Summer",
+            "album": "Lover",
+            "duration": 178.491
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 996,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 186,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Taylor Swift",
+            "track": "Cruel Summer",
+            "album": "Car Compilation",
+            "duration": 178
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 86,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "artist": "Billie Eilish",
+      "track": "BIRDS OF A FEATHER",
+      "duration": 210.373,
+      "group": "sustained-vocals",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 1123,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Billie Eilish",
+            "track": "BIRDS OF A FEATHER",
+            "album": "HIT ME HARD AND SOFT",
+            "duration": 210.373
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 716,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 174,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Billie Eilish; Billie Eilish",
+            "track": "BIRDS OF A FEATHER",
+            "album": "HIT ME HARD AND SOFT",
+            "duration": 210
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 102,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    }
+  ]
+}

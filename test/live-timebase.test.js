@@ -40,9 +40,13 @@ function installBridge() {
           })),
         })),
       }),
-      // Force the raw-mix path: a stem would add onset snapping on top of the
-      // coordinate change and blur what this test is measuring.
-      separateAvailable: async () => false,
+      // Stem required for word CTC. Echo silence so onset snap no-ops — this
+      // test is about coordinate conversion, not energy fitting.
+      separateAvailable: async () => true,
+      separateVocals: async ({ left, sampleRate }) => {
+        const n = (left.byteLength || left.length) / 4;
+        return { left: new Float32Array(n), right: new Float32Array(n), sampleRate };
+      },
     },
   };
 }
@@ -56,8 +60,8 @@ const mic = { sampleRate: SR, getOrderedPcm: () => new Float32Array(SR * BUF_SEC
 
 beforeEach(() => {
   installBridge();
-  setVocalSeparationEnabled(false);
-  setLiveVocalSeparationEnabled(false);
+  setVocalSeparationEnabled(true);
+  setLiveVocalSeparationEnabled(true);
 });
 afterEach(() => {
   delete global.window;

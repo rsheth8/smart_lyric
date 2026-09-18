@@ -21,6 +21,8 @@ let pollTimer = null;
 let lastTrackKey = '';
 let playing = false;
 let firstPollTimer = null;
+let pollIntervalMs = 1500;
+let lastProgressSec = 0;
 
 export function getSpotifyConfig() {
   return {
@@ -80,9 +82,16 @@ async function fetchCurrentlyPlaying(accessToken) {
   return res.json();
 }
 
+function trackKey(meta) {
+  // Prefer Spotify id so title renames / featuring-credit churn don't re-fire.
+  if (meta?.id) return `id:${meta.id}`;
+  return `${meta?.artist || ''}::${meta?.title || ''}`;
+}
+
 function applyPlayerState(data, rttSec = 0) {
   if (!data?.item) {
     playing = false;
+    lastProgressSec = 0;
     return;
   }
   const t = data.item;
@@ -92,8 +101,9 @@ function applyPlayerState(data, rttSec = 0) {
     title: t.name,
     album: t.album?.name,
     duration: t.duration_ms ? Math.round(t.duration_ms / 1000) : undefined,
+    uri: t.uri,
   };
-  const key = `${meta.artist}::${meta.title}`;
+  const key = trackKey(meta);
   const trackChanged = key !== lastTrackKey;
   if (trackChanged) {
     lastTrackKey = key;
@@ -108,12 +118,32 @@ function applyPlayerState(data, rttSec = 0) {
   // so we correct toward where playback actually is *now*, not where it was.
   const oneWaySec = playing ? rttSec / 2 : 0;
   const measured = (data.progress_ms || 0) / 1000 + oneWaySec;
+  lastProgressSec = measured;
 
   const clock = ensureClock();
   // Snap on discontinuities (new track, just-resumed, paused); ease otherwise so
   // the ~1.5s poll cadence never shows up as a visible hitch in the highlight.
   if (!playing || trackChanged || (playing && !wasPlaying)) clock.set(measured);
   else clock.observe(measured);
+}
+
+/** Poll faster in the last seconds so the next-song handoff isn't up to 1.5s late. */
+function desiredPollIntervalMs() {
+  const dur = currentTrack?.duration;
+  if (!playing || !dur) return 1500;
+  const remaining = dur - lastProgressSec;
+  if (remaining > 0 && remaining < 8) return 400;
+  if (remaining > 0 && remaining < 25) return 800;
+  return 1500;
+}
+
+function reschedulePollIfNeeded() {
+  const want = desiredPollIntervalMs();
+  if (want === pollIntervalMs) return;
+  pollIntervalMs = want;
+  if (!pollTimer) return;
+  clearInterval(pollTimer);
+  pollTimer = setInterval(pollOnce, pollIntervalMs);
 }
 
 async function pollOnce() {
@@ -124,7 +154,12 @@ async function pollOnce() {
     const data = await fetchCurrentlyPlaying(token.access_token);
     const rttSec = (performance.now() - reqStart) / 1000;
     applyPlayerState(data, rttSec);
-    onStateChange?.({ playing, position: streamingClock?.position() ?? 0, track: currentTrack });
+    reschedulePollIfNeeded();
+    onStateChange?.({
+      playing,
+      position: streamingClock?.position() ?? lastProgressSec,
+      track: currentTrack,
+    });
   } catch (e) {
     if (e.message === 'unauthorized') clearToken('spotify');
   }
@@ -132,9 +167,10 @@ async function pollOnce() {
 
 function startPolling(firstDelayMs = 0) {
   stopPolling();
+  pollIntervalMs = 1500;
   const begin = () => {
     pollOnce();
-    pollTimer = setInterval(pollOnce, 1500);
+    pollTimer = setInterval(pollOnce, pollIntervalMs);
   };
   // When we just started a track ourselves, Spotify's currently-playing can lag
   // for a moment; delaying the first poll avoids a flash of the previous song.
@@ -147,6 +183,8 @@ function stopPolling() {
   if (firstPollTimer) clearTimeout(firstPollTimer);
   pollTimer = null;
   firstPollTimer = null;
+  pollIntervalMs = 1500;
+  lastProgressSec = 0;
 }
 
 /** Redirect URI for browser OAuth — must be allowlisted in Spotify Dashboard. */
@@ -426,6 +464,30 @@ export async function previousTrack() {
   await playerApi('/me/player/previous', { method: 'POST' });
 }
 
+/**
+ * Head of Spotify's play queue (the track that will play after the current one).
+ * Returns null when the queue is empty, Autoplay hasn't filled yet, or the
+ * endpoint is unavailable. Requires the same playback-state scope we already use.
+ */
+export async function fetchPlaybackQueue() {
+  try {
+    const data = await playerApi('/me/player/queue');
+    const next = data?.queue?.[0];
+    if (!next?.id && !next?.name) return null;
+    return {
+      id: next.id,
+      uri: next.uri,
+      artist: (next.artists || []).map((a) => a.name).join(', '),
+      title: next.name,
+      track: next.name,
+      album: next.album?.name,
+      duration: next.duration_ms ? Math.round(next.duration_ms / 1000) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function seekTo(positionMs) {
   const ms = Math.max(0, Math.round(positionMs));
   await playerApi(`/me/player/seek?position_ms=${ms}`, { method: 'PUT' });
@@ -441,8 +503,16 @@ export function isSpotifyPlaying() {
  * reload for a song we just started ourselves.
  */
 export function primeTrack(meta) {
-  currentTrack = meta;
-  lastTrackKey = `${meta.artist}::${meta.title || meta.name}`;
+  const normalized = {
+    id: meta.id || meta.spotifyId,
+    artist: meta.artist,
+    title: meta.title || meta.name || meta.track,
+    album: meta.album,
+    duration: meta.duration,
+    uri: meta.uri,
+  };
+  currentTrack = normalized;
+  lastTrackKey = trackKey(normalized);
 }
 
 // Back-compat exports used by older UI wiring

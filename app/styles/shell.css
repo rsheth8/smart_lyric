@@ -117,6 +117,19 @@ body:has(#stage[data-mode="playing"]) #titlebar .tb-back { display: none; }
     visibility 0s;
 }
 
+/* While a song is up the hub is scenery: faded out, but still laid out full-
+   screen above the lyric viewport. `pointer-events: none` on #screens alone
+   does NOT make it inert — a child may always opt back in over an inert
+   ancestor, and the active-screen rule above does exactly that with
+   `pointer-events: auto`. Without this override the invisible home screen
+   steals clicks meant for the now-bar / lyrics and loads a Recommended song.
+   Two ids here beat the one-id active-screen rule, so this wins.
+   Visibility is deliberately left alone: it carries a delayed transition that
+   drives the fade-out, and forcing it here would make the hub pop instead. */
+#stage[data-mode="playing"] #screens .screen {
+  pointer-events: none;
+}
+
 /* Pop transitions come from the other side, so back feels like back. */
 #stage[data-nav="pop"] .screen { transform: translateX(-3%); }
 #stage[data-nav="pop"] .screen[data-screen-panel] { }
@@ -171,7 +184,7 @@ body:has(#stage[data-mode="playing"]) #titlebar .tb-back { display: none; }
 /* --------------------------------------------------------------- app chrome */
 
 /* App chrome shouldn't text-select like a web page — inputs stay selectable. */
-#nowbar, #hotkeys, .chip, .rec, #mode-badge, #sync-lock, #mode-exits,
+#nowbar, #parked-bar, #hotkeys, .chip, .rec, #mode-badge, #sync-lock, #mode-exits,
 .timing-dial, #live-sep-hud, .brand, .tile, .screen-head, #titlebar {
   user-select: none;
   -webkit-user-select: none;

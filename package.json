@@ -9,8 +9,8 @@
   },
   "scripts": {
     "dev": "node server.mjs",
-    "start": "electron .",
-    "test": "node --test test/*.test.js"
+    "start": "env -u ELECTRON_RUN_AS_NODE electron .",
+    "test": "SEPARATE_MODEL_URL= SEPARATE_MODEL_PATH= node --test --test-force-exit test/*.test.js"
   },
   "devDependencies": {
     "electron": "^31.0.0"

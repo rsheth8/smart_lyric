@@ -37,7 +37,7 @@ targets:
       - path: Bar4BarTV/Assets.xcassets
     configFiles:
       Debug: Bar4BarTV/Config/Debug.xcconfig
-      Release: Bar4BarTV/Config/Debug.xcconfig
+      Release: Bar4BarTV/Config/Release.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bar4bar.tv
@@ -59,6 +59,37 @@ targets:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         UILaunchScreen: {}
+        UIAppFonts: [BarlowCondensed-Bold.ttf, Fraunces.ttf, Fraunces-Italic.ttf, Manrope.ttf]
         UIRequiredDeviceCapabilities: [arm64]
-        NSAppleMusicUsageDescription: Bar4Bar follows Apple Music playback to show word-by-word lyrics on your TV.
+        NSAppleMusicUsageDescription: Bar4Bar uses Apple Music to play your selections and present synchronized lyrics on your TV.
         LYRICS_API_BASE: "$(LYRICS_API_BASE)"
+        OFFICIAL_LYRICS_ONLY: "$(OFFICIAL_LYRICS_ONLY)"
+        SPOTIFY_FOLLOW_ENABLED: "$(SPOTIFY_FOLLOW_ENABLED)"
+
+  Bar4BarTVTests:
+    type: bundle.unit-test
+    platform: tvOS
+    sources:
+      - path: Bar4BarTVTests
+    dependencies:
+      - target: Bar4BarTV
+      - target: Bar4BarCore
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: true
+    scheme:
+      testTargets:
+        - Bar4BarTVTests
+  Bar4BarTVUITests:
+    type: bundle.ui-testing
+    platform: tvOS
+    sources:
+      - path: Bar4BarTVUITests
+    dependencies:
+      - target: Bar4BarTV
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: true
+    scheme:
+      testTargets:
+        - Bar4BarTVUITests

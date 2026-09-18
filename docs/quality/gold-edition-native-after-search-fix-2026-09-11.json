@@ -1,0 +1,3163 @@
+{
+  "checkedAt" : "2026-09-11T16:15:52Z",
+  "checkedCount" : 150,
+  "complete" : true,
+  "counts" : {
+    "estimated_words_only" : 56,
+    "word_timestamps" : 94
+  },
+  "rows" : [
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Olivia Dean",
+      "durationDifference" : 0,
+      "fetchMilliseconds" : 3834,
+      "issues" : [
+
+      ],
+      "lineCount" : 49,
+      "position" : 1,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Olivia Dean",
+        "duration" : 212,
+        "track" : "A Couple Minutes"
+      },
+      "source" : "lrc",
+      "spotifyId" : "312z6PZ8wwREck8613PkJk",
+      "track" : "A Couple Minutes",
+      "wordCount" : 275
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Kehlani",
+      "durationDifference" : 0.12000000000000455,
+      "fetchMilliseconds" : 3597,
+      "issues" : [
+
+      ],
+      "lineCount" : 61,
+      "position" : 2,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Kehlani",
+        "duration" : 238.12,
+        "track" : "Folded"
+      },
+      "source" : "lrc",
+      "spotifyId" : "0bxPRWprUVpQK0UFcddkrA",
+      "track" : "Folded",
+      "wordCount" : 422
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Miguel",
+      "durationDifference" : 0.37299999999999045,
+      "fetchMilliseconds" : 3882,
+      "issues" : [
+
+      ],
+      "lineCount" : 64,
+      "position" : 3,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Miguel",
+        "duration" : 195.373,
+        "track" : "Sure Thing"
+      },
+      "source" : "yrc",
+      "spotifyId" : "0JXXNGljqupsJaZsgSbMZV",
+      "track" : "Sure Thing",
+      "wordCount" : 485
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Chris Brown, Bryson Tiller",
+      "durationDifference" : 0.9080000000000155,
+      "fetchMilliseconds" : 4691,
+      "issues" : [
+
+      ],
+      "lineCount" : 86,
+      "position" : 4,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Chris Brown, Bryson Tiller",
+        "duration" : 271.908,
+        "track" : "It Depends"
+      },
+      "source" : "lrc",
+      "spotifyId" : "0t3pcqgBjuAVBgY2oEUIlH",
+      "track" : "It Depends (feat. Bryson Tiller)",
+      "wordCount" : 745
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Odeal, Leon Thomas",
+      "durationDifference" : 0.492999999999995,
+      "fetchMilliseconds" : 1012,
+      "issues" : [
+
+      ],
+      "lineCount" : 52,
+      "position" : 5,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Odeal, Leon Thomas",
+        "duration" : 216.493,
+        "track" : "Miami (feat. Leon Thomas)"
+      },
+      "source" : "lrc",
+      "spotifyId" : "2egIlhalVEVQhvt9W11u82",
+      "track" : "Miami (feat. Leon Thomas)",
+      "wordCount" : 343
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Frank Ocean",
+      "durationDifference" : 0.5159999999999911,
+      "fetchMilliseconds" : 863,
+      "issues" : [
+
+      ],
+      "lineCount" : 51,
+      "position" : 6,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Frank Ocean",
+        "duration" : 184.516,
+        "track" : "Pink + White"
+      },
+      "source" : "lrc",
+      "spotifyId" : "3xKsf9qdS1CyvXSMEid6g8",
+      "track" : "Pink + White",
+      "wordCount" : 301
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Leon Thomas, Chris Brown",
+      "durationDifference" : 0.7860000000000014,
+      "fetchMilliseconds" : 2424,
+      "issues" : [
+
+      ],
+      "lineCount" : 53,
+      "position" : 7,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Leon Thomas, Chris Brown",
+        "duration" : 199.786,
+        "track" : "MUTT (CB REMIX)"
+      },
+      "source" : "lrc",
+      "spotifyId" : "08M5qLQy0oUNrTMQv4xQac",
+      "track" : "MUTT (feat. Chris Brown) [CB REMIX]",
+      "wordCount" : 369
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "SZA",
+      "durationDifference" : 0.8509999999999991,
+      "fetchMilliseconds" : 1653,
+      "issues" : [
+
+      ],
+      "lineCount" : 57,
+      "position" : 8,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "SZA",
+        "duration" : 201.851,
+        "track" : "Snooze"
+      },
+      "source" : "yrc",
+      "spotifyId" : "4iZ4pt7kvcaH6Yo8UoZ4s2",
+      "track" : "Snooze",
+      "wordCount" : 519
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Steve Lacy",
+      "durationDifference" : 0.3149999999999977,
+      "fetchMilliseconds" : 1567,
+      "issues" : [
+
+      ],
+      "lineCount" : 47,
+      "position" : 9,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Steve Lacy",
+        "duration" : 232.315,
+        "track" : "Bad Habit"
+      },
+      "source" : "yrc",
+      "spotifyId" : "4k6Uh1HXdhtusDW5y8Gbvy",
+      "track" : "Bad Habit",
+      "wordCount" : 480
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Brent Faiyaz",
+      "durationDifference" : 0.022999999999996135,
+      "fetchMilliseconds" : 840,
+      "issues" : [
+
+      ],
+      "lineCount" : 44,
+      "position" : 10,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Brent Faiyaz",
+        "duration" : 207.023,
+        "track" : "have to."
+      },
+      "source" : "lrc",
+      "spotifyId" : "55Doxe1XJGnB88uYpLf6xW",
+      "track" : "have to.",
+      "wordCount" : 398
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Frank Ocean",
+      "durationDifference" : 0.75,
+      "fetchMilliseconds" : 878,
+      "issues" : [
+
+      ],
+      "lineCount" : 45,
+      "position" : 11,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Frank Ocean",
+        "duration" : 200.75,
+        "track" : "Thinkin Bout You"
+      },
+      "source" : "yrc",
+      "spotifyId" : "7DfFc7a6Rwfi3YQMRbDMau",
+      "track" : "Thinkin Bout You",
+      "wordCount" : 383
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Summer Walker",
+      "durationDifference" : 0,
+      "fetchMilliseconds" : 758,
+      "issues" : [
+
+      ],
+      "lineCount" : 50,
+      "position" : 12,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Summer Walker",
+        "duration" : 165,
+        "track" : "Spend It"
+      },
+      "source" : "lrc",
+      "spotifyId" : "290eKCMBc9f9CcSLFuQrim",
+      "track" : "Spend It",
+      "wordCount" : 306
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Justin Bieber",
+      "durationDifference" : 0.8660000000000139,
+      "fetchMilliseconds" : 798,
+      "issues" : [
+
+      ],
+      "lineCount" : 52,
+      "position" : 13,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Justin Bieber",
+        "duration" : 163.866,
+        "track" : "YUKON"
+      },
+      "source" : "lrc",
+      "spotifyId" : "29iva9idM6rFCPUlu7Rhxl",
+      "track" : "YUKON",
+      "wordCount" : 303
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "GIVĒON",
+      "durationDifference" : 0.7810000000000059,
+      "fetchMilliseconds" : 838,
+      "issues" : [
+
+      ],
+      "lineCount" : 37,
+      "position" : 14,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "GIVĒON",
+        "duration" : 171.781,
+        "track" : "TWENTIES"
+      },
+      "source" : "lrc",
+      "spotifyId" : "1NaSrCqTnZdlusQ82SJhGN",
+      "track" : "TWENTIES",
+      "wordCount" : 243
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Steve Lacy",
+      "durationDifference" : 0.10400000000001342,
+      "fetchMilliseconds" : 818,
+      "issues" : [
+
+      ],
+      "lineCount" : 34,
+      "position" : 15,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Steve Lacy",
+        "duration" : 173.104,
+        "track" : "Dark Red"
+      },
+      "source" : "yrc",
+      "spotifyId" : "3EaJDYHA0KnX88JvDhL9oa",
+      "track" : "Dark Red",
+      "wordCount" : 300
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Coco Jones",
+      "durationDifference" : 0.507000000000005,
+      "fetchMilliseconds" : 776,
+      "issues" : [
+
+      ],
+      "lineCount" : 54,
+      "position" : 16,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Coco Jones",
+        "duration" : 216.507,
+        "track" : "Here We Go (Uh Oh)"
+      },
+      "source" : "lrc",
+      "spotifyId" : "6SSSGEgfuqTP75xaNOwsTo",
+      "track" : "Here We Go (Uh Oh)",
+      "wordCount" : 413
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Kali Uchis",
+      "durationDifference" : 0.1910000000000025,
+      "fetchMilliseconds" : 881,
+      "issues" : [
+
+      ],
+      "lineCount" : 39,
+      "position" : 17,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Kali Uchis",
+        "duration" : 160.191,
+        "track" : "telepatía"
+      },
+      "source" : "lrc",
+      "spotifyId" : "6tDDoYIxWvMLTdKpjFkc1B",
+      "track" : "telepatía",
+      "wordCount" : 277
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Chris Brown",
+      "durationDifference" : 0.17799999999999727,
+      "fetchMilliseconds" : 818,
+      "issues" : [
+
+      ],
+      "lineCount" : 58,
+      "position" : 18,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Chris Brown",
+        "duration" : 215.178,
+        "track" : "Residuals"
+      },
+      "source" : "lrc",
+      "spotifyId" : "4t4rGgiVX7woTmlnW9SHJ7",
+      "track" : "Residuals",
+      "wordCount" : 353
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Sasha Keable",
+      "durationDifference" : 0.6519999999999868,
+      "fetchMilliseconds" : 871,
+      "issues" : [
+
+      ],
+      "lineCount" : 39,
+      "position" : 19,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Sasha Keable",
+        "duration" : 179.652,
+        "track" : "WHY"
+      },
+      "source" : "lrc",
+      "spotifyId" : "5bCWjEsrK0KUGMxPrjGJZg",
+      "track" : "WHY",
+      "wordCount" : 279
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Snoh Aalegra",
+      "durationDifference" : 0.4619999999999891,
+      "fetchMilliseconds" : 779,
+      "issues" : [
+
+      ],
+      "lineCount" : 22,
+      "position" : 20,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Snoh Aalegra",
+        "duration" : 189.462,
+        "track" : "DO 4 LOVE"
+      },
+      "source" : "yrc",
+      "spotifyId" : "3FImu2LpSuH6gDHBuFgIbS",
+      "track" : "DO 4 LOVE",
+      "wordCount" : 213
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Sade",
+      "durationDifference" : 0.7629999999999768,
+      "fetchMilliseconds" : 873,
+      "issues" : [
+
+      ],
+      "lineCount" : 30,
+      "position" : 21,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Sade",
+        "duration" : 258.763,
+        "track" : "Smooth Operator (Single Version)"
+      },
+      "source" : "yrc",
+      "spotifyId" : "1Hv1VTm8zeOeybub15mA2R",
+      "track" : "Smooth Operator - Single Version",
+      "wordCount" : 194
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Rihanna",
+      "durationDifference" : 0.5730000000000075,
+      "fetchMilliseconds" : 1693,
+      "issues" : [
+
+      ],
+      "lineCount" : 64,
+      "position" : 22,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Rihanna",
+        "duration" : 200.573,
+        "track" : "Breakin' Dishes"
+      },
+      "source" : "yrc",
+      "spotifyId" : "46aZJc0z1HHHSFxaIRxYSP",
+      "track" : "Breakin' Dishes",
+      "wordCount" : 565
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Bruno Mars, Anderson .Paak, Silk Sonic",
+      "durationDifference" : 0.09600000000000364,
+      "fetchMilliseconds" : 1766,
+      "issues" : [
+
+      ],
+      "lineCount" : 78,
+      "position" : 23,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Bruno Mars, Anderson .Paak, Silk Sonic",
+        "duration" : 242.096,
+        "track" : "Leave The Door Open"
+      },
+      "source" : "yrc",
+      "spotifyId" : "02VBYrHfVwfEWXk5DXyf0T",
+      "track" : "Leave The Door Open",
+      "wordCount" : 681
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Frank Ocean",
+      "durationDifference" : -6,
+      "fetchMilliseconds" : 1698,
+      "issues" : [
+
+      ],
+      "lineCount" : 59,
+      "position" : 24,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Frank Ocean",
+        "duration" : 228,
+        "track" : "Lost"
+      },
+      "source" : "yrc",
+      "spotifyId" : "3GZD6HmiNUhxXYf8Gch723",
+      "track" : "Lost",
+      "wordCount" : 300
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Bryson Tiller",
+      "durationDifference" : 0.3439999999999941,
+      "fetchMilliseconds" : 966,
+      "issues" : [
+
+      ],
+      "lineCount" : 58,
+      "position" : 25,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Bryson Tiller",
+        "duration" : 198.344,
+        "track" : "Don't"
+      },
+      "source" : "yrc",
+      "spotifyId" : "3pXF1nA74528Edde4of9CC",
+      "track" : "Don't",
+      "wordCount" : 401
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Rema",
+      "durationDifference" : 0.15100000000001046,
+      "fetchMilliseconds" : 883,
+      "issues" : [
+
+      ],
+      "lineCount" : 63,
+      "position" : 26,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Rema",
+        "duration" : 164.151,
+        "track" : "Baby (Is it a Crime)"
+      },
+      "source" : "lrc",
+      "spotifyId" : "6NOrpcicPUh2eaj8bAD44u",
+      "track" : "Baby (Is it a Crime)",
+      "wordCount" : 432
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Steve Lacy",
+      "durationDifference" : 0.32800000000000296,
+      "fetchMilliseconds" : 875,
+      "issues" : [
+
+      ],
+      "lineCount" : 26,
+      "position" : 27,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Steve Lacy",
+        "duration" : 178.328,
+        "track" : "Infrunami"
+      },
+      "source" : "yrc",
+      "spotifyId" : "0f8eRy9A0n6zXpKSHSCAEp",
+      "track" : "Infrunami",
+      "wordCount" : 264
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Chris Brown",
+      "durationDifference" : 0.6589999999999918,
+      "fetchMilliseconds" : 1609,
+      "issues" : [
+
+      ],
+      "lineCount" : 44,
+      "position" : 28,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Chris Brown",
+        "duration" : 184.659,
+        "track" : "Under The Influence"
+      },
+      "source" : "yrc",
+      "spotifyId" : "5IgjP7X4th6nMNDh4akUHb",
+      "track" : "Under The Influence",
+      "wordCount" : 252
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Sade",
+      "durationDifference" : 0.4759999999999991,
+      "fetchMilliseconds" : 802,
+      "issues" : [
+
+      ],
+      "lineCount" : 23,
+      "position" : 29,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Sade",
+        "duration" : 218.476,
+        "track" : "Like a Tattoo"
+      },
+      "source" : "yrc",
+      "spotifyId" : "4PEGwWH4tL6H7dGl4uVSPg",
+      "track" : "Like a Tattoo",
+      "wordCount" : 135
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "kwn, Kehlani",
+      "durationDifference" : 0.6030000000000086,
+      "fetchMilliseconds" : 798,
+      "issues" : [
+
+      ],
+      "lineCount" : 49,
+      "position" : 30,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "kwn, Kehlani",
+        "duration" : 213.603,
+        "track" : "worst behaviour"
+      },
+      "source" : "lrc",
+      "spotifyId" : "5W67A7t9MWL3VtovrVrici",
+      "track" : "worst behaviour (feat. Kehlani)",
+      "wordCount" : 413
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "USHER, Alicia Keys",
+      "durationDifference" : 2,
+      "fetchMilliseconds" : 878,
+      "issues" : [
+
+      ],
+      "lineCount" : 55,
+      "position" : 31,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Usher, Alicia Keys",
+        "duration" : 225,
+        "track" : "My Boo"
+      },
+      "source" : "yrc",
+      "spotifyId" : "68vgtRHr7iZHpzGpon6Jlo",
+      "track" : "My Boo",
+      "wordCount" : 544
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Frank Ocean",
+      "durationDifference" : 0.9199999999999591,
+      "fetchMilliseconds" : 1040,
+      "issues" : [
+        "words_beyond_recording"
+      ],
+      "lineCount" : 81,
+      "position" : 32,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Frank Ocean",
+        "duration" : 592.92,
+        "track" : "Pyramids"
+      },
+      "source" : "yrc",
+      "spotifyId" : "4QhWbupniDd44EDtnh2bFJ",
+      "track" : "Pyramids",
+      "wordCount" : 577
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Miguel, J. Cole",
+      "durationDifference" : 1.3059999999999832,
+      "fetchMilliseconds" : 1859,
+      "issues" : [
+
+      ],
+      "lineCount" : 77,
+      "position" : 33,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Miguel, J. Cole",
+        "duration" : 298.306,
+        "track" : "All I Want Is You"
+      },
+      "source" : "lrc",
+      "spotifyId" : "5VA4Ispp52EA1sOqzMz3Av",
+      "track" : "All I Want Is You (feat. J. Cole)",
+      "wordCount" : 487
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Kali Uchis",
+      "durationDifference" : 0.556999999999988,
+      "fetchMilliseconds" : 832,
+      "issues" : [
+
+      ],
+      "lineCount" : 56,
+      "position" : 34,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Kali Uchis",
+        "duration" : 187.557,
+        "track" : "Moonlight"
+      },
+      "source" : "lrc",
+      "spotifyId" : "0JmnkIqdlnUzPaf8sqBRs3",
+      "track" : "Moonlight",
+      "wordCount" : 401
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Ravyn Lenae, Childish Gambino",
+      "durationDifference" : 0.5020000000000095,
+      "fetchMilliseconds" : 1080,
+      "issues" : [
+
+      ],
+      "lineCount" : 30,
+      "position" : 35,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Ravyn Lenae, Childish Gambino",
+        "duration" : 195.502,
+        "track" : "One Wish (feat. Childish Gambino)"
+      },
+      "source" : "lrc",
+      "spotifyId" : "3iHpwGD3h3Bj87KrJEBMI4",
+      "track" : "One Wish (feat. Childish Gambino)",
+      "wordCount" : 160
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "The Weeknd",
+      "durationDifference" : 0.2529999999999859,
+      "fetchMilliseconds" : 1694,
+      "issues" : [
+
+      ],
+      "lineCount" : 71,
+      "position" : 36,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "The Weeknd",
+        "duration" : 260.253,
+        "track" : "Die For You"
+      },
+      "source" : "yrc",
+      "spotifyId" : "2Ch7LmS7r2Gy2kc64wv3Bz",
+      "track" : "Die For You",
+      "wordCount" : 469
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Kaash Paige",
+      "durationDifference" : 0,
+      "fetchMilliseconds" : 629,
+      "issues" : [
+
+      ],
+      "lineCount" : 41,
+      "position" : 37,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Kaash Paige",
+        "duration" : 148,
+        "track" : "Love Songs"
+      },
+      "source" : "lrclib",
+      "spotifyId" : "6qL5UWxRSQYml9O99ozoLv",
+      "track" : "Love Songs - Bonus",
+      "wordCount" : 341
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Miguel, Travis Scott",
+      "durationDifference" : 1.1329999999999814,
+      "fetchMilliseconds" : 871,
+      "issues" : [
+
+      ],
+      "lineCount" : 85,
+      "position" : 38,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Miguel, Travis Scott",
+        "duration" : 260.133,
+        "track" : "Sky Walker"
+      },
+      "source" : "yrc",
+      "spotifyId" : "5WoaF1B5XIEnWfmb5NZikf",
+      "track" : "Sky Walker (feat. Travis Scott)",
+      "wordCount" : 720
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Sonder",
+      "durationDifference" : 0.24199999999999022,
+      "fetchMilliseconds" : 809,
+      "issues" : [
+
+      ],
+      "lineCount" : 46,
+      "position" : 39,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Sonder",
+        "duration" : 238.242,
+        "track" : "What You Heard"
+      },
+      "source" : "yrc",
+      "spotifyId" : "3a3dQOO19moXPeTt2PomoT",
+      "track" : "What You Heard",
+      "wordCount" : 425
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "PARTYNEXTDOOR",
+      "durationDifference" : 0.14599999999998658,
+      "fetchMilliseconds" : 797,
+      "issues" : [
+
+      ],
+      "lineCount" : 45,
+      "position" : 40,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "PARTYNEXTDOOR",
+        "duration" : 147.146,
+        "track" : "Dreamin"
+      },
+      "source" : "lrc",
+      "spotifyId" : "35sZOqVnTQNIGWGURrFdLh",
+      "track" : "Dreamin",
+      "wordCount" : 258
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "SZA",
+      "durationDifference" : 0.3170000000000073,
+      "fetchMilliseconds" : 819,
+      "issues" : [
+
+      ],
+      "lineCount" : 78,
+      "position" : 41,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "SZA",
+        "duration" : 231.317,
+        "track" : "Broken Clocks"
+      },
+      "source" : "yrc",
+      "spotifyId" : "2fXwCWkh6YG5zU1IyvQrbs",
+      "track" : "Broken Clocks",
+      "wordCount" : 453
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Chris Brown, Drake",
+      "durationDifference" : 0.6449999999999818,
+      "fetchMilliseconds" : 866,
+      "issues" : [
+
+      ],
+      "lineCount" : 107,
+      "position" : 42,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Chris Brown, Drake",
+        "duration" : 260.645,
+        "track" : "No Guidance"
+      },
+      "source" : "yrc",
+      "spotifyId" : "6XHVuErjQ4XNm6nDPVCxVX",
+      "track" : "No Guidance (feat. Drake)",
+      "wordCount" : 688
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Miguel",
+      "durationDifference" : 0.8700000000000045,
+      "fetchMilliseconds" : 976,
+      "issues" : [
+
+      ],
+      "lineCount" : 22,
+      "position" : 43,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Miguel",
+        "duration" : 102.87,
+        "track" : "Girl With The Tattoo Enter.lewd"
+      },
+      "source" : "yrc",
+      "spotifyId" : "1eUGmzzvahJjOSWgDHuRlv",
+      "track" : "Girl With The Tattoo Enter.lewd",
+      "wordCount" : 108
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Jhené Aiko, Swae Lee",
+      "durationDifference" : -1,
+      "fetchMilliseconds" : 1562,
+      "issues" : [
+
+      ],
+      "lineCount" : 83,
+      "position" : 44,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Jhené Aiko",
+        "duration" : 275,
+        "track" : "Sativa"
+      },
+      "source" : "lrclib",
+      "spotifyId" : "2pg2TiYo9Rb8KeB5JjP7jS",
+      "track" : "Sativa",
+      "wordCount" : 553
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "GIVĒON",
+      "durationDifference" : -1.141999999999996,
+      "fetchMilliseconds" : 857,
+      "issues" : [
+
+      ],
+      "lineCount" : 43,
+      "position" : 45,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "GIVĒON",
+        "duration" : 196.858,
+        "track" : "HEARTBREAK ANNIVERSARY"
+      },
+      "source" : "yrc",
+      "spotifyId" : "3FAJ6O0NOHQV8Mc5Ri6ENp",
+      "track" : "Heartbreak Anniversary",
+      "wordCount" : 279
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Bryson Tiller",
+      "durationDifference" : 0.5670000000000073,
+      "fetchMilliseconds" : 870,
+      "issues" : [
+
+      ],
+      "lineCount" : 53,
+      "position" : 46,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Bryson Tiller",
+        "duration" : 194.567,
+        "track" : "Exchange"
+      },
+      "source" : "yrc",
+      "spotifyId" : "43PuMrRfbyyuz4QpZ3oAwN",
+      "track" : "Exchange",
+      "wordCount" : 496
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Jeremih",
+      "durationDifference" : 0.3199999999999932,
+      "fetchMilliseconds" : 844,
+      "issues" : [
+
+      ],
+      "lineCount" : 60,
+      "position" : 47,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Jeremih",
+        "duration" : 238.32,
+        "track" : "oui"
+      },
+      "source" : "yrc",
+      "spotifyId" : "0PJIbOdMs3bd5AT8liULMQ",
+      "track" : "oui",
+      "wordCount" : 480
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Brent Faiyaz",
+      "durationDifference" : 0.06200000000001182,
+      "fetchMilliseconds" : 852,
+      "issues" : [
+
+      ],
+      "lineCount" : 58,
+      "position" : 48,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Brent Faiyaz",
+        "duration" : 216.062,
+        "track" : "ALL MINE"
+      },
+      "source" : "yrc",
+      "spotifyId" : "3XgGQ1wjo5khvq2UImjyNF",
+      "track" : "ALL MINE",
+      "wordCount" : 583
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Daniel Caesar",
+      "durationDifference" : 0.37000000000000455,
+      "fetchMilliseconds" : 870,
+      "issues" : [
+
+      ],
+      "lineCount" : 55,
+      "position" : 49,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Daniel Caesar",
+        "duration" : 241.37,
+        "track" : "Blessed"
+      },
+      "source" : "yrc",
+      "spotifyId" : "2XjoHA58XD0t3qye8bYGU8",
+      "track" : "Blessed",
+      "wordCount" : 353
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "SZA",
+      "durationDifference" : 0.2529999999999859,
+      "fetchMilliseconds" : 813,
+      "issues" : [
+
+      ],
+      "lineCount" : 58,
+      "position" : 50,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "SZA",
+        "duration" : 272.253,
+        "track" : "The Weekend"
+      },
+      "source" : "yrc",
+      "spotifyId" : "6gU9OKjOE7ghfEd55oRO57",
+      "track" : "The Weekend",
+      "wordCount" : 349
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "PARTYNEXTDOOR",
+      "durationDifference" : 0.6299999999999955,
+      "fetchMilliseconds" : 798,
+      "issues" : [
+
+      ],
+      "lineCount" : 50,
+      "position" : 51,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "PARTYNEXTDOOR",
+        "duration" : 216.63,
+        "track" : "Her Way"
+      },
+      "source" : "lrc",
+      "spotifyId" : "3JEJwjqLkg2Jbau5922CAb",
+      "track" : "Her Way",
+      "wordCount" : 354
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "GIVĒON",
+      "durationDifference" : 0.521000000000015,
+      "fetchMilliseconds" : 880,
+      "issues" : [
+
+      ],
+      "lineCount" : 41,
+      "position" : 52,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "GIVĒON",
+        "duration" : 260.521,
+        "track" : "LIKE I WANT YOU"
+      },
+      "source" : "yrc",
+      "spotifyId" : "6qBFSepqLCuh5tehehc1bd",
+      "track" : "Like I Want You",
+      "wordCount" : 408
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Brent Faiyaz",
+      "durationDifference" : 0.5079999999999956,
+      "fetchMilliseconds" : 845,
+      "issues" : [
+
+      ],
+      "lineCount" : 24,
+      "position" : 53,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Brent Faiyaz",
+        "duration" : 82.508,
+        "track" : "Best Time"
+      },
+      "source" : "lrc",
+      "spotifyId" : "1zgHn1EqUyA0HqNYMdJ5ia",
+      "track" : "Best Time",
+      "wordCount" : 177
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Wizkid, Tems",
+      "durationDifference" : 0.10300000000000864,
+      "fetchMilliseconds" : 1706,
+      "issues" : [
+
+      ],
+      "lineCount" : 76,
+      "position" : 54,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "WizKid, Tems",
+        "duration" : 249.103,
+        "track" : "Essence"
+      },
+      "source" : "yrc",
+      "spotifyId" : "5FG7Tl93LdH117jEKYl3Cm",
+      "track" : "Essence (feat. Tems)",
+      "wordCount" : 445
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Chris Brown, Young Thug",
+      "durationDifference" : 1.0049999999999955,
+      "fetchMilliseconds" : 849,
+      "issues" : [
+
+      ],
+      "lineCount" : 97,
+      "position" : 55,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Chris Brown, Young Thug",
+        "duration" : 177.005,
+        "track" : "Go Crazy"
+      },
+      "source" : "yrc",
+      "spotifyId" : "1IIKrJVP1C9N7iPtG6eOsK",
+      "track" : "Go Crazy",
+      "wordCount" : 613
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Tems",
+      "durationDifference" : 0.578000000000003,
+      "fetchMilliseconds" : 1541,
+      "issues" : [
+
+      ],
+      "lineCount" : 71,
+      "position" : 56,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Tems",
+        "duration" : 247.578,
+        "track" : "Free Mind"
+      },
+      "source" : "yrc",
+      "spotifyId" : "2mzM4Y0Rnx2BDZqRnhQ5Q6",
+      "track" : "Free Mind",
+      "wordCount" : 486
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Kehlani, Ty Dolla $ign",
+      "durationDifference" : 0.7870000000000061,
+      "fetchMilliseconds" : 1200,
+      "issues" : [
+
+      ],
+      "lineCount" : 58,
+      "position" : 57,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Kehlani, Ty Dolla $ign",
+        "duration" : 201.787,
+        "track" : "Nights Like This"
+      },
+      "source" : "yrc",
+      "spotifyId" : "6ZRuF2n1CQxyxxAAWsKJOy",
+      "track" : "Nights Like This (feat. Ty Dolla $ign)",
+      "wordCount" : 603
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Brent Faiyaz",
+      "durationDifference" : 0.6289999999999907,
+      "fetchMilliseconds" : 813,
+      "issues" : [
+
+      ],
+      "lineCount" : 57,
+      "position" : 58,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Brent Faiyaz",
+        "duration" : 223.629,
+        "track" : "Been Away"
+      },
+      "source" : "yrc",
+      "spotifyId" : "5PvVkf1Yuq3XyMqqjPiKPd",
+      "track" : "Been Away",
+      "wordCount" : 421
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "PARTYNEXTDOOR",
+      "durationDifference" : 0.37299999999999045,
+      "fetchMilliseconds" : 1671,
+      "issues" : [
+
+      ],
+      "lineCount" : 48,
+      "position" : 59,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "PARTYNEXTDOOR",
+        "duration" : 265.373,
+        "track" : "N o C h i l l"
+      },
+      "source" : "lrc",
+      "spotifyId" : "1zhMHgotgZXkLCXpqNRnPK",
+      "track" : "N o C h i l l",
+      "wordCount" : 428
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Ella Mai",
+      "durationDifference" : 0.992999999999995,
+      "fetchMilliseconds" : 1685,
+      "issues" : [
+
+      ],
+      "lineCount" : 65,
+      "position" : 60,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Ella Mai",
+        "duration" : 213.993,
+        "track" : "Trip"
+      },
+      "source" : "yrc",
+      "spotifyId" : "6CTWathupIiDs7U4InHnDA",
+      "track" : "Trip",
+      "wordCount" : 516
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Tems",
+      "durationDifference" : 0.20400000000000773,
+      "fetchMilliseconds" : 798,
+      "issues" : [
+
+      ],
+      "lineCount" : 46,
+      "position" : 61,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Tems",
+        "duration" : 196.204,
+        "track" : "Higher"
+      },
+      "source" : "yrc",
+      "spotifyId" : "2QdSb68BzZGMgCbsrFmSLc",
+      "track" : "Higher",
+      "wordCount" : 350
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "SZA, Kendrick Lamar",
+      "durationDifference" : 0.3079999999999927,
+      "fetchMilliseconds" : 1680,
+      "issues" : [
+
+      ],
+      "lineCount" : 113,
+      "position" : 62,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "SZA, Kendrick Lamar",
+        "duration" : 278.308,
+        "track" : "30 For 30"
+      },
+      "source" : "lrc",
+      "spotifyId" : "3aSWXU6owkZeVhh94XxEWO",
+      "track" : "30 For 30 (with Kendrick Lamar)",
+      "wordCount" : 865
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Doechii",
+      "durationDifference" : 0.8240000000000123,
+      "fetchMilliseconds" : 1651,
+      "issues" : [
+
+      ],
+      "lineCount" : 76,
+      "position" : 63,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Doechii",
+        "duration" : 189.824,
+        "track" : "What It Is (Solo Version)"
+      },
+      "source" : "yrc",
+      "spotifyId" : "73RbfOTJIjHzi2pcVHjeHM",
+      "track" : "What It Is (Solo Version)",
+      "wordCount" : 559
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Beyoncé",
+      "durationDifference" : 0.4420000000000073,
+      "fetchMilliseconds" : 849,
+      "issues" : [
+
+      ],
+      "lineCount" : 65,
+      "position" : 64,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Beyoncé",
+        "duration" : 225.442,
+        "track" : "CUFF IT"
+      },
+      "source" : "yrc",
+      "spotifyId" : "1xzi1Jcr7mEi9K2RfzLOqS",
+      "track" : "CUFF IT",
+      "wordCount" : 826
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "H.E.R., Bryson Tiller",
+      "durationDifference" : 0.75,
+      "fetchMilliseconds" : 1597,
+      "issues" : [
+
+      ],
+      "lineCount" : 61,
+      "position" : 65,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "H.E.R., Bryson Tiller",
+        "duration" : 252.75,
+        "track" : "Could've Been"
+      },
+      "source" : "yrc",
+      "spotifyId" : "6oEVnWKgPqIEPc53OYDNqG",
+      "track" : "Could've Been (feat. Bryson Tiller)",
+      "wordCount" : 465
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Brent Faiyaz",
+      "durationDifference" : 0.4199999999999875,
+      "fetchMilliseconds" : 1002,
+      "issues" : [
+
+      ],
+      "lineCount" : 58,
+      "position" : 66,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Brent Faiyaz",
+        "duration" : 158.42,
+        "track" : "Trust"
+      },
+      "source" : "yrc",
+      "spotifyId" : "0oufSLnKQDoBFX5mgkDCgR",
+      "track" : "Trust",
+      "wordCount" : 431
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Santana, The Product G&B",
+      "durationDifference" : 0.9900000000000091,
+      "fetchMilliseconds" : 945,
+      "issues" : [
+
+      ],
+      "lineCount" : 61,
+      "position" : 67,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Santana, The Product G&B",
+        "duration" : 261.99,
+        "track" : "Maria Maria"
+      },
+      "source" : "yrc",
+      "spotifyId" : "3XKIUb7HzIF1Vu9usunMzc",
+      "track" : "Maria Maria (feat. The Product G&B)",
+      "wordCount" : 345
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Jhené Aiko",
+      "durationDifference" : 0.492999999999995,
+      "fetchMilliseconds" : 1599,
+      "issues" : [
+
+      ],
+      "lineCount" : 91,
+      "position" : 68,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Jhené Aiko",
+        "duration" : 254.493,
+        "track" : "The Worst"
+      },
+      "source" : "yrc",
+      "spotifyId" : "2wBCrtJS3E3TimRZ5MElTI",
+      "track" : "The Worst",
+      "wordCount" : 507
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Summer Walker, Bryson Tiller",
+      "durationDifference" : 0.2259999999999991,
+      "fetchMilliseconds" : 918,
+      "issues" : [
+
+      ],
+      "lineCount" : 58,
+      "position" : 69,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Summer Walker, Bryson Tiller",
+        "duration" : 143.226,
+        "track" : "Playing Games (Extended Version)"
+      },
+      "source" : "yrc",
+      "spotifyId" : "2xyx0o4xNOLLjBSbOOdcbA",
+      "track" : "Playing Games (with Bryson Tiller) - Extended Version",
+      "wordCount" : 414
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Ella Mai",
+      "durationDifference" : 0.3410000000000082,
+      "fetchMilliseconds" : 828,
+      "issues" : [
+
+      ],
+      "lineCount" : 57,
+      "position" : 70,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Ella Mai",
+        "duration" : 239.341,
+        "track" : "Boo'd Up"
+      },
+      "source" : "yrc",
+      "spotifyId" : "4squZv12LD9M8ooJfoVgZS",
+      "track" : "Boo'd Up",
+      "wordCount" : 480
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Tems",
+      "durationDifference" : 0.04099999999999682,
+      "fetchMilliseconds" : 765,
+      "issues" : [
+
+      ],
+      "lineCount" : 49,
+      "position" : 71,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Tems",
+        "duration" : 178.041,
+        "track" : "Love Me JeJe"
+      },
+      "source" : "lrc",
+      "spotifyId" : "1eDI5oU04SLsXl0TfxfwYf",
+      "track" : "Love Me JeJe",
+      "wordCount" : 398
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Oxlade",
+      "durationDifference" : 0.6440000000000055,
+      "fetchMilliseconds" : 893,
+      "issues" : [
+
+      ],
+      "lineCount" : 67,
+      "position" : 72,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Oxlade",
+        "duration" : 147.644,
+        "track" : "KU LO SA - A COLORS SHOW"
+      },
+      "source" : "yrc",
+      "spotifyId" : "2WigMwGJysIh9fRnSJvpjn",
+      "track" : "KU LO SA - A COLORS SHOW",
+      "wordCount" : 476
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Jhené Aiko",
+      "durationDifference" : 0.1560000000000059,
+      "fetchMilliseconds" : 936,
+      "issues" : [
+
+      ],
+      "lineCount" : 62,
+      "position" : 73,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Jhené Aiko",
+        "duration" : 236.156,
+        "track" : "While We're Young"
+      },
+      "source" : "yrc",
+      "spotifyId" : "4mL59LVbKgOpEACxraGYdr",
+      "track" : "While We're Young",
+      "wordCount" : 402
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Mariah the Scientist",
+      "durationDifference" : 0.5699999999999932,
+      "fetchMilliseconds" : 853,
+      "issues" : [
+
+      ],
+      "lineCount" : 35,
+      "position" : 74,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Mariah the Scientist",
+        "duration" : 202.57,
+        "track" : "Spread Thin"
+      },
+      "source" : "yrc",
+      "spotifyId" : "4MbzauKV2ydtZZjLsPcuTF",
+      "track" : "Spread Thin",
+      "wordCount" : 328
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Fantasia",
+      "durationDifference" : 2.1330000000000098,
+      "fetchMilliseconds" : 1054,
+      "issues" : [
+
+      ],
+      "lineCount" : 62,
+      "position" : 75,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Fantasia",
+        "duration" : 219.133,
+        "track" : "When I See U"
+      },
+      "source" : "yrc",
+      "spotifyId" : "4iuNZTcvT9diFySSzVsnVS",
+      "track" : "When I See U",
+      "wordCount" : 381
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Tems",
+      "durationDifference" : 1.2589999999999861,
+      "fetchMilliseconds" : 827,
+      "issues" : [
+
+      ],
+      "lineCount" : 45,
+      "position" : 76,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Tems",
+        "duration" : 193.259,
+        "track" : "Me & U"
+      },
+      "source" : "lrc",
+      "spotifyId" : "4nFrcGM7MY1mpoQCC7Kefj",
+      "track" : "Me & U",
+      "wordCount" : 302
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Justine Skye, Tyga",
+      "durationDifference" : 0.16899999999998272,
+      "fetchMilliseconds" : 861,
+      "issues" : [
+
+      ],
+      "lineCount" : 71,
+      "position" : 77,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Justine Skye, Tyga",
+        "duration" : 260.169,
+        "track" : "Collide (feat. Tyga)"
+      },
+      "source" : "yrc",
+      "spotifyId" : "22I3h5AOENlH4CqXJsEbFR",
+      "track" : "Collide (feat. Tyga)",
+      "wordCount" : 571
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Summer Walker, SZA",
+      "durationDifference" : 0.4970000000000141,
+      "fetchMilliseconds" : 2552,
+      "issues" : [
+
+      ],
+      "lineCount" : 63,
+      "position" : 78,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Summer Walker, SZA",
+        "duration" : 231.497,
+        "track" : "No Love"
+      },
+      "source" : "yrc",
+      "spotifyId" : "08SB2OtZkaliju77WYEKxk",
+      "track" : "No Love (with SZA)",
+      "wordCount" : 636
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "SZA",
+      "durationDifference" : -0.45400000000000773,
+      "fetchMilliseconds" : 2393,
+      "issues" : [
+
+      ],
+      "lineCount" : 55,
+      "position" : 79,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "SZA",
+        "duration" : 278.546,
+        "track" : "Good Days"
+      },
+      "source" : "yrc",
+      "spotifyId" : "3YJJjQPAbDT7mGpX3WtQ9A",
+      "track" : "Good Days",
+      "wordCount" : 435
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Jhené Aiko",
+      "durationDifference" : 0.7729999999999961,
+      "fetchMilliseconds" : 2409,
+      "issues" : [
+
+      ],
+      "lineCount" : 61,
+      "position" : 80,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Jhené Aiko",
+        "duration" : 241.773,
+        "track" : "my mine"
+      },
+      "source" : "yrc",
+      "spotifyId" : "2B8Y5LaNSEkuB3LA9okArd",
+      "track" : "my mine",
+      "wordCount" : 432
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Miguel",
+      "durationDifference" : 1.0929999999999893,
+      "fetchMilliseconds" : 2488,
+      "issues" : [
+
+      ],
+      "lineCount" : 46,
+      "position" : 81,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Miguel",
+        "duration" : 194.093,
+        "track" : "Adorn"
+      },
+      "source" : "yrc",
+      "spotifyId" : "25cUhiAod71TIQSNicOaW3",
+      "track" : "Adorn",
+      "wordCount" : 282
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Leon Thomas",
+      "durationDifference" : 0.046999999999997044,
+      "fetchMilliseconds" : 804,
+      "issues" : [
+
+      ],
+      "lineCount" : 56,
+      "position" : 82,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Leon Thomas",
+        "duration" : 228.047,
+        "track" : "YES IT IS"
+      },
+      "source" : "lrc",
+      "spotifyId" : "2iksjpqL3eraxCBKqNHuqd",
+      "track" : "YES IT IS",
+      "wordCount" : 402
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Summer Walker",
+      "durationDifference" : 0.8400000000000034,
+      "fetchMilliseconds" : 883,
+      "issues" : [
+
+      ],
+      "lineCount" : 47,
+      "position" : 83,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Summer Walker",
+        "duration" : 193.84,
+        "track" : "Body"
+      },
+      "source" : "yrc",
+      "spotifyId" : "7vxLj7MREliG5i5vSnqSVr",
+      "track" : "Body",
+      "wordCount" : 312
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "4batz, Drake",
+      "durationDifference" : 0.33799999999999386,
+      "fetchMilliseconds" : 823,
+      "issues" : [
+
+      ],
+      "lineCount" : 51,
+      "position" : 84,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "4batz, Drake",
+        "duration" : 231.338,
+        "track" : "act ii: date @ 8 (feat. Drake) [remix]"
+      },
+      "source" : "lrc",
+      "spotifyId" : "3QS9ZCtoSCJhmaJ7QNXSAS",
+      "track" : "act ii: date @ 8 (feat. Drake) - remix",
+      "wordCount" : 380
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Teyana Taylor",
+      "durationDifference" : 0.9970000000000141,
+      "fetchMilliseconds" : 879,
+      "issues" : [
+
+      ],
+      "lineCount" : 40,
+      "position" : 85,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Teyana Taylor",
+        "duration" : 166.997,
+        "track" : "Gonna Love Me"
+      },
+      "source" : "yrc",
+      "spotifyId" : "3nXrCAE44KlevAkQB2XWcN",
+      "track" : "Gonna Love Me",
+      "wordCount" : 330
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "6LACK, J. Cole",
+      "durationDifference" : 0.3959999999999866,
+      "fetchMilliseconds" : 1302,
+      "issues" : [
+
+      ],
+      "lineCount" : 95,
+      "position" : 86,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "6LACK, J. Cole",
+        "duration" : 240.396,
+        "track" : "Pretty Little Fears"
+      },
+      "source" : "yrc",
+      "spotifyId" : "4at3d5QWnlibMVN75ECDrp",
+      "track" : "Pretty Little Fears (feat. J. Cole)",
+      "wordCount" : 648
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Leon Thomas",
+      "durationDifference" : 0.20199999999999818,
+      "fetchMilliseconds" : 843,
+      "issues" : [
+
+      ],
+      "lineCount" : 32,
+      "position" : 87,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Leon Thomas",
+        "duration" : 189.202,
+        "track" : "Treasure In The Hills"
+      },
+      "source" : "yrc",
+      "spotifyId" : "64TJKMfx0QxpuR7rTXL05c",
+      "track" : "Treasure In The Hills",
+      "wordCount" : 180
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Ayra Starr, GIVĒON",
+      "durationDifference" : 0.6769999999999925,
+      "fetchMilliseconds" : 761,
+      "issues" : [
+
+      ],
+      "lineCount" : 51,
+      "position" : 88,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Ayra Starr, GIVĒON",
+        "duration" : 149.677,
+        "track" : "Last Heartbreak Song"
+      },
+      "source" : "lrc",
+      "spotifyId" : "1A1ifX8sWzelNpkL5PxcHT",
+      "track" : "Last Heartbreak Song (feat. Giveon)",
+      "wordCount" : 306
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Summer Walker",
+      "durationDifference" : 0.9060000000000059,
+      "fetchMilliseconds" : 884,
+      "issues" : [
+
+      ],
+      "lineCount" : 46,
+      "position" : 89,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Summer Walker",
+        "duration" : 188.906,
+        "track" : "Karma"
+      },
+      "source" : "yrc",
+      "spotifyId" : "2Fyjjpg03fn7n5cj0Qm380",
+      "track" : "Karma",
+      "wordCount" : 287
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "DaniLeigh, Chris Brown",
+      "durationDifference" : 0.5860000000000127,
+      "fetchMilliseconds" : 932,
+      "issues" : [
+
+      ],
+      "lineCount" : 68,
+      "position" : 90,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "DaniLeigh, Chris Brown",
+        "duration" : 186.586,
+        "track" : "Easy (Remix)"
+      },
+      "source" : "yrc",
+      "spotifyId" : "4CMrdHWqic0usIZfTrKoI3",
+      "track" : "Easy - Remix",
+      "wordCount" : 394
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Jhené Aiko",
+      "durationDifference" : 0.4800000000000182,
+      "fetchMilliseconds" : 1036,
+      "issues" : [
+
+      ],
+      "lineCount" : 55,
+      "position" : 91,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Jhené Aiko",
+        "duration" : 262.48,
+        "track" : "living room flow"
+      },
+      "source" : "yrc",
+      "spotifyId" : "4Li8dc3ucCesQJMKErU5zM",
+      "track" : "living room flow - Bonus",
+      "wordCount" : 380
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "PARTYNEXTDOOR",
+      "durationDifference" : 0.3060000000000116,
+      "fetchMilliseconds" : 877,
+      "issues" : [
+
+      ],
+      "lineCount" : 34,
+      "position" : 92,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "PARTYNEXTDOOR",
+        "duration" : 174.306,
+        "track" : "PERSIAN RUGS"
+      },
+      "source" : "yrc",
+      "spotifyId" : "2SWbnWSe1onmbllRAU46uo",
+      "track" : "PERSIAN RUGS",
+      "wordCount" : 182
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Mariah the Scientist",
+      "durationDifference" : 0.8629999999999995,
+      "fetchMilliseconds" : 817,
+      "issues" : [
+
+      ],
+      "lineCount" : 35,
+      "position" : 93,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Mariah the Scientist",
+        "duration" : 178.863,
+        "track" : "All For Me"
+      },
+      "source" : "lrc",
+      "spotifyId" : "7vIDhgD7WWTMpvgJebImoN",
+      "track" : "All For Me",
+      "wordCount" : 281
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "GIVĒON",
+      "durationDifference" : 0.7280000000000086,
+      "fetchMilliseconds" : 832,
+      "issues" : [
+
+      ],
+      "lineCount" : 51,
+      "position" : 94,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "GIVĒON",
+        "duration" : 205.728,
+        "track" : "The Beach"
+      },
+      "source" : "yrc",
+      "spotifyId" : "2Hd7uGbl8PX0IxyX59VFOg",
+      "track" : "The Beach",
+      "wordCount" : 463
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "kwn",
+      "durationDifference" : 0.7400000000000091,
+      "fetchMilliseconds" : 782,
+      "issues" : [
+
+      ],
+      "lineCount" : 35,
+      "position" : 95,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "kwn",
+        "duration" : 273.74,
+        "track" : "back of the club"
+      },
+      "source" : "lrc",
+      "spotifyId" : "6svat6LhQXRAnALB7CkUg5",
+      "track" : "back of the club",
+      "wordCount" : 409
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Ella Mai, Ty Dolla $ign",
+      "durationDifference" : 0.14999999999997726,
+      "fetchMilliseconds" : 791,
+      "issues" : [
+
+      ],
+      "lineCount" : 68,
+      "position" : 96,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Ella Mai, Ty Dolla $ign",
+        "duration" : 264.15,
+        "track" : "She Don't"
+      },
+      "source" : "yrc",
+      "spotifyId" : "01JPQ87UHeGysPVwTqMJHK",
+      "track" : "She Don't (feat. Ty Dolla $Ign)",
+      "wordCount" : 653
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Kehlani",
+      "durationDifference" : 0.18199999999998795,
+      "fetchMilliseconds" : 916,
+      "issues" : [
+
+      ],
+      "lineCount" : 38,
+      "position" : 97,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Kehlani",
+        "duration" : 168.182,
+        "track" : "Toxic"
+      },
+      "source" : "yrc",
+      "spotifyId" : "5nexAvWNhwg51EavnDgViy",
+      "track" : "Toxic",
+      "wordCount" : 359
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Mariah the Scientist, Lil Baby",
+      "durationDifference" : 0.09299999999998931,
+      "fetchMilliseconds" : 1112,
+      "issues" : [
+
+      ],
+      "lineCount" : 65,
+      "position" : 98,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Mariah the Scientist, Lil Baby",
+        "duration" : 197.093,
+        "track" : "Always n Forever"
+      },
+      "source" : "yrc",
+      "spotifyId" : "6dbENHQHHtWRai4snSvy2w",
+      "track" : "Always n Forever (feat. Lil Baby)",
+      "wordCount" : 450
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "GIVĒON",
+      "durationDifference" : 0.40500000000000114,
+      "fetchMilliseconds" : 847,
+      "issues" : [
+
+      ],
+      "lineCount" : 33,
+      "position" : 99,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "GIVĒON",
+        "duration" : 195.405,
+        "track" : "Garden Kisses"
+      },
+      "source" : "yrc",
+      "spotifyId" : "62d6YXEYxmMWAuLpw1EysL",
+      "track" : "Garden Kisses",
+      "wordCount" : 190
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "USHER",
+      "durationDifference" : 0.6990000000000123,
+      "fetchMilliseconds" : 957,
+      "issues" : [
+
+      ],
+      "lineCount" : 93,
+      "position" : 100,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Usher",
+        "duration" : 224.699,
+        "track" : "Caught Up"
+      },
+      "source" : "yrc",
+      "spotifyId" : "5zdUc1JRCImBYcDWgvFNpE",
+      "track" : "Caught Up",
+      "wordCount" : 463
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "6LACK",
+      "durationDifference" : 0.7729999999999961,
+      "fetchMilliseconds" : 821,
+      "issues" : [
+
+      ],
+      "lineCount" : 66,
+      "position" : 101,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "6LACK",
+        "duration" : 246.773,
+        "track" : "PRBLMS"
+      },
+      "source" : "yrc",
+      "spotifyId" : "4AtZRwSR8BOTTQg5ihSggt",
+      "track" : "PRBLMS",
+      "wordCount" : 789
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Masego",
+      "durationDifference" : 0.710000000000008,
+      "fetchMilliseconds" : 803,
+      "issues" : [
+
+      ],
+      "lineCount" : 33,
+      "position" : 102,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Masego",
+        "duration" : 184.71,
+        "track" : "Unhinged"
+      },
+      "source" : "lrc",
+      "spotifyId" : "5hvyS23Ya468Sp4VeL48U5",
+      "track" : "Unhinged",
+      "wordCount" : 168
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Tyla",
+      "durationDifference" : 0.4449999999999932,
+      "fetchMilliseconds" : 841,
+      "issues" : [
+
+      ],
+      "lineCount" : 38,
+      "position" : 103,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Tyla",
+        "duration" : 148.445,
+        "track" : "ART"
+      },
+      "source" : "lrc",
+      "spotifyId" : "40ds3xedbMkWhszkGnZwxi",
+      "track" : "ART",
+      "wordCount" : 198
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Coco Jones",
+      "durationDifference" : 0.6239999999999952,
+      "fetchMilliseconds" : 889,
+      "issues" : [
+
+      ],
+      "lineCount" : 54,
+      "position" : 104,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Coco Jones",
+        "duration" : 241.624,
+        "track" : "ICU"
+      },
+      "source" : "lrc",
+      "spotifyId" : "3tpI98Yae25hSvhh6mitA9",
+      "track" : "ICU",
+      "wordCount" : 240
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Beyoncé, Dolly Parton",
+      "durationDifference" : 0.7249999999999943,
+      "fetchMilliseconds" : 771,
+      "issues" : [
+        "words_beyond_recording"
+      ],
+      "lineCount" : 73,
+      "position" : 105,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Beyoncé, Dolly Parton",
+        "duration" : 250.725,
+        "track" : "TYRANT"
+      },
+      "source" : "lrc",
+      "spotifyId" : "5mUlozUYpdmXVPkj4BW8cA",
+      "track" : "TYRANT",
+      "wordCount" : 636
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Bryson Tiller",
+      "durationDifference" : 0.4490000000000123,
+      "fetchMilliseconds" : 821,
+      "issues" : [
+
+      ],
+      "lineCount" : 71,
+      "position" : 106,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Bryson Tiller",
+        "duration" : 241.449,
+        "track" : "Self Righteous"
+      },
+      "source" : "lrc",
+      "spotifyId" : "4w9dTbEcJx8uBTxGvUYC0h",
+      "track" : "Self Righteous",
+      "wordCount" : 516
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Ella Mai",
+      "durationDifference" : 0.42900000000000205,
+      "fetchMilliseconds" : 824,
+      "issues" : [
+
+      ],
+      "lineCount" : 60,
+      "position" : 107,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Ella Mai",
+        "duration" : 206.429,
+        "track" : "This Is"
+      },
+      "source" : "lrc",
+      "spotifyId" : "2zuDMKJ2rSgCMtJknUJBZ9",
+      "track" : "This Is",
+      "wordCount" : 411
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "H.E.R.",
+      "durationDifference" : 0.20199999999999818,
+      "fetchMilliseconds" : 850,
+      "issues" : [
+
+      ],
+      "lineCount" : 42,
+      "position" : 108,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "H.E.R.",
+        "duration" : 200.202,
+        "track" : "Focus"
+      },
+      "source" : "yrc",
+      "spotifyId" : "3tZs3nVjySLbL320lP4mvs",
+      "track" : "Focus",
+      "wordCount" : 213
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Queen Naija",
+      "durationDifference" : 0.1349999999999909,
+      "fetchMilliseconds" : 899,
+      "issues" : [
+
+      ],
+      "lineCount" : 63,
+      "position" : 109,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Queen Naija",
+        "duration" : 219.135,
+        "track" : "Medicine"
+      },
+      "source" : "yrc",
+      "spotifyId" : "4lFfMRH0YH4pW5gczTDbNC",
+      "track" : "Medicine",
+      "wordCount" : 521
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Daniel Caesar, H.E.R.",
+      "durationDifference" : 1.0529999999999973,
+      "fetchMilliseconds" : 791,
+      "issues" : [
+
+      ],
+      "lineCount" : 56,
+      "position" : 110,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Daniel Caesar, H.E.R.",
+        "duration" : 210.053,
+        "track" : "Best Part"
+      },
+      "source" : "yrc",
+      "spotifyId" : "4OBZT9EnhYIV17t4pGw7ig",
+      "track" : "Best Part (feat. H.E.R.)",
+      "wordCount" : 308
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Solange",
+      "durationDifference" : 1.0300000000000011,
+      "fetchMilliseconds" : 849,
+      "issues" : [
+
+      ],
+      "lineCount" : 38,
+      "position" : 111,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Solange",
+        "duration" : 251.03,
+        "track" : "Cranes in the Sky"
+      },
+      "source" : "yrc",
+      "spotifyId" : "48EjSdYh8wz2gBxxqzrsLe",
+      "track" : "Cranes in the Sky",
+      "wordCount" : 290
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Leon Thomas",
+      "durationDifference" : 0.27000000000001023,
+      "fetchMilliseconds" : 809,
+      "issues" : [
+
+      ],
+      "lineCount" : 52,
+      "position" : 112,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Leon Thomas",
+        "duration" : 196.27,
+        "track" : "NOT FAIR"
+      },
+      "source" : "lrc",
+      "spotifyId" : "277K8GOv27Pq3qS4IKSRoW",
+      "track" : "NOT FAIR",
+      "wordCount" : 379
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Lucky Daye",
+      "durationDifference" : -1.6779999999999973,
+      "fetchMilliseconds" : 1591,
+      "issues" : [
+
+      ],
+      "lineCount" : 54,
+      "position" : 113,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Lucky Daye",
+        "duration" : 205.322,
+        "track" : "Over"
+      },
+      "source" : "lrc",
+      "spotifyId" : "23CKxEwKWsLs6LD5poGOLM",
+      "track" : "Over",
+      "wordCount" : 351
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "H.E.R.",
+      "durationDifference" : 0.2400000000000091,
+      "fetchMilliseconds" : 848,
+      "issues" : [
+
+      ],
+      "lineCount" : 25,
+      "position" : 114,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "H.E.R.",
+        "duration" : 160.24,
+        "track" : "Every Kind Of Way"
+      },
+      "source" : "yrc",
+      "spotifyId" : "0Aa3g9EQoPNt6PiKjaUeb7",
+      "track" : "Every Kind Of Way",
+      "wordCount" : 224
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Beyoncé",
+      "durationDifference" : 0.8290000000000077,
+      "fetchMilliseconds" : 925,
+      "issues" : [
+
+      ],
+      "lineCount" : 80,
+      "position" : 115,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Beyoncé",
+        "duration" : 260.829,
+        "track" : "HEATED"
+      },
+      "source" : "yrc",
+      "spotifyId" : "1w7cgGZR86yWz1pA2puVJD",
+      "track" : "HEATED",
+      "wordCount" : 1022
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Kehlani",
+      "durationDifference" : 0.41399999999998727,
+      "fetchMilliseconds" : 860,
+      "issues" : [
+
+      ],
+      "lineCount" : 56,
+      "position" : 116,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Kehlani",
+        "duration" : 202.414,
+        "track" : "After Hours"
+      },
+      "source" : "lrc",
+      "spotifyId" : "2x03XLsTZ0o86h0cfHrkKF",
+      "track" : "After Hours",
+      "wordCount" : 421
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Snoh Aalegra",
+      "durationDifference" : 0.45300000000000296,
+      "fetchMilliseconds" : 915,
+      "issues" : [
+
+      ],
+      "lineCount" : 45,
+      "position" : 117,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Snoh Aalegra",
+        "duration" : 214.453,
+        "track" : "IN YOUR EYES"
+      },
+      "source" : "yrc",
+      "spotifyId" : "1wjDFBUOMuZKm1eJ8GzRBX",
+      "track" : "IN YOUR EYES",
+      "wordCount" : 489
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Bruno Mars, Anderson .Paak, Silk Sonic, Thundercat, Bootsy Collins",
+      "durationDifference" : 0.4439999999999884,
+      "fetchMilliseconds" : 1241,
+      "issues" : [
+
+      ],
+      "lineCount" : 45,
+      "position" : 118,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Bruno Mars, Anderson .Paak, Silk Sonic, Thundercat, Bootsy Collins",
+        "duration" : 249.444,
+        "track" : "After Last Night (with Thundercat & Bootsy Collins)"
+      },
+      "source" : "yrc",
+      "spotifyId" : "6jGAh1bFnXt1Muj9zeHveZ",
+      "track" : "After Last Night (with Thundercat & Bootsy Collins)",
+      "wordCount" : 630
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Victoria Monét",
+      "durationDifference" : 0.3199999999999932,
+      "fetchMilliseconds" : 2383,
+      "issues" : [
+
+      ],
+      "lineCount" : 56,
+      "position" : 119,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Victoria Monét",
+        "duration" : 184.32,
+        "track" : "On My Mama"
+      },
+      "source" : "yrc",
+      "spotifyId" : "7DswEZZthZ6piQpL25qGAM",
+      "track" : "On My Mama",
+      "wordCount" : 523
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "kwn",
+      "durationDifference" : 0.6040000000000134,
+      "fetchMilliseconds" : 1177,
+      "issues" : [
+
+      ],
+      "lineCount" : 48,
+      "position" : 120,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "kwn",
+        "duration" : 188.604,
+        "track" : "do what i say"
+      },
+      "source" : "lrc",
+      "spotifyId" : "5P8zrJH6NhD2QRIscTSTcq",
+      "track" : "do what i say",
+      "wordCount" : 349
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Kehlani",
+      "durationDifference" : 0.3199999999999932,
+      "fetchMilliseconds" : 815,
+      "issues" : [
+
+      ],
+      "lineCount" : 32,
+      "position" : 121,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Kehlani",
+        "duration" : 177.32,
+        "track" : "Gangsta"
+      },
+      "source" : "yrc",
+      "spotifyId" : "5cw9s2zGrbny2M2p3WRmGm",
+      "track" : "Gangsta",
+      "wordCount" : 211
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Floetry",
+      "durationDifference" : 0.37299999999999045,
+      "fetchMilliseconds" : 926,
+      "issues" : [
+
+      ],
+      "lineCount" : 40,
+      "position" : 122,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Floetry",
+        "duration" : 268.373,
+        "track" : "Say Yes"
+      },
+      "source" : "yrc",
+      "spotifyId" : "2fE4MbwX3QGMzNaMjGVhtw",
+      "track" : "Say Yes",
+      "wordCount" : 335
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Leon Thomas",
+      "durationDifference" : 0.5670000000000073,
+      "fetchMilliseconds" : 879,
+      "issues" : [
+
+      ],
+      "lineCount" : 30,
+      "position" : 123,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Leon Thomas",
+        "duration" : 201.567,
+        "track" : "VIBES DON'T LIE"
+      },
+      "source" : "lrc",
+      "spotifyId" : "1WwrfoGe0K33z1tVI6mevJ",
+      "track" : "VIBES DON'T LIE",
+      "wordCount" : 193
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Snoh Aalegra",
+      "durationDifference" : 0.7870000000000061,
+      "fetchMilliseconds" : 808,
+      "issues" : [
+
+      ],
+      "lineCount" : 56,
+      "position" : 124,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Snoh Aalegra",
+        "duration" : 212.787,
+        "track" : "I Want You Around"
+      },
+      "source" : "yrc",
+      "spotifyId" : "2gjidmxtA1pyj2HYrdOTG1",
+      "track" : "I Want You Around",
+      "wordCount" : 382
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Ari Lennox, J. Cole",
+      "durationDifference" : 0.6100000000000136,
+      "fetchMilliseconds" : 1527,
+      "issues" : [
+
+      ],
+      "lineCount" : 50,
+      "position" : 125,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Ari Lennox, J. Cole",
+        "duration" : 211.61,
+        "track" : "Shea Butter Baby"
+      },
+      "source" : "yrc",
+      "spotifyId" : "5BOBHIBuzvQuIYL1E1nDzl",
+      "track" : "Shea Butter Baby (with J. Cole)",
+      "wordCount" : 496
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Wizkid, Ayra Starr",
+      "durationDifference" : 0.9650000000000034,
+      "fetchMilliseconds" : 2616,
+      "issues" : [
+
+      ],
+      "lineCount" : 66,
+      "position" : 126,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "WizKid, Ayra Starr",
+        "duration" : 187.965,
+        "track" : "2 Sugar"
+      },
+      "source" : "lrc",
+      "spotifyId" : "1DA2ADZs6O28y2rmdmpekw",
+      "track" : "2 Sugar (feat. Ayra Starr)",
+      "wordCount" : 398
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "USHER",
+      "durationDifference" : 0.6339999999999861,
+      "fetchMilliseconds" : 878,
+      "issues" : [
+
+      ],
+      "lineCount" : 57,
+      "position" : 127,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Usher",
+        "duration" : 191.634,
+        "track" : "Superstar"
+      },
+      "source" : "yrc",
+      "spotifyId" : "18JosZY3HzD3lMy6iOOSAY",
+      "track" : "Superstar",
+      "wordCount" : 421
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Ella Mai",
+      "durationDifference" : 0.5200000000000102,
+      "fetchMilliseconds" : 841,
+      "issues" : [
+
+      ],
+      "lineCount" : 59,
+      "position" : 128,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Ella Mai",
+        "duration" : 197.52,
+        "track" : "DFMU"
+      },
+      "source" : "yrc",
+      "spotifyId" : "1bdm32mVmoGcek5bVKxQKd",
+      "track" : "DFMU",
+      "wordCount" : 509
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Mahalia, Ella Mai",
+      "durationDifference" : 0.945999999999998,
+      "fetchMilliseconds" : 948,
+      "issues" : [
+
+      ],
+      "lineCount" : 59,
+      "position" : 129,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Mahalia, Ella Mai",
+        "duration" : 206.946,
+        "track" : "What You Did (feat. Ella Mai)"
+      },
+      "source" : "yrc",
+      "spotifyId" : "2B7UWqNqKgPVGQQ6FXn2PP",
+      "track" : "What You Did (feat. Ella Mai)",
+      "wordCount" : 481
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Jordan Adetunji, Kehlani",
+      "durationDifference" : 0.9739999999999895,
+      "fetchMilliseconds" : 2501,
+      "issues" : [
+
+      ],
+      "lineCount" : 62,
+      "position" : 130,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Jordan Adetunji, Kehlani",
+        "duration" : 179.974,
+        "track" : "KEHLANI (Remix) [feat. Kehlani]"
+      },
+      "source" : "lrc",
+      "spotifyId" : "5Nt2FMqnKI2mlp7lztURNo",
+      "track" : "KEHLANI (REMIX) [feat. Kehlani]",
+      "wordCount" : 726
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "JayO",
+      "durationDifference" : 0.12000000000000455,
+      "fetchMilliseconds" : 782,
+      "issues" : [
+
+      ],
+      "lineCount" : 43,
+      "position" : 131,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Jayo",
+        "duration" : 142.12,
+        "track" : "22"
+      },
+      "source" : "lrc",
+      "spotifyId" : "1QxTmNDHFmgaxgAolqqgAD",
+      "track" : "22",
+      "wordCount" : 258
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Isaiah Falls, Joyce Wrice",
+      "durationDifference" : 0.14400000000000546,
+      "fetchMilliseconds" : 1687,
+      "issues" : [
+
+      ],
+      "lineCount" : 31,
+      "position" : 132,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Isaiah falls, Joyce Wrice",
+        "duration" : 163.144,
+        "track" : "BUTTERFLIES"
+      },
+      "source" : "lrc",
+      "spotifyId" : "4nNpY2RyMQMvlKkQMRb5XQ",
+      "track" : "BUTTERFLIES",
+      "wordCount" : 193
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "SAILORR",
+      "durationDifference" : 0.7849999999999966,
+      "fetchMilliseconds" : 1696,
+      "issues" : [
+
+      ],
+      "lineCount" : 64,
+      "position" : 133,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "SAILORR",
+        "duration" : 176.785,
+        "track" : "CUT UP"
+      },
+      "source" : "lrc",
+      "spotifyId" : "68aYtH4NsGGp331mVDIVCC",
+      "track" : "CUT UP",
+      "wordCount" : 356
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Kiana Ledé",
+      "durationDifference" : 0.3859999999999957,
+      "fetchMilliseconds" : 862,
+      "issues" : [
+
+      ],
+      "lineCount" : 57,
+      "position" : 134,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Kiana Ledé",
+        "duration" : 222.386,
+        "track" : "EX"
+      },
+      "source" : "yrc",
+      "spotifyId" : "47cQCF21TczFSmGfpd7c07",
+      "track" : "EX",
+      "wordCount" : 507
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Wizkid, Tay Iwar, Projexx",
+      "durationDifference" : 0.4310000000000116,
+      "fetchMilliseconds" : 1076,
+      "issues" : [
+
+      ],
+      "lineCount" : 79,
+      "position" : 135,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "WizKid, Tay Iwar, Projexx",
+        "duration" : 247.431,
+        "track" : "True Love"
+      },
+      "source" : "yrc",
+      "spotifyId" : "4204hwPYuToiuSunPFUoML",
+      "track" : "True Love (feat. Tay Iwar & Projexx)",
+      "wordCount" : 609
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Victoria Monét",
+      "durationDifference" : 0.9629999999999939,
+      "fetchMilliseconds" : 1028,
+      "issues" : [
+
+      ],
+      "lineCount" : 40,
+      "position" : 136,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Victoria Monét",
+        "duration" : 173.963,
+        "track" : "Alright"
+      },
+      "source" : "lrc",
+      "spotifyId" : "3OgdnA3LYpJ6vxrfk6X3p4",
+      "track" : "Alright",
+      "wordCount" : 228
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Tyla, Gunna, Skillibeng",
+      "durationDifference" : 0.12100000000000932,
+      "fetchMilliseconds" : 814,
+      "issues" : [
+
+      ],
+      "lineCount" : 60,
+      "position" : 137,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Tyla, Gunna, Skillibeng",
+        "duration" : 147.121,
+        "track" : "Jump"
+      },
+      "source" : "lrc",
+      "spotifyId" : "0ve0CavjqrUqVmZ605RhTV",
+      "track" : "Jump",
+      "wordCount" : 452
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Teyana Taylor",
+      "durationDifference" : 0.9790000000000134,
+      "fetchMilliseconds" : 1646,
+      "issues" : [
+
+      ],
+      "lineCount" : 28,
+      "position" : 138,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Teyana Taylor",
+        "duration" : 185.979,
+        "track" : "Issues\/Hold On"
+      },
+      "source" : "yrc",
+      "spotifyId" : "0bxmVPKnEopTyuMMkaTvUb",
+      "track" : "Issues\/Hold On",
+      "wordCount" : 303
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Jessie Reyez, 6LACK",
+      "durationDifference" : 0.1570000000000107,
+      "fetchMilliseconds" : 944,
+      "issues" : [
+
+      ],
+      "lineCount" : 54,
+      "position" : 139,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Jessie Reyez, 6LACK",
+        "duration" : 223.157,
+        "track" : "FOREVER"
+      },
+      "source" : "yrc",
+      "spotifyId" : "2lVYLiHGIX6GajMqYXF1Un",
+      "track" : "FOREVER (with 6LACK)",
+      "wordCount" : 443
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Ravyn Lenae, Steve Lacy",
+      "durationDifference" : 0,
+      "fetchMilliseconds" : 1622,
+      "issues" : [
+
+      ],
+      "lineCount" : 33,
+      "position" : 140,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Ravyn Lenae, Steve Lacy",
+        "duration" : 227,
+        "track" : "Skin Tight (feat. Steve Lacy)"
+      },
+      "source" : "yrc",
+      "spotifyId" : "4KVSdwwJ67JHu5s9vIA0zi",
+      "track" : "Skin Tight (feat. Steve Lacy)",
+      "wordCount" : 301
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Beyoncé, Kendrick Lamar",
+      "durationDifference" : 1.0149999999999864,
+      "fetchMilliseconds" : 851,
+      "issues" : [
+
+      ],
+      "lineCount" : 93,
+      "position" : 141,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Beyoncé, Kendrick Lamar",
+        "duration" : 261.015,
+        "track" : "AMERICA HAS A PROBLEM"
+      },
+      "source" : "lrc",
+      "spotifyId" : "6l8mgVN9Xf1hiDIFGA6CTE",
+      "track" : "AMERICA HAS A PROBLEM (feat. Kendrick Lamar)",
+      "wordCount" : 690
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Normani, Cardi B",
+      "durationDifference" : 0.5360000000000014,
+      "fetchMilliseconds" : 861,
+      "issues" : [
+
+      ],
+      "lineCount" : 90,
+      "position" : 142,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Normani, Cardi B",
+        "duration" : 209.536,
+        "track" : "Wild Side"
+      },
+      "source" : "yrc",
+      "spotifyId" : "2vXgyN14LX2zl7JEASw242",
+      "track" : "Wild Side (feat. Cardi B)",
+      "wordCount" : 677
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "FLO, Missy Elliott",
+      "durationDifference" : 0.38399999999998613,
+      "fetchMilliseconds" : 1020,
+      "issues" : [
+
+      ],
+      "lineCount" : 85,
+      "position" : 143,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "FLO, Missy Elliott",
+        "duration" : 205.384,
+        "track" : "Fly Girl"
+      },
+      "source" : "lrc",
+      "spotifyId" : "2sITbbWIOeg2Lwp4WN2jqr",
+      "track" : "Fly Girl (feat. Missy Elliott)",
+      "wordCount" : 841
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Bryson Tiller",
+      "durationDifference" : 0.07399999999999807,
+      "fetchMilliseconds" : 1012,
+      "issues" : [
+
+      ],
+      "lineCount" : 33,
+      "position" : 144,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Bryson Tiller",
+        "duration" : 125.074,
+        "track" : "Ciao!"
+      },
+      "source" : "lrc",
+      "spotifyId" : "0oMlowcYGs70fDAfRf8eKJ",
+      "track" : "Ciao!",
+      "wordCount" : 236
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "H.E.R., Chris Brown",
+      "durationDifference" : 0.6910000000000025,
+      "fetchMilliseconds" : 1211,
+      "issues" : [
+
+      ],
+      "lineCount" : 62,
+      "position" : 145,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "H.E.R., Chris Brown",
+        "duration" : 214.691,
+        "track" : "Come Through"
+      },
+      "source" : "yrc",
+      "spotifyId" : "3krZxyBsWEHfEfJegYaWTd",
+      "track" : "Come Through (feat. Chris Brown)",
+      "wordCount" : 577
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Beyoncé",
+      "durationDifference" : 0.3739999999999952,
+      "fetchMilliseconds" : 1203,
+      "issues" : [
+
+      ],
+      "lineCount" : 42,
+      "position" : 146,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Beyoncé",
+        "duration" : 254.374,
+        "track" : "PLASTIC OFF THE SOFA"
+      },
+      "source" : "yrc",
+      "spotifyId" : "6ufcuVInt0ocHrUimDjGlb",
+      "track" : "PLASTIC OFF THE SOFA",
+      "wordCount" : 467
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Solange",
+      "durationDifference" : 0.29300000000000637,
+      "fetchMilliseconds" : 831,
+      "issues" : [
+
+      ],
+      "lineCount" : 30,
+      "position" : 147,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Solange",
+        "duration" : 111.293,
+        "track" : "Binz"
+      },
+      "source" : "yrc",
+      "spotifyId" : "7yvdp8dqmxExSJwT2fn6Xq",
+      "track" : "Binz",
+      "wordCount" : 236
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Muni Long",
+      "durationDifference" : 0.39699999999999136,
+      "fetchMilliseconds" : 793,
+      "issues" : [
+
+      ],
+      "lineCount" : 45,
+      "position" : 148,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Muni Long",
+        "duration" : 218.397,
+        "track" : "Superpowers"
+      },
+      "source" : "lrc",
+      "spotifyId" : "7KaM1Tz8Jsv6m2lUsmUy4z",
+      "track" : "Superpowers",
+      "wordCount" : 444
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Lucky Daye, Masego, Alex Isley, Jack Dine",
+      "durationDifference" : 0.7050000000000125,
+      "fetchMilliseconds" : 1016,
+      "issues" : [
+
+      ],
+      "lineCount" : 40,
+      "position" : 149,
+      "result" : "word_timestamps",
+      "returnedRecording" : {
+        "artist" : "Lucky Daye, Masego, Alex Isley, Jack Dine",
+        "duration" : 204.705,
+        "track" : "Good & Plenty (Remix)"
+      },
+      "source" : "yrc",
+      "spotifyId" : "6T3Ebo7EOh8cUOyE4OhFpp",
+      "track" : "Good & Plenty - Remix",
+      "wordCount" : 404
+    },
+    {
+      "accuracyStatus" : "not_measured",
+      "artist" : "Don Toliver",
+      "durationDifference" : 0.5600000000000023,
+      "fetchMilliseconds" : 845,
+      "issues" : [
+
+      ],
+      "lineCount" : 79,
+      "position" : 150,
+      "result" : "estimated_words_only",
+      "returnedRecording" : {
+        "artist" : "Don Toliver",
+        "duration" : 228.56,
+        "track" : "GLOCK"
+      },
+      "source" : "lrc",
+      "spotifyId" : "29sbEEB0w4aAY3FofzzEjy",
+      "track" : "GLOCK",
+      "wordCount" : 582
+    }
+  ],
+  "sampleSize" : 150,
+  "warning" : "Native TV client availability only; word timing accuracy and exact lyric-recording identity are not verified. Input durations may be rounded display seconds. Unavailable includes transport failures; consult provider diagnostics."
+}

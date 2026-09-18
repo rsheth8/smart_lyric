@@ -2,20 +2,8 @@ import SwiftUI
 import MusicKit
 import Bar4BarCore
 
-/// The 10-foot hub.
-///
-/// Composed to match the Electron hub row for row — brand lockup, search,
-/// Continue, Follow what's playing, Recommended — because the two surfaces are
-/// one product and the TV one had been reduced to two cards on an empty ground.
-///
-/// The thing that makes this screen work is that **none of its content needs
-/// MusicKit**. Charts and search come from the public feeds in `CatalogClient`,
-/// so the shelves fill with real artwork before anyone connects an account, in
-/// the simulator, and for a viewer with no subscription at all.
-///
-/// Browse-first, keyboard-last: focus opens on something you can *press*, never
-/// on the text field, because summoning the on-screen keyboard is the worst
-/// thing a TV app can do on launch.
+/// A lyric-first home: experience, music source, then discovery.
+/// Focus starts on a playable experience without opening the keyboard.
 struct HubView: View {
   @EnvironmentObject private var music: MusicPlayerService
   @EnvironmentObject private var session: LyricsSession
@@ -36,29 +24,31 @@ struct HubView: View {
 
   var body: some View {
     ZStack {
-      AmbientBackdrop(accent: session.accent.glow)
+      PosterEnvironment(letters: "B4", browsing: true)
 
       ScrollView(.vertical) {
-        VStack(alignment: .leading, spacing: Tokens.Space.s4) {
+        VStack(alignment: .leading, spacing: 42) {
           header
-          searchBar
+          hero
+          sources
+          messages
 
           if !music.recentSongs.isEmpty {
             shelf(
-              title: "Continue",
-              items: music.recentSongs,
-              defaultFocus: true
+              title: "Play it again",
+              items: music.recentSongs
             )
           }
 
-          sources
           recommended
-          messages
         }
         .padding(.horizontal, Tokens.safeX)
         .padding(.vertical, Tokens.safeY)
+        .animation(Tokens.Motion.page, value: music.nowPlaying?.id)
+        .animation(Tokens.Motion.page, value: music.chartSongs.count)
       }
     }
+    .ignoresSafeArea()
     .task {
       if let mode = DemoLaunch.fakeResults {
         music.forceBrowseState(mode, term: "gold")
@@ -68,61 +58,63 @@ struct HubView: View {
       // a first-time viewer opens on the demo, which is the only thing on this
       // screen guaranteed to work before anything is connected.
       try? await Task.sleep(for: .milliseconds(120))
-      focus = music.recentSongs.first.map { .card($0.id) } ?? .demoTile
+      focus = .demoTile
     }
   }
 
   // MARK: - Header
 
   private var header: some View {
-    HStack(alignment: .center, spacing: Tokens.Space.s3) {
-      BrandMark()
-      VStack(alignment: .leading, spacing: 2) {
-        BrandLockup(size: Tokens.FontSize.xl)
-        Text("Every bar. Every word. In sync.")
-          .font(Tokens.display(Tokens.FontSize.sm, .medium))
-          .foregroundStyle(Tokens.text2)
-      }
+    HStack(spacing: 36) {
+      BrandLockup(size: 38)
+      Rectangle().fill(Tokens.line2).frame(width: 1, height: 28)
+      Text("EVERYONE HAS A WAY IN")
+        .font(Tokens.display(17, .semibold)).tracking(3.5).foregroundStyle(Tokens.text2)
       Spacer()
-      HStack(spacing: Tokens.Space.s3) {
-        if music.nowPlaying != nil {
-          Button("Now Playing") { path.append(Route.karaoke) }
-            .buttonStyle(TVPillStyle())
-        }
-        Button("Settings") { path.append(Route.settings) }
-          .buttonStyle(TVPillStyle())
-      }
+      Button { path.append(Route.search) } label: { Label("Search", systemImage: "magnifyingglass") }
+        .buttonStyle(RoomButtonStyle())
+      Button { path.append(Route.settings) } label: { Label("Settings", systemImage: "slider.horizontal.3") }
+        .buttonStyle(RoomButtonStyle())
     }
   }
 
-  // MARK: - Search
-
-  /// The hub's search entry, matching the web hub's inline field.
-  ///
-  /// This is a button rather than a live `TextField` on purpose: a focusable
-  /// field on the hub is one accidental click away from the on-screen keyboard
-  /// covering the whole screen, and the search screen has a field of its own
-  /// that is the right place for it.
-  private var searchBar: some View {
-    Button {
-      path.append(Route.search)
-    } label: {
-      HStack(spacing: Tokens.Space.s3) {
-        Image(systemName: "magnifyingglass")
-          .font(.system(size: Tokens.FontSize.md, weight: .semibold))
-        Text("Search songs…")
-          .font(Tokens.display(Tokens.FontSize.md, .regular))
-        Spacer()
-      }
-    }
-    .buttonStyle(TVSearchFieldStyle())
+  private var hero: some View {
+    ZStack(alignment: .topTrailing) {
+      Text("Bar4Bar").font(Tokens.editorial(250)).tracking(-14)
+        .foregroundStyle(Tokens.ember.opacity(0.32)).rotationEffect(.degrees(-9))
+        .offset(x: 175, y: -65).accessibilityHidden(true)
+      VStack(alignment: .leading, spacing: 24) {
+        Text("AN AFTER-DARK SINGING ROOM / 01")
+          .font(Tokens.caption(18)).tracking(3).foregroundStyle(Tokens.lilac)
+        Text("Your voice,\nin good company.")
+          .font(Tokens.editorial(86, italic: true)).tracking(-2)
+          .foregroundStyle(Tokens.text1).fixedSize(horizontal: false, vertical: true)
+        Text(music.nowPlaying == nil
+          ? "Take a verse. Share a hook. Make the room yours."
+          : "Return to \(music.nowPlaying?.title ?? "your music").")
+          .font(Tokens.control(25)).foregroundStyle(Tokens.text2)
+        HStack(spacing: 22) {
+          Button {
+            if music.nowPlaying == nil { music.startDemo() }
+            path.append(Route.karaoke)
+          } label: {
+            Label(music.nowPlaying == nil ? "Experience Bar4Bar" : "Back to the stage", systemImage: "play.fill")
+          }.buttonStyle(RoomButtonStyle(prominent: true)).focused($focus, equals: .demoTile)
+          Button("Find a song") { path.append(Route.search) }.buttonStyle(RoomButtonStyle())
+        }.padding(.top, 12)
+        if music.nowPlaying == nil {
+          Text("52-second visual study · No sign-in needed")
+            .font(Tokens.caption(18)).foregroundStyle(Tokens.text2)
+        }
+      }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 40)
+    }.frame(height: 500).clipped()
   }
 
   // MARK: - Sources
 
   private var sources: some View {
     VStack(alignment: .leading, spacing: Tokens.Space.s3) {
-      ShelfHeader("Follow what's playing")
+      ShelfHeader("Bring your music")
       HStack(spacing: Tokens.Space.s3) {
         SourceTile(
           icon: "music.note",
@@ -141,32 +133,29 @@ struct HubView: View {
           }
         }
 
-        SourceTile(
-          icon: "dot.radiowaves.left.and.right",
-          title: spotify.isConnected ? "Spotify" : "Connect Spotify",
-          subtitle: spotifySubtitle,
-          tint: Tokens.ok,
-          connected: spotify.isConnected
-        ) {
-          path.append(Route.spotify)
+        if AppConfig.spotifyFollowEnabled {
+          SourceTile(
+            icon: "dot.radiowaves.left.and.right",
+            title: spotify.isConnected ? "Spotify" : "Connect Spotify",
+            subtitle: spotifySubtitle,
+            tint: Tokens.ok,
+            connected: spotify.isConnected
+          ) {
+            path.append(Route.spotify)
+          }
         }
 
-        SourceTile(
-          icon: "play.circle.fill",
-          title: music.isDemo ? "Back to the demo" : "See it in action",
-          subtitle: "50-second sample — no account"
-        ) {
-          if !music.isDemo { music.startDemo() }
-          path.append(Route.karaoke)
-        }
-        .focused($focus, equals: .demoTile)
       }
     }
   }
 
   private var spotifySubtitle: String {
-    guard spotify.isConnected else { return "Follow what's playing" }
-    return spotify.track.map { "\($0.title) — \($0.artist)" } ?? "Nothing playing right now"
+    guard spotify.isConnected else { return "Play on your phone. See the words here." }
+    guard let track = spotify.track else { return "Nothing playing right now" }
+    if let next = spotify.nextUp {
+      return "\(track.title) — next \(next.title)"
+    }
+    return "\(track.title) — \(track.artist)"
   }
 
   private var appleMusicTitle: String {
@@ -179,9 +168,13 @@ struct HubView: View {
 
   private var appleMusicSubtitle: String {
     switch music.authStatus {
-    case .authorized: return "Search and play the catalog"
+    case .authorized:
+      if let track = music.nowPlaying, !track.isDemo, !music.isFollowing {
+        return "\(track.title) — \(track.artist)"
+      }
+      return "Play here or follow the Music app"
     case .denied, .restricted: return "Turn it on in tvOS Settings"
-    default: return "Authorize once to play songs"
+    default: return "Play music directly on this Apple TV"
     }
   }
 
@@ -189,16 +182,19 @@ struct HubView: View {
 
   private var recommended: some View {
     VStack(alignment: .leading, spacing: Tokens.Space.s3) {
-      ShelfHeader("Recommended", subtitle: "Top songs right now")
+      ShelfHeader("Find your next favorite", subtitle: "Apple Music")
       ScrollView(.horizontal) {
         HStack(spacing: Tokens.Space.s3) {
-          if music.chartSongs.isEmpty {
+          if music.isLoadingCharts {
             // Six is what fits across 1080p, so the reserved space matches the
             // space the real cards will occupy and nothing shifts on arrival.
             ForEach(0..<6, id: \.self) { _ in SkeletonCard() }
+          } else if music.chartSongs.isEmpty {
+            Button("Reload songs") { Task { await music.loadCharts() } }
+              .buttonStyle(TVPillStyle())
           } else {
             ForEach(music.chartSongs) { item in
-              PosterCard(item: item) { start(item) }
+              EditorialSongEntry(item: item, selected: focus == .card(item.id), compact: true) { start(item) }
             }
           }
         }
@@ -214,7 +210,7 @@ struct HubView: View {
       ScrollView(.horizontal) {
         HStack(spacing: Tokens.Space.s3) {
           ForEach(items) { item in
-            PosterCard(item: item) { start(item) }
+            EditorialSongEntry(item: item, selected: focus == .card(item.id), compact: true) { start(item) }
               .focused($focus, equals: .card(item.id))
           }
         }

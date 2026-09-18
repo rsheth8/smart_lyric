@@ -1,11 +1,13 @@
 // Audio capture source selection for vocal alignment ("follow" audio).
 //
-// Preference order for a CLEAN signal (no room noise):
-//   1. A known virtual loopback INPUT (BlackHole, Rogue Amoeba Loopback,
-//      Soundflower, Stereo Mix, VB-Cable) — digital, once the user routes output.
-//   2. A real microphone (Built-in / MacBook / USB) — never "Microsoft Virtual Mic"
+// Preference order for a CLEAN signal (no room noise), when "Prefer a digital
+// tap" is on:
+//   1. System-audio loopback via getDisplayMedia — Electron's internal tap.
+//      Hears the mix digitally so speaker / headphone volume stays independent.
+//   2. A known virtual loopback INPUT (BlackHole, Rogue Amoeba Loopback,
+//      Soundflower, Stereo Mix, VB-Cable) — when it's actually carrying audio.
+//   3. A real microphone (Built-in / MacBook / USB) — never "Microsoft Virtual Mic"
 //      or other softphone fakes that match the word "virtual".
-//   3. System-audio loopback via getDisplayMedia — last; flaky on macOS.
 //
 // All sources are wrapped in the same Mic ring buffer, so the aligner and the
 // vinyl fingerprint path don't care where samples came from.
@@ -32,7 +34,7 @@ const REAL_MIC_RE =
 const SYSTEM_TAP_TIMEOUT_MS = 2500;
 
 export const CAPTURE_MODES = [
-  { id: 'auto', label: 'Auto (cleanest available)' },
+  { id: 'auto', label: 'Auto (internal tap first)' },
   { id: 'system', label: 'System audio (internal tap)' },
   { id: 'device', label: 'Input device…' },
   { id: 'off', label: 'Off — line sync only' },
@@ -216,7 +218,10 @@ export async function startBestCapture({
 
   if (mode === 'system') {
     const sys = await startSystemAudioCapture({ seconds });
-    if (sys.mic) return { mic: sys.mic, kind: 'system', label: 'System audio' };
+    if (sys.mic) {
+      const probe = await probeSignal(sys.mic, { ms: probeMs, sleep });
+      return { mic: sys.mic, kind: 'system', label: 'System audio', ...probe };
+    }
     return { error: sys.error || 'System audio unavailable' };
   }
 
@@ -230,7 +235,9 @@ export async function startBestCapture({
     return { error: res.error || 'Could not open selected input' };
   }
 
-  // auto: real loopback → real mic (skip junk virtual) → system tap.
+  // auto: internal system tap → virtual loopback device → real mic.
+  // The internal tap hears the mix digitally, so normal speaker / headphone
+  // volume stays independent — no Multi-Output Device, no mic-in-the-room.
   let devices = await listInputDevices();
 
   // First mic open unlocks device labels; if everything is unlabeled, open the
@@ -247,12 +254,26 @@ export async function startBestCapture({
     }
   }
 
-  // A loopback device is the cleanest tap when it's actually carrying the audio,
-  // but it opens just as happily when the system output is routed elsewhere — in
-  // which case it yields silence forever and auto-timing can never measure
-  // anything. Make it prove it hears the music before we commit.
   let fellBackFrom = null;
-  let tapAvailable = null; // a tap exists but isn't carrying audio → offer setup help
+  let tapAvailable = null; // a cable tap exists but isn't carrying audio → setup help
+  let systemHold = null; // opened but still silent — prefer over mic if nothing else hears
+
+  if (preferTap) {
+    const sys = await startSystemAudioCapture({ seconds });
+    if (sys.mic) {
+      const probe = await probeSignal(sys.mic, { ms: probeMs, sleep });
+      if (probe.heard) {
+        return { mic: sys.mic, kind: 'system', label: 'System audio', ...probe };
+      }
+      // Tap opened but is quiet (track may not have started). Hold it — a silent
+      // mic is worse, and we'll commit to this if no live cable tap appears.
+      systemHold = { mic: sys.mic, kind: 'system', label: 'System audio', ...probe };
+    }
+  }
+
+  // A named loopback cable is the cleanest tap when it's actually carrying the
+  // audio, but it opens just as happily when output is routed elsewhere — in
+  // which case it yields silence forever. Make it prove it hears something.
   const loop = preferTap ? findLoopbackDevice(devices) : null;
   if (!preferTap) tapAvailable = findLoopbackDevice(devices)?.label || null;
   if (loop) {
@@ -260,6 +281,7 @@ export async function startBestCapture({
     if (res.mic) {
       const probe = await probeSignal(res.mic, { ms: probeMs, sleep });
       if (probe.heard) {
+        if (systemHold) discard(systemHold.mic);
         return { mic: res.mic, kind: 'loopback', label: loop.label || 'Loopback input', ...probe };
       }
       discard(res.mic);
@@ -267,6 +289,10 @@ export async function startBestCapture({
       tapAvailable = loop.label || 'Loopback input';
     }
   }
+
+  // Internal tap beat the mic even when still silent — speaker volume shouldn't
+  // gate whether sync can listen.
+  if (systemHold) return { ...systemHold, fellBackFrom, tapAvailable };
 
   const preferred = findPreferredMicDevice(devices);
   const micId = preferred?.deviceId || deviceId || null;
@@ -291,7 +317,7 @@ export async function startBestCapture({
     }
   }
 
-  // Last resort: any non-junk device, then system tap.
+  // Last resort: any non-junk device.
   for (const d of devices) {
     if (!d.deviceId || isJunkInputLabel(d.label) || isLoopbackLabel(d.label)) continue;
     if (preferred && d.deviceId === preferred.deviceId) continue;
@@ -302,17 +328,10 @@ export async function startBestCapture({
     }
   }
 
-  const sys = await startSystemAudioCapture({ seconds });
-  if (sys.mic) {
-    const probe = await probeSignal(sys.mic, { ms: probeMs, sleep });
-    return { mic: sys.mic, kind: 'system', label: 'System audio', ...probe, fellBackFrom, tapAvailable };
-  }
-
   return {
     error:
       micRes.error ||
-      sys.error ||
-      'No usable mic found — pick a real microphone under Sync → Input device',
+      'No usable mic found — pick System audio or a real microphone under Sync',
   };
 }
 

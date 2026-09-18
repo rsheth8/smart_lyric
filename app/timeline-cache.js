@@ -108,6 +108,10 @@ export function serializeTimeline(timeline) {
       roman: line.roman || undefined,
       english: line.english || undefined,
       translation: line.translation || undefined,
+      // Human-nudged lines survive reload without freezing the rest of the song
+      // as "aligned" — applyCachedTiming only locks lines marked human (or a
+      // fully-aligned cache).
+      human: line._humanNudged || undefined,
       words: (line.words || []).map((w) => ({
         text: w.text,
         start: w.start,
@@ -177,8 +181,15 @@ function applyExactTiming(timeline, cached, provisional) {
     w.end = sw.end;
     if (sw.conf != null) w.conf = sw.conf;
   }
-  for (const line of timeline.lines) {
-    if (!provisional) line._vocalAligned = true;
+  for (let i = 0; i < timeline.lines.length; i++) {
+    const line = timeline.lines[i];
+    const src = cached.lines[i];
+    // Fully-aligned caches lock every line. Partial human-edit caches only lock
+    // the lines the user touched, so forced alignment can still refine the rest.
+    if (!provisional && (cached.aligned || src.human)) {
+      line._vocalAligned = true;
+      if (src.human) line._humanNudged = true;
+    }
   }
   finishApply(timeline, cached, provisional);
   return true;
@@ -226,12 +237,17 @@ export function rebindCachedTiming(timeline, cached, opts = {}) {
   }
   interpolateGaps(cur, matched, timeline);
 
-  for (const line of timeline.lines) {
+  for (let li = 0; li < timeline.lines.length; li++) {
+    const line = timeline.lines[li];
     const words = line.words || [];
     if (!words.length) continue;
     // `_rebound === false` means the word kept a real cached span.
     const allMatched = words.every((w) => w._rebound === false);
-    if (allMatched && !provisional) line._vocalAligned = true;
+    const srcHuman = !!cached.lines[li]?.human;
+    if (allMatched && !provisional && (cached.aligned || srcHuman)) {
+      line._vocalAligned = true;
+      if (srcHuman) line._humanNudged = true;
+    }
     line._rebound = !allMatched;
     for (const w of words) delete w._rebound;
   }
@@ -358,8 +374,16 @@ function finishApply(timeline, cached, provisional) {
   if (cached.sections?.length && !timeline.sections?.length) timeline.sections = cached.sections;
   if (provisional) {
     timeline.provisional = true;
-  } else {
+    return;
+  }
+  // Fully-aligned caches stay aligned. Partial human-edit caches only lock the
+  // lines marked `_vocalAligned` above — recompute so CTC can still refine the rest.
+  if (cached.aligned) {
     timeline.aligned = true;
+  } else {
+    const eligible = timeline.lines.filter((l) => (l.words?.length || 0) > 0);
+    timeline.aligned = eligible.length > 0 && eligible.every((l) => l._vocalAligned);
+    if (eligible.some((l) => l._humanNudged)) timeline.humanEdited = true;
   }
 }
 
@@ -376,9 +400,13 @@ export function getCachedTimeline(key) {
   return { ...entry, alignVersion, stale: alignVersion < ALIGN_VERSION };
 }
 
-/** Save an aligned timeline under `key`. */
+/** Save an aligned (or human-edited) timeline under `key`. */
 export function putCachedTimeline(key, timeline, meta = {}) {
-  if (!key || !timeline?.aligned || typeof localStorage === 'undefined') return false;
+  if (!key || typeof localStorage === 'undefined') return false;
+  // Full CTC pass sets `aligned`; a human nudge alone sets `humanEdited` so a
+  // single corrected word still survives reload without requiring the whole song
+  // to be force-aligned first.
+  if (!timeline?.aligned && !timeline?.humanEdited) return false;
   const serialized = serializeTimeline(timeline);
   if (!serialized) return false;
 
@@ -476,6 +504,7 @@ export function sanitizeCachedTimeline(raw) {
     if (english) line.english = english;
     const translation = cleanText(rawLine.translation);
     if (translation) line.translation = translation;
+    if (rawLine.human) line.human = true;
 
     if (Array.isArray(rawLine.bg) && rawLine.bg.length) {
       const bg = [];

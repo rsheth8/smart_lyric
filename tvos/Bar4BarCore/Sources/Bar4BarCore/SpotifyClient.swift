@@ -107,9 +107,93 @@ public struct SpotifyClient: Sendable {
   // MARK: - Playback state
 
   public struct PlaybackState: Equatable, Sendable {
+    public let trackID: String?
     public let item: CatalogItem
     public let progress: Double
     public let isPlaying: Bool
+
+    /// Advance a stale `progress_ms` by half the request RTT, matching
+    /// `app/streaming/spotify.js`. Capped so a hung poll cannot jump the wipe.
+    public func compensating(rtt: TimeInterval) -> PlaybackState {
+      PlaybackState(
+        trackID: trackID,
+        item: item,
+        progress: SpotifyClient.compensatedProgress(progress: progress, isPlaying: isPlaying, rtt: rtt),
+        isPlaying: isPlaying
+      )
+    }
+  }
+
+  /// `progress_ms` was sampled one one-way trip before it arrived. Add that
+  /// estimate while playing so the clock aims at now, not at the request start.
+  public static func compensatedProgress(progress: Double, isPlaying: Bool, rtt: TimeInterval) -> Double {
+    guard isPlaying, rtt.isFinite, rtt > 0 else { return progress }
+    return progress + min(rtt / 2, 0.35)
+  }
+
+  /// Poll faster in the last seconds so the next-song handoff is not a second late.
+  public static func followPollInterval(remaining: Double?, isPlaying: Bool) -> TimeInterval {
+    guard isPlaying, let remaining, remaining.isFinite, remaining > 0 else { return 1 }
+    if remaining < 8 { return 0.4 }
+    if remaining < 25 { return 0.8 }
+    return 1
+  }
+
+  /// Commands that move the account's active Spotify device. The TV never
+  /// hosts audio; these hit whatever phone, speaker, or computer is already
+  /// playing. Needs `user-modify-playback-state` and Spotify Premium.
+  public enum PlayerCommand: Equatable, Sendable {
+    case pause, play, next, previous
+    case seekMs(Int)
+
+    public var urlRequest: URLRequest {
+      switch self {
+      case .pause:
+        return Self.put("https://api.spotify.com/v1/me/player/pause")
+      case .play:
+        return Self.put("https://api.spotify.com/v1/me/player/play")
+      case .next:
+        return Self.post("https://api.spotify.com/v1/me/player/next")
+      case .previous:
+        return Self.post("https://api.spotify.com/v1/me/player/previous")
+      case .seekMs(let ms):
+        var comps = URLComponents(string: "https://api.spotify.com/v1/me/player/seek")
+        comps?.queryItems = [URLQueryItem(name: "position_ms", value: String(max(0, ms)))]
+        var req = URLRequest(url: comps?.url ?? URL(string: "https://api.spotify.com/v1/me/player/seek")!)
+        req.httpMethod = "PUT"
+        return req
+      }
+    }
+
+    private static func put(_ raw: String) -> URLRequest {
+      var req = URLRequest(url: URL(string: raw)!)
+      req.httpMethod = "PUT"
+      req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+      return req
+    }
+
+    private static func post(_ raw: String) -> URLRequest {
+      var req = URLRequest(url: URL(string: raw)!)
+      req.httpMethod = "POST"
+      return req
+    }
+  }
+
+  public func sendPlayerCommand(_ command: PlayerCommand, accessToken: String) async throws {
+    var req = command.urlRequest
+    req.timeoutInterval = timeout
+    req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+    req.setValue("Bar4BarTV/0.1", forHTTPHeaderField: "User-Agent")
+    let (_, response) = try await session.data(for: req)
+    guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+    if http.statusCode == 204 || (200..<300).contains(http.statusCode) { return }
+    if http.statusCode == 401 { throw SpotifyError.unauthorized }
+    if http.statusCode == 403 { throw SpotifyError.forbidden }
+    if http.statusCode == 404 { throw SpotifyError.noActiveDevice }
+    if http.statusCode == 429 {
+      throw SpotifyError.rateLimited(max(1, Double(http.value(forHTTPHeaderField: "Retry-After") ?? "") ?? 30))
+    }
+    throw SpotifyError.http(http.statusCode)
   }
 
   /// `/me/player/currently-playing`. Nil means nothing is playing — a 204 with
@@ -118,58 +202,57 @@ public struct SpotifyClient: Sendable {
     let url = URL(string: "https://api.spotify.com/v1/me/player/currently-playing")!
     var req = URLRequest(url: url, timeoutInterval: timeout)
     req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+    let started = ProcessInfo.processInfo.systemUptime
     let (data, response) = try await session.data(for: req)
+    let rtt = ProcessInfo.processInfo.systemUptime - started
     guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
     if http.statusCode == 204 { return nil }
     if http.statusCode == 401 { throw SpotifyError.unauthorized }
+    if http.statusCode == 429 {
+      throw SpotifyError.rateLimited(max(1, Double(http.value(forHTTPHeaderField: "Retry-After") ?? "") ?? 30))
+    }
     guard (200..<300).contains(http.statusCode) else { throw URLError(.badServerResponse) }
-    return Self.parsePlayback(data)
+    return Self.parsePlayback(data)?.compensating(rtt: rtt)
+  }
+
+  /// Head of the play queue — the track that will start after this one.
+  /// 403 means this token predates the queue scope; treat as empty, do not
+  /// drop the follow session. Requires `user-read-playback-state`.
+  public func nextInQueue(accessToken: String) async throws -> CatalogItem? {
+    let url = URL(string: "https://api.spotify.com/v1/me/player/queue")!
+    var req = URLRequest(url: url, timeoutInterval: timeout)
+    req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+    let (data, response) = try await session.data(for: req)
+    guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+    if http.statusCode == 204 || http.statusCode == 403 || http.statusCode == 404 { return nil }
+    if http.statusCode == 401 { throw SpotifyError.unauthorized }
+    if http.statusCode == 429 {
+      throw SpotifyError.rateLimited(max(1, Double(http.value(forHTTPHeaderField: "Retry-After") ?? "") ?? 30))
+    }
+    guard (200..<300).contains(http.statusCode) else { return nil }
+    return NextPrep.parseQueueHead(data)
   }
 
   public static func parsePlayback(_ data: Data) -> PlaybackState? {
     struct Payload: Decodable {
       let progress_ms: Double?
       let is_playing: Bool?
-      let item: Item?
-      struct Item: Decodable {
-        let id: String?
-        let name: String?
-        let duration_ms: Double?
-        let artists: [Artist]?
-        let album: Album?
-      }
-      struct Artist: Decodable { let name: String? }
-      struct Album: Decodable {
-        let name: String?
-        let images: [Image]?
-      }
-      struct Image: Decodable {
-        let url: String?
-        let width: Int?
-      }
+      let currently_playing_type: String?
+      let item: SpotifyTrackItem?
     }
     guard let payload = try? JSONDecoder().decode(Payload.self, from: data),
-          let item = payload.item,
-          let title = item.name, !title.isEmpty
+          // This endpoint also returns podcast episodes and audiobooks. They
+          // share enough optional fields with a track to decode successfully,
+          // but sending one into the song lyric pipeline produces a convincing
+          // yet useless "no lyrics" failure. Missing keeps fixture/backward
+          // compatibility; Spotify's live response supplies `track` here.
+          payload.currently_playing_type == nil || payload.currently_playing_type == "track",
+          let item = payload.item?.catalogItem()
     else { return nil }
 
-    // Spotify orders album images LARGEST first, so images[1] is the 300px
-    // rendition — too small for a poster on a 2× panel. Take the 640.
-    let artwork = item.album?.images?.first?.url
-
     return PlaybackState(
-      item: CatalogItem(
-        // Deliberately not Spotify's track id: everything downstream treats a
-        // non-empty id as an *Apple Music catalog* id and will try to resolve
-        // it for playback. Following is not playing; leave it blank so the
-        // title/artist path is the only one available.
-        id: "",
-        title: title,
-        artist: (item.artists ?? []).compactMap(\.name).joined(separator: ", "),
-        album: item.album?.name,
-        artworkURL: artwork.flatMap { URL(string: $0) },
-        duration: item.duration_ms.map { $0 / 1000 }
-      ),
+      trackID: payload.item?.id,
+      item: item,
       progress: (payload.progress_ms ?? 0) / 1000,
       isPlaying: payload.is_playing ?? false
     )
@@ -192,6 +275,11 @@ public struct SpotifyClient: Sendable {
 
 public enum SpotifyError: Error, Equatable {
   case unauthorized
+  case rateLimited(Double)
+  /// Token is missing `user-modify-playback-state`, or the account is Free.
+  case forbidden
+  /// Spotify has no active device to command.
+  case noActiveDevice
   /// The deployment has no `/api/tv-pair`. By far the most likely failure on a
   /// first run, and the one with the least guessable cause.
   case notDeployed
@@ -216,10 +304,16 @@ public enum SpotifyError: Error, Equatable {
 extension SpotifyError: LocalizedError {
   public var errorDescription: String? {
     switch self {
+    case .rateLimited:
+      return "Spotify is busy. Please try again shortly."
     case .unauthorized:
       return "Spotify rejected the sign-in. Connect again."
+    case .forbidden:
+      return "Reconnect Spotify to pause and skip from this TV. Spotify Premium is required."
+    case .noActiveDevice:
+      return "Start a song in Spotify, then try again."
     case .notDeployed:
-      return "This server doesn’t have the Spotify pairing endpoints yet. Deploy the latest build of the site, then try again."
+      return "Spotify connection is temporarily unavailable. The connection service needs an update. You can still use Apple Music or explore the demo."
     case .server(let message):
       return message
     case .http(let status):

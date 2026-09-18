@@ -64,16 +64,20 @@ test('separates the batch window and applies stem tuning (0.2 word becomes an an
   assert.ok(line.words[1].score >= 0.2 - 1e-9, `stem anchor keeps score, got ${line.words[1].score}`);
 });
 
-test('with live separation OFF, falls back to raw mix (0.2 word interpolated)', async () => {
+test('with live separation OFF, skips word CTC (keeps syllable estimates)', async () => {
   setLiveVocalSeparationEnabled(false);
   const tl = oneLine();
+  const before = tl.lines[0].words.map((w) => w.start);
   const res = await refineTimelineFromMic(tl, mic, 10, { maxLines: 2 });
-  assert.ok(res && res.aligned === 1, `expected 1 aligned, got ${JSON.stringify(res)}`);
   assert.equal(sepCalls.length, 0, 'separateVocals not called when disabled');
-  const line = tl.lines[0];
-  // Raw gate (0.3) → only word 0 anchors → 1/4 coverage → uncertain, rest score 0.
-  assert.equal(line.uncertain, true);
-  assert.equal(line.words[1].score, 0, 'interpolated word scores 0 on the raw path');
+  // Raw-mix CTC is refused — estimated starts stay put, nothing marked aligned.
+  assert.ok(!res || res.aligned === 0, `expected 0 aligned, got ${JSON.stringify(res)}`);
+  assert.deepEqual(
+    tl.lines[0].words.map((w) => w.start),
+    before,
+    'word starts unchanged without a stem'
+  );
+  assert.equal(tl.lines[0]._vocalAligned, undefined);
 });
 
 test('does not separate on the timing-only pass', async () => {
@@ -82,13 +86,13 @@ test('does not separate on the timing-only pass', async () => {
   assert.equal(sepCalls.length, 0, 'timing-only stays on the raw mix');
 });
 
-test('short windows skip separation (below MIN_STEM_WINDOW_SEC)', async () => {
-  // A <2s window: not worth MDX's fixed cost → raw mix, no separation call.
+test('short windows skip separation and refuse raw-mix word CTC', async () => {
+  // A <2s window: not worth MDX's fixed cost → no stem → no word CTC.
   const shortMic = { sampleRate: 44100, getOrderedPcm: () => new Float32Array(44100 * 1) };
-  await refineTimelineFromMic({ lines: [{ start: 0, end: 0.8, words: [{ text: 'a' }, { text: 'b' }] }] }, shortMic, 1, {
-    maxLines: 2,
-  });
+  const tl = { lines: [{ start: 0, end: 0.8, words: [{ text: 'a' }, { text: 'b' }] }] };
+  const res = await refineTimelineFromMic(tl, shortMic, 1, { maxLines: 2 });
   assert.equal(sepCalls.length, 0, 'no separation on a sub-2s window');
+  assert.ok(!res || res.aligned === 0, 'no raw-mix word CTC on a short window');
 });
 
 // ---- auto-fallback plumbing ----------------------------------------------

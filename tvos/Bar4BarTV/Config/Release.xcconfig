@@ -1,0 +1,6 @@
+#include "Shared.xcconfig"
+
+// Public builds are Apple Music-only for now. This is deliberately a build
+// switch rather than deleted code so approved access can be restored cleanly.
+SPOTIFY_FOLLOW_ENABLED = NO
+OFFICIAL_LYRICS_ONLY = YES

@@ -15,7 +15,7 @@ tvos/
 ## Prerequisites
 
 1. Apple Developer Program membership
-2. App ID with **MusicKit** capability (`com.apple.developer.music-kit` in entitlements)
+2. Explicit App ID **`com.bar4bar.tv`** with the **MusicKit App Service** enabled in Apple Developer → Identifiers. Do not add `com.apple.developer.music-kit` to the entitlements file: Apple rejects it during signing.
 3. Xcode 15+ / tvOS 17+ SDK
 4. [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
 5. Optional: Vercel deploy of this repo for NetEase yrc / Musixmatch richsync (`LYRICS_API_BASE`)
@@ -256,6 +256,10 @@ honest answer for anything short or without repetition.
 - [ ] Phase 4 — Device build on real Apple TV (only way to verify MusicKit);
       deploy `/api/tv-pair` + bind a KV to verify Spotify pairing end to end;
       TestFlight; App Store screenshots; ToS review for lyric proxies
+      - Signed device build and installation on `Bedroom` succeeded on
+        2026-09-11. The TV was asleep, so runtime MusicKit verification remains.
+      - The live pairing endpoint reports durable Supabase storage. The final
+        Spotify consent/token exchange still needs a person to complete it.
 
 ### Fixed in the audit
 
@@ -269,18 +273,23 @@ honest answer for anything short or without repetition.
 | Denied auth re-offered a Connect button | tvOS returns the stored answer without prompting — it can only fail again |
 | A failed search left the old results on screen | they read as an answer to the new query |
 | The last line stayed lit for the whole outro | `gapState` returned "not instrumental" past the final line — the parked highlight where it lasts longest |
+| Music started with Siri stayed on the hub | automatic navigation was accidentally gated to Spotify follow mode |
+| A Spotify podcast opened the song lyric failure state | the playback parser accepted episodes because their wire fields overlap with tracks |
 
 ### Known gaps
 
-- **MusicKit is unverified.** Authorization, catalog resolution, playback, and
-  the playhead have never run — the simulator cannot exercise them. The blast
-  radius is now much smaller than it was: browse is public, so only
-  `MusicPlayerService.resolve` and `play` are unproven, and everything
+- **MusicKit runtime is unverified.** The app now compiles, signs, and installs
+  on the paired physical Apple TV, but that TV was asleep when launch was
+  attempted. Authorization, catalog resolution, playback, and the live
+  playhead therefore still need one awake-device pass. Browse is public, so
+  only `MusicPlayerService.resolve` and `play` are unproven, and everything
   downstream of `playbackTime` is exercised by the demo clock.
-- **The Spotify handshake is unverified end to end.** The state machine, the
+- **The Spotify consent exchange is unverified end to end.** The live endpoint
+  is deployed and reported `durable: true`, backed by Supabase, on 2026-09-11.
+  The state machine, the
   single-redemption guarantee, the expiry paths, the pairing page, and every
-  endpoint are exercised locally; the one untested link is the actual token
-  exchange with Spotify, which needs the endpoints deployed and a KV bound. The
+  endpoint are exercised locally; the one untested link is a person completing
+  Spotify consent and the actual token exchange. The
   tvOS pairing screen is captured through `BAR4BAR_FAKE_PAIR`.
 - The live-simulator panel integration reports Xcode as unselected despite
   `xcode-select -p` being correct; fix with

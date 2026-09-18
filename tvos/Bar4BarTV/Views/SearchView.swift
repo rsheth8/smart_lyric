@@ -36,7 +36,7 @@ struct SearchView: View {
 
   var body: some View {
     ZStack {
-      AmbientBackdrop(accent: session.accent.glow, intensity: 0.5)
+      PosterEnvironment(letters: InstallationForms.initials(focusedTitle), browsing: true)
 
       VStack(alignment: .leading, spacing: Tokens.Space.s4) {
         header
@@ -47,9 +47,13 @@ struct SearchView: View {
       .padding(.horizontal, Tokens.safeX)
       .padding(.vertical, Tokens.safeY)
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+      .animation(Tokens.Motion.page, value: music.searchResults.count)
+      .animation(Tokens.Motion.page, value: music.isSearching)
     }
     .task {
-      if let mode = DemoLaunch.fakeResults {
+      if DemoLaunch.browseFixture {
+        music.forceBrowseState("fixture", term: "Original visual studies")
+      } else if let mode = DemoLaunch.fakeResults {
         music.forceBrowseState(mode, term: "gold")
       } else if let term = DemoLaunch.searchTerm {
         query = term
@@ -60,26 +64,20 @@ struct SearchView: View {
     }
   }
 
+  private var focusedTitle: String {
+    guard case let .card(id) = focus else { return "Find songs" }
+    return (music.searchResults + music.recentSongs + music.chartSongs).first(where: { $0.id == id })?.title ?? "Find songs"
+  }
+
   // MARK: - Header
 
   private var header: some View {
-    HStack(alignment: .lastTextBaseline) {
-      VStack(alignment: .leading, spacing: Tokens.Space.s1) {
-        Text("Find a song")
-          .font(Tokens.display(Tokens.FontSize.xl, .bold))
-          .foregroundStyle(Tokens.text1)
-        Text(subtitle)
-          .font(Tokens.display(Tokens.FontSize.sm, .regular))
-          .foregroundStyle(Tokens.text3)
-      }
-      Spacer()
-      if let term = music.lastSearchTerm, !music.searchResults.isEmpty {
-        Text("\(music.searchResults.count) results for “\(term)”")
-          .font(Tokens.display(Tokens.FontSize.sm, .medium))
-          .foregroundStyle(Tokens.text2)
-      }
+    VStack(alignment: .leading, spacing: 10) {
+      Text("Find a song").font(Tokens.editorial(68))
+      Text(subtitle).font(Tokens.caption(22)).foregroundStyle(Tokens.text2)
     }
   }
+
 
   /// Say up front that playing needs a subscription, rather than letting someone
   /// search, pick, and only then meet the wall.
@@ -131,7 +129,7 @@ struct SearchView: View {
 
   @ViewBuilder
   private var results: some View {
-    if let err = music.errorMessage, music.searchResults.isEmpty {
+    if let err = music.searchError, music.searchResults.isEmpty {
       statusBlock(
         icon: "exclamationmark.triangle.fill",
         title: "That search didn't go through",
@@ -157,39 +155,28 @@ struct SearchView: View {
 
   private func grid(_ songs: [CatalogItem]) -> some View {
     ScrollView(.vertical) {
-      LazyVGrid(
-        columns: Array(
-          repeating: GridItem(.fixed(Tokens.cardW), spacing: Tokens.Space.s4),
-          count: 5
-        ),
-        alignment: .leading,
-        spacing: Tokens.Space.s4
-      ) {
+      LazyVStack(alignment: .leading, spacing: 14) {
         ForEach(songs) { song in
-          PosterCard(item: song) { start(song) }
+          EditorialSongEntry(item: song, selected: focus == .card(song.id)) { start(song) }
             .focused($focus, equals: .card(song.id))
         }
-      }
-      // Focus lifts and scales cards; without room they clip against the
-      // scroll view's bounds.
-      .padding(.vertical, Tokens.Space.s3)
-      .padding(.horizontal, 6)
+      }.padding(.vertical, 20).padding(.horizontal, 6)
     }
   }
 
   private var skeletonGrid: some View {
-    LazyVGrid(
-      columns: Array(
-        repeating: GridItem(.fixed(Tokens.cardW), spacing: Tokens.Space.s4),
-        count: 5
-      ),
-      alignment: .leading,
-      spacing: Tokens.Space.s4
-    ) {
-      ForEach(0..<10, id: \.self) { _ in SkeletonCard() }
+    VStack(spacing: 20) {
+      ForEach(0..<3, id: \.self) { _ in
+        HStack(spacing: 28) {
+          Rectangle().fill(Tokens.surface3).frame(width: 110, height: 110)
+          VStack(alignment: .leading, spacing: 15) {
+            Rectangle().fill(Tokens.surface3).frame(width: 600, height: 26)
+            Rectangle().fill(Tokens.surface2).frame(width: 300, height: 18)
+          }
+          Spacer()
+        }.padding(20).background(Tokens.surface1)
+      }
     }
-    .padding(.vertical, Tokens.Space.s3)
-    .padding(.horizontal, 6)
   }
 
   /// Nothing typed yet. Rather than an empty screen with a hint, show something
@@ -209,17 +196,11 @@ struct SearchView: View {
   }
 
   private func shelf(_ title: String, _ items: [CatalogItem]) -> some View {
-    VStack(alignment: .leading, spacing: Tokens.Space.s3) {
-      ShelfHeader(title)
-      ScrollView(.horizontal) {
-        HStack(spacing: Tokens.Space.s3) {
-          ForEach(items) { item in
-            PosterCard(item: item) { start(item) }
-              .focused($focus, equals: .card(item.id))
-          }
-        }
-        .padding(.vertical, Tokens.Space.s3)
-        .padding(.horizontal, 6)
+    VStack(alignment: .leading, spacing: 18) {
+      Text(title).font(Tokens.editorial(38))
+      ForEach(items.prefix(8)) { item in
+        EditorialSongEntry(item: item, selected: focus == .card(item.id)) { start(item) }
+          .focused($focus, equals: .card(item.id))
       }
     }
   }

@@ -6,6 +6,7 @@ import {
   snapToVocalOnset,
   vocalStemMono16k,
   setVocalSeparationEnabled,
+  setLiveVocalSeparationEnabled,
 } from '../app/align.js';
 
 // A 16 kHz timeline covering 20s, three lines of two words each. Word timing
@@ -202,12 +203,21 @@ test('a fully aligned line is not marked uncertain', async () => {
 test('mic path reaches parity: routes through applyWordSpans (score + uncertain)', async () => {
   // Only the first word aligns confidently → 1 of 4 anchored → uncertain, and
   // per-word scores are carried (same refinement as the whole-file path).
+  // Word CTC requires a stem now — mock separation so this exercises the live
+  // stem path rather than the refused raw-mix fallback.
   global.window.bar4bar.alignSong = async ({ lines }) => ({
     aligned: lines.length,
     lines: lines.map((l) => ({
       words: l.words.map((_, i) => ({ start: 0.7 + i * 0.4, end: 0.7 + i * 0.4 + 0.3, score: i === 0 ? 0.9 : 0.1 })),
     })),
   });
+  global.window.bar4bar.separateAvailable = async () => true;
+  global.window.bar4bar.separateVocals = async ({ left, sampleRate }) => {
+    const n = (left.byteLength || left.length) / 4;
+    return { left: new Float32Array(n), right: new Float32Array(n), sampleRate };
+  };
+  setVocalSeparationEnabled(true);
+  setLiveVocalSeparationEnabled(true);
   const timeline = { lines: [{ start: 2, end: 4, words: [{ text: 'a' }, { text: 'b' }, { text: 'c' }, { text: 'd' }] }] };
   const mic = { sampleRate: 16000, getOrderedPcm: () => new Float32Array(16000 * 20) };
   const res = await refineTimelineFromMic(timeline, mic, 10, { maxLines: 2 });
@@ -250,6 +260,18 @@ test('stem:true also builds the vocal-activity map the display needs', async () 
   const mix = makeTimeline();
   await refineTimelineWithAudio(mix, pcm16k, { batchLines: 2 });
   assert.equal(mix.vocalIntervals, undefined, 'mix energy is not vocal — no map');
+});
+
+test('File/Blob path refuses raw-mix CTC when separation yields no stem', async () => {
+  // Fake file never decoded: vocalStemMono16k returns null (no separateAvailable
+  // on the test bridge) and allowRawMix defaults false → keep estimates.
+  const fakeFile = { arrayBuffer: async () => new ArrayBuffer(8) };
+  const tl = makeTimeline();
+  const before = tl.lines[0].words[0].start;
+  const res = await refineTimelineWithAudio(tl, fakeFile, { batchLines: 2 });
+  assert.deepEqual(res, { aligned: 0, skipped: 'no-stem' });
+  assert.equal(tl.lines[0].words[0].start, before, 'estimates unchanged');
+  assert.equal(tl.aligned, undefined);
 });
 
 test('vocal separation is gated by both the enable flag and model availability', async () => {

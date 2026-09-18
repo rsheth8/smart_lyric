@@ -11,6 +11,42 @@
 .bg {
   position: absolute; inset: 0; z-index: 0;
   width: 100%; height: 100%;
+  transition: opacity .6s ease;
+}
+/* Full-bleed music video under the lyric stack. Inactive until data-media is set. */
+#media-bed {
+  position: absolute; inset: 0; z-index: 0;
+  overflow: hidden; pointer-events: none;
+  opacity: 0; transition: opacity .55s ease;
+  background: #000;
+}
+#media-bed video,
+#media-bed #yt-host,
+#media-bed iframe {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  border: 0; object-fit: cover;
+}
+#media-bed #yt-host { display: none; }
+#media-bed .media-scrim {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.45) 0%, rgba(0,0,0,.28) 38%, rgba(0,0,0,.55) 100%),
+    radial-gradient(90% 70% at 50% 45%, transparent 30%, rgba(0,0,0,.5) 100%);
+}
+#stage[data-media="video"] #media-bed,
+#stage[data-media="youtube"] #media-bed { opacity: 1; }
+#stage[data-mode="setup"][data-media] #media-bed { opacity: 0; }
+#stage[data-media="video"] .bg,
+#stage[data-media="youtube"] .bg { opacity: 0; }
+#stage[data-mode="setup"][data-media] .bg { opacity: 1; }
+#stage[data-media="youtube"] #media-bed video { display: none; }
+#stage[data-media="youtube"] #media-bed #yt-host { display: block; }
+#stage[data-media="video"] #media-bed #yt-host { display: none; }
+/* Keep karaoke readable over moving video. */
+#stage[data-media="video"] .line,
+#stage[data-media="youtube"] .line {
+  text-shadow: 0 2px 18px rgba(0,0,0,.75), 0 0 2px rgba(0,0,0,.9);
 }
 .vignette {
   position: absolute; inset: 0; z-index: 1; pointer-events: none;
@@ -216,6 +252,11 @@ body[data-surface="tv"] .line.next.prep-ready { opacity: .7; filter: blur(.12px)
     0 0 calc(18px + 16px * var(--glow, 0) + 14px * var(--attack, 0))
     rgba(227,194,122, calc(.35 + .4 * var(--glow, 0) + .35 * var(--attack, 0)))
   );
+}
+.line .word.selected {
+  outline: 1.5px solid color-mix(in oklab, var(--accent) 75%, white);
+  outline-offset: 3px;
+  border-radius: 2px;
 }
 .line.active .word.current.phrase-head,
 .line.active .word.current.phrase-tail {
@@ -517,8 +558,60 @@ body:has(#stage[data-mode="setup"]) :is(#live-sep-hud, #sync-hud) { display: non
    sync health now lives in #inspector behind the ⋯ button. `nowrap` is load-
    bearing — it's what makes a new button here an obvious mistake rather than a
    silent second row. */
+
+/* Hub chip for a song left running after Change song / Back. Same footprint as
+   the now-bar so the return path is obvious from any hub screen. */
+#parked-bar {
+  position: absolute; left: 50%; bottom: var(--space-5); transform: translateX(-50%);
+  z-index: 10;
+  display: none; align-items: center; gap: var(--space-3);
+  max-width: min(520px, 94vw); width: max-content;
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
+  background: rgba(14,11,9,.78);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-lg);
+  backdrop-filter: blur(20px) saturate(1.2);
+  box-shadow: 0 16px 50px rgba(0,0,0,.45);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: transform .2s ease, filter .2s ease, opacity .3s ease;
+}
+#stage[data-mode="setup"] #parked-bar:not([hidden]) { display: flex; }
+#parked-bar:hover { filter: brightness(1.06); }
+#parked-bar:active { transform: translateX(-50%) scale(.98); }
+#parked-art {
+  width: 44px; height: 44px; border-radius: 9px; flex: none;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, #3a2c17, #6e5528 55%, var(--ember));
+  background-size: cover; background-position: center;
+  box-shadow: 0 6px 20px rgba(0,0,0,.45);
+  color: rgba(255,255,255,.55); font-size: 16px;
+}
+#parked-bar .parked-meta {
+  min-width: 0; display: flex; flex-direction: column; gap: 2px; flex: 1;
+}
+#parked-bar .parked-meta b {
+  font-size: 14px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#parked-bar .parked-meta span {
+  font-size: 12.5px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#parked-bar .parked-action {
+  flex: none;
+  font-size: 12.5px; font-weight: 600;
+  color: var(--accent-soft);
+  padding: 0 var(--space-2);
+  white-space: nowrap;
+}
+
 #nowbar {
-  position: absolute; left: 50%; bottom: var(--space-5); transform: translateX(-50%); z-index: 5;
+  /* Above #screens (z-index 6). The hub stays laid out while playing so it can
+     fade back in; if the bar sits under that stack, every transport click lands
+     on the invisible Recommended shelf and loads a different song. */
+  position: absolute; left: 50%; bottom: var(--space-5); transform: translateX(-50%); z-index: 10;
   display: none; align-items: center; gap: var(--space-2);
   flex-wrap: nowrap;
   max-width: min(760px, 94vw);
@@ -685,7 +778,7 @@ body:has(#stage[data-mode="setup"]) :is(#live-sep-hud, #sync-hud) { display: non
    song playing. */
 #inspector {
   position: absolute; right: var(--space-4); bottom: calc(var(--space-5) + var(--control-h) + var(--space-3));
-  z-index: 8;
+  z-index: 11;
 }
 #inspector[hidden] { display: none; }
 .inspector-card {
@@ -796,6 +889,8 @@ body:has(#stage[data-mode="setup"]) :is(#live-sep-hud, #sync-hud) { display: non
 .tap-retry:hover { filter: brightness(1.06); }
 .tap-retry:active { transform: scale(.97); }
 .tap-retry:disabled { filter: grayscale(.5) brightness(.8); cursor: default; }
+
+#stage[data-mode="setup"] #listen-panel { display: none !important; }
 
 /* ---- live listening (vinyl) feedback ---- */
 #listen-panel {

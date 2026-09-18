@@ -40,7 +40,10 @@ public enum Match {
     _ results: [LyricsResult?],
     targetDuration: Double?
   ) -> LyricsResult? {
-    let present = results.compactMap { $0 }
+    let present = results.compactMap { $0 }.enumerated().sorted { a, b in
+      if a.element.richness != b.element.richness { return a.element.richness < b.element.richness }
+      return a.offset < b.offset
+    }.map(\.element)
     guard !present.isEmpty else { return nil }
     guard let target = sec(targetDuration) else { return present[0] }
     let plausible = present.filter { !durationMismatch(targetSec: target, candidateSec: $0.meta.duration) }

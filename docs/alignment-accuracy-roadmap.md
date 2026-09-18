@@ -59,58 +59,47 @@ their absolute numbers reflect that, not mix density.
 **7 of 7 songs improve.** Only Nirvana crosses the fallback threshold, which is
 why the first pass mistook a universal gain for a conditional one.
 
-### Ground-truth accuracy (`scripts/truth-check.mjs`, 2026-07-27)
+**Ground-truth accuracy (`scripts/truth-check.mjs`, updated 2026-07-27)**
 
 Confidence is not accuracy, so this was measured directly against NetEase `yrc`
-word timings. Nirvana, 241/253 words matched, per-word |start − truth| **after
-removing a constant global offset** (the truth is a different upload of the same
-recording — 1.3 s more lead-in, drift 0.0005 s/s; a constant shift is not a sync
-error, it is what syncOffset/auto-timing corrects).
+word timings. Per-word |start − truth| **after removing a constant global
+offset** (different upload lead-in is what syncOffset/auto-timing corrects).
 
-The `+ refine` rows run the SHIPPED pipeline — `refineTimelineWithAudio`'s 6-line
-batching plus every `applyWordSpans` refinement — not bare aligner output. This
-was the open question left by the first pass; it is now closed.
+`+ refine` rows run the SHIPPED pipeline — `refineTimelineWithAudio`'s 6-line
+batching plus every `applyWordSpans` refinement.
+
+#### Nirvana — Smells Like Teen Spirit (dense mix, 241/253 words matched)
 
 | Condition | median | p90 | ≤100 ms | ≤200 ms | ≤300 ms |
 |---|---|---|---|---|---|
 | Baseline (LRC, words estimated, no audio) | 350 ms | 616 ms | 13% | 27% | 43% |
-| Raw mix, bare CTC | 489 ms | 1681 ms | 10% | 33% | 38% |
-| Raw mix **+ refine** (shipped) | 460 ms | 1658 ms | 11% | 31% | 38% |
-| Vocal stem, bare CTC | 285 ms | 1127 ms | **26%** | 42% | 52% |
+| Raw mix **+ refine** | 460 ms | 1658 ms | 11% | 31% | 38% |
 | Vocal stem **+ refine** (shipped) | **248 ms** | **866 ms** | 19% | 41% | **56%** |
 
-Three findings:
+#### Adele — Someone Like You (sparse ballad, 333/335 words matched)
 
-1. **Separation is the big lever, and it holds through the real pipeline:**
-   460 → 248 ms median (−46%), p90 1658 → 866 ms. Unchanged conclusion, now
-   measured on what users actually see.
-2. **The refinements pay off in the TAIL, not the median.** On the stem they cut
-   p90 1127 → 866 ms (−23%) and take uncertain lines from 3 to 0, but the share
-   of words inside 100 ms drops 26% → 19%. They trade some precision on
-   already-good words for far fewer badly-placed ones — the right trade
-   perceptually (a word 1.1 s late is a visible failure; 120 ms vs 90 ms is not),
-   but it is a trade, not a free win. Worth revisiting if the ≤100 ms share ever
-   becomes the thing to optimise.
-3. **Raw-mix CTC is still WORSE than using no audio at all** — 460 ms vs the
-   baseline's 350 ms, p90 1658 ms vs 616 ms — while reporting 87% "confident
-   anchors". The refinements barely move it (489 → 460 ms), which makes sense:
-   onset fitting and voice-end detection are deliberately stem-only, so the
-   full-mix path only gets re-anchoring and interpolation. **This finding
-   survived the test that was supposed to overturn it.**
+| Condition | median | p90 | ≤100 ms | ≤200 ms | ≤300 ms |
+|---|---|---|---|---|---|
+| Baseline (LRC, words estimated, no audio) | 497 ms | 1758 ms | 11% | 20% | 31% |
+| Raw mix **+ refine** | **64 ms** | 787 ms | **67%** | 74% | 80% |
+| Vocal stem **+ refine** (shipped) | **64 ms** | **535 ms** | 62% | **80%** | **84%** |
 
-**Open decision from finding 3.** If it replicates on two more songs, the app
-should probably not run CTC at all when no separation model is configured —
-shipping timing with a 2.7× worse tail than the honest syllable estimate is a
-regression users would feel. A softer option is to accept a CTC span on the raw
-mix only where it agrees with the estimate to within some tolerance. **Do not
-build either at n = 1**; measure first.
+Findings:
 
-⚠️ **n = 1 song.** Nirvana is the only full-length track in the test set with
-word-level ground truth (Adele has no `yrc`; Blow / All_RED / 16 are ~2.5 min
-clips that don't match a full-song `yrc` — <25% word match, drift 0.65–1.55).
-Adding two or three full songs NetEase has `yrc` for would make this general; the
-harness needs no changes (`--skip-raw` halves the runtime once the bare-CTC rows
-stop being interesting).
+1. **Separation is still the right default.** On Nirvana it cuts median 460→248 ms
+   (−46%) and p90 1658→866 ms. On Adele the median is already excellent on the
+   raw mix (sparse vocal); the stem still tightens the tail (p90 787→535 ms).
+2. **Raw-mix CTC is not universally worse than baseline** — Adele's raw mix is
+   far better than the syllable estimate. But on dense mixes it is a regression,
+   and the client can't cheaply know which case it's in. Policy: separate by
+   default; refuse raw-mix CTC when no stem is available; A/B scripts use
+   `allowRawMix: true`.
+3. **n = 2 full songs** with usable yrc truth (Nirvana + Adele). Coldplay Yellow
+   yrc is fetched under `fixtures/` awaiting matching audio. Grow with
+   `scripts/fetch-yrc.mjs` + `scripts/truth-check.mjs --skip-raw`.
+
+⚠️ Baseline drift on Adele was high (−0.005 s/s) — treat that row with suspicion;
+stem/raw offsets agree and drift is low.
 
 **Do not build an adaptive "skip separation on sparse mixes" rule.** Tested with
 cheap raw-mix features (`scripts/mix-features.mjs`: spectral flatness, crest,
@@ -165,41 +154,11 @@ via `onnxruntime-node`, reusing the runtime the aligner already loads.
   the stem when available and **falls back to the raw mix otherwise**. Warmed on
   file attach. `separateAvailable()` is false with no model → today it's a no-op.
 
-**Remaining to make it live (needs the real desktop app + a model):**
-
-*Pinned model:* **UVR-MDX-NET-Voc_FT** — params `{nFft:6144, hop:1024, dimF:3072,
-dimT:256}` (also fits Kim_Vocal_2). Download:
-`https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/UVR-MDX-NET-Voc_FT.onnx`
-(Our STFT convention was cross-checked against MDX/torch: periodic Hann, reflect
-center-pad, frames==dimT via `(dimT-1)*hop` samples, first dimF bins, channel
-layout `[L_re, L_im, R_re, R_im]` — all match.)
-
-1. **Ear-check first** (no Electron needed):
-   ```
-   ffmpeg -i song.mp3 -ac 2 -ar 44100 song.wav
-   node scripts/separate-check.mjs song.wav song.vocals.wav /path/to/UVR-MDX-NET-Voc_FT.onnx
-   ```
-   The output WAV should be isolated vocals. A shape/dim error means params don't
-   match the model — adjust `SEPARATE_MODEL_PARAMS`.
-2. **Enable in-app:** set `SEPARATE_MODEL_PATH` (or `_URL`) in `.env`. Alignment
-   then uses the stem automatically (falls back to raw mix if it fails). A **Sync
-   menu toggle** ("Isolate the vocal before aligning") appears once a model is
-   configured — on by default, persisted, gates separation without editing `.env`.
-   Confirm word timing improves vs. before on a dense-mix song.
-3. **Stem-aware tuning is already wired:** when alignment runs on the isolated
-   stem, `refineTimelineWithAudio` lowers `minScore` (0.3→0.15) and relaxes the
-   onset-snap gate/window; the raw-mix path keeps the conservative gates. No
-   further change needed — it activates automatically when separation is used.
-
-**Staged and dormant (ships now, inert until a model is set):** the toggle
-(`app/index.html` `#vocal-isolation-row`, `app/app.js`) and stem tuning
-(`app/align.js`). With no model, `separateAvailable()` is false → toggle hidden,
-stem tuning never triggers, raw-mix alignment unchanged.
-
-Tooling shipped for this: `scripts/separate-check.mjs`, `decodeWAV` in
-`app/wav.js` (tested), `separateStatus()` in `electron/separate.cjs`,
-`SEPARATE_*` in `.env.example`.
-
+**Remaining to make it live — DONE 2026-07-27.** Separation is ON by default
+via a baked-in `DEFAULT_SEPARATE_MODEL_URL` (UVR-MDX-NET-Voc_FT). First use
+downloads ~64 MB into `~/.cache/bar4bar-transformers/separate/`. Override with
+`SEPARATE_MODEL_PATH` (local file) or set `SEPARATE_MODEL_URL=` empty to disable.
+Raw-mix CTC is refused when no stem is available.
 **Integration in this codebase**
 - New IPC `separate-vocals` (preload `separateVocals`) mirroring `align-song`.
 - `refineTimelineWithAudio`: once per file (separation is expensive; do NOT do it
@@ -221,18 +180,18 @@ path so nothing regresses when unavailable.
 `wav2vec2-base-960h` is small and **English-only** — non-English lyrics are
 aligned via lossy romanization tokens today.
 
-- **English, sharper:** `wav2vec2-large-960h-lv60` — drop-in via the existing
-  `ALIGN_MODEL` env override; larger (~300 MB) and slower.
+- **English, sharper:** `Xenova/wav2vec2-large-xlsr-53-english` via Settings ▸
+  High-accuracy aligner (or `ALIGN_MODEL`). There is no Xenova ONNX build of
+  `facebook/wav2vec2-large-960h-lv60` — that id 401s.
 - **Multilingual:** Meta **MMS** (`facebook/mms-*`) CTC or a multilingual
   wav2vec2 — real fix for Hindi/Japanese/etc., but vocab/tokenizer differs from
-  the hard-coded `WAV2VEC2_960H_VOCAB` in `electron/align.cjs`; needs a
-  per-model vocab/label map (and possibly language adapters).
+  the hard-coded maps in `electron/align.cjs`; needs a per-model vocab/label map
+  (and possibly language adapters).
 - **Phoneme CTC** (e.g. charsiu): finer sub-word timing, better for sung
   vowels/melisma, but needs G2P of the lyrics.
 
-**Recommended:** expose as an opt-in "High accuracy" mode (bigger download,
-slower) rather than the default, and generalize `align.cjs` to accept a
-model-supplied vocab/blank/separator instead of the hard-coded 960h vocab.
+**Recommended:** Settings ▸ High-accuracy aligner for English max quality;
+generalize vocab loading further before swapping in MMS.
 
 ## Sequencing
 

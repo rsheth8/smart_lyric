@@ -73,7 +73,8 @@ afterEach(() => {
 
 test('a silent loopback is rejected and the real mic is used instead', async (t) => {
   // BlackHole is installed (matches by name, opens fine) but macOS output is the
-  // laptop speakers, so it carries silence. This is the reported bug.
+  // laptop speakers, so it carries silence. No internal system tap in this mock,
+  // so Auto falls through to the built-in mic.
   await stubMicLevels(t, { bh: 0, 'built-in': 0.12 });
   const res = await startBestCapture({ mode: 'auto', probeMs: 150, sleep: noSleep });
   assert.ok(res?.mic, `expected a capture, got ${JSON.stringify(res)}`);
@@ -83,10 +84,10 @@ test('a silent loopback is rejected and the real mic is used instead', async (t)
   assert.match(res.fellBackFrom || '', /BlackHole/, 'reports what it abandoned');
 });
 
-test('a loopback that IS carrying audio is preferred (cleanest tap)', async (t) => {
+test('a loopback that IS carrying audio is preferred over the mic', async (t) => {
   await stubMicLevels(t, { bh: 0.3, 'built-in': 0.12 });
   const res = await startBestCapture({ mode: 'auto', probeMs: 150, sleep: noSleep });
-  assert.equal(res.kind, 'loopback', 'a live loopback wins');
+  assert.equal(res.kind, 'loopback', 'a live loopback wins when system tap is unavailable');
   assert.ok(!res.fellBackFrom, 'nothing was abandoned');
 });
 
@@ -122,4 +123,77 @@ test('a working tap reports no outstanding setup', async (t) => {
   const res = await startBestCapture({ mode: 'auto', probeMs: 150, sleep: noSleep });
   assert.equal(res.kind, 'loopback');
   assert.ok(!res.tapAvailable, 'nothing to set up — we are on it');
+});
+
+// ---- internal system tap first --------------------------------------------
+
+function installSystemTap({ level = 0.2 } = {}) {
+  const tracks = [{ stop() {} }];
+  Object.defineProperty(globalThis, 'navigator', {
+    value: {
+      mediaDevices: {
+        enumerateDevices: async () => DEVICES,
+        getUserMedia: async () => ({ getTracks: () => [], getAudioTracks: () => [{}] }),
+        getDisplayMedia: async () => ({
+          getVideoTracks: () => tracks,
+          getAudioTracks: () => [{}],
+          getTracks: () => tracks,
+        }),
+      },
+    },
+    configurable: true,
+    writable: true,
+  });
+  return level;
+}
+
+test('internal system tap wins over a live BlackHole and the mic', async (t) => {
+  const level = installSystemTap({ level: 0.25 });
+  await stubMicLevels(t, { bh: 0.3, 'built-in': 0.12, undefined: level, null: level });
+  // System tap Mic has no deviceId — stub via undefined/null keys above; also
+  // patch after start for streams without a deviceId.
+  const { Mic } = await import('../app/mic.js');
+  const orig = Mic.prototype.start;
+  Mic.prototype.start = async function () {
+    if (this.stream || this.sourceKind === 'system' || !this.deviceId) this.level = level;
+    else this.level = { bh: 0.3, 'built-in': 0.12 }[this.deviceId] ?? 0;
+  };
+  t.after(() => {
+    Mic.prototype.start = orig;
+  });
+  const res = await startBestCapture({ mode: 'auto', probeMs: 150, sleep: noSleep });
+  assert.equal(res.kind, 'system', 'internal tap is the default');
+  assert.equal(res.heard, true);
+});
+
+test('a silent internal tap is kept instead of falling to a silent mic', async (t) => {
+  installSystemTap({ level: 0 });
+  const { Mic } = await import('../app/mic.js');
+  const orig = Mic.prototype.start;
+  Mic.prototype.start = async function () {
+    // System stream is silent; BlackHole silent; mic would also be silent —
+    // still prefer the internal tap so speaker volume isn't the gate.
+    this.level = this.deviceId === 'built-in' ? 0 : this.deviceId === 'bh' ? 0 : 0;
+  };
+  t.after(() => {
+    Mic.prototype.start = orig;
+  });
+  const res = await startBestCapture({ mode: 'auto', probeMs: 150, sleep: noSleep });
+  assert.equal(res.kind, 'system', 'keep the internal tap over a useless mic');
+  assert.equal(res.heard, false);
+});
+
+test('live BlackHole wins when the internal tap is silent', async (t) => {
+  installSystemTap({ level: 0 });
+  const { Mic } = await import('../app/mic.js');
+  const orig = Mic.prototype.start;
+  Mic.prototype.start = async function () {
+    if (!this.deviceId) this.level = 0; // silent system stream
+    else this.level = { bh: 0.3, 'built-in': 0.12 }[this.deviceId] ?? 0;
+  };
+  t.after(() => {
+    Mic.prototype.start = orig;
+  });
+  const res = await startBestCapture({ mode: 'auto', probeMs: 150, sleep: noSleep });
+  assert.equal(res.kind, 'loopback', 'a live cable tap beats a silent system hold');
 });

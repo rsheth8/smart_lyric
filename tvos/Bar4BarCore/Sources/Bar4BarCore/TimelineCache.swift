@@ -1,6 +1,7 @@
 import Foundation
+import CryptoKit
 
-/// Disk cache for timelines, keyed like the JS timeline-cache (artist|track|duration bucket).
+/// Separate recording editions, preserving full titles and exact duration.
 public struct TimelineCache: Sendable {
   public var directory: URL
 
@@ -10,24 +11,21 @@ public struct TimelineCache: Sendable {
     } else {
       let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
         ?? FileManager.default.temporaryDirectory
-      self.directory = base.appendingPathComponent("Bar4BarTimelines", isDirectory: true)
+      self.directory = base.appendingPathComponent("Bar4BarTimelines-v3", isDirectory: true)
     }
     try? FileManager.default.createDirectory(at: self.directory, withIntermediateDirectories: true)
   }
 
-  public static func cacheKey(artist: String, track: String, duration: Double?) -> String {
-    let a = TitleMatch.primaryArtist(artist).lowercased()
-    let t = TitleMatch.cleanTrackTitle(track).lowercased()
-    let d: String
-    if let duration, duration > 0 {
-      d = String(Int((duration / 5).rounded() * 5))
-    } else {
-      d = "na"
-    }
-    let raw = "\(a)|\(t)|\(d)"
-    return raw
-      .replacingOccurrences(of: "/", with: "_")
-      .replacingOccurrences(of: ":", with: "_")
+  public static func cacheKey(artist: String, track: String, duration: Double?,
+                              album: String? = nil, recording: RecordingIdentity? = nil) -> String {
+    // JSON encoding avoids delimiter collisions; hashing avoids unsafe/long filenames.
+    let durationText: String = duration.map { String($0) } ?? ""
+    let explicitText: String = recording?.explicit.map { String($0) } ?? ""
+    let fields: [String] = [artist, track, album ?? "", durationText,
+                           recording?.spotifyID ?? "", recording?.appleMusicID ?? "",
+                           recording?.isrc?.uppercased() ?? "", explicitText]
+    let data = (try? JSONEncoder().encode(fields)) ?? Data()
+    return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
   }
 
   public func load(key: String) -> Timeline? {

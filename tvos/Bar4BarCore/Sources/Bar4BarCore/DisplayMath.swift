@@ -8,6 +8,8 @@ public enum DisplayMath {
   public static let breathGap = 0.9
   public static let countInGap = 1.2
   public static let singerLead = 0.12
+  /// Listen mode: highlight the word as it is sung, with no karaoke anticipation.
+  public static let singerLeadListen = 0.0
   public static let attackWindow = 0.055
   public static let lowConfScore = 0.35
   public static let singerLeadMin = 0.0
@@ -86,6 +88,30 @@ public enum DisplayMath {
     if gapSec >= 6 { return 4.5 }
     if gapSec >= 3.5 { return 3.8 }
     return leadInLine
+  }
+
+  /// Fill amount for the pre-vocal runway bar, or `nil` when nothing should show.
+  ///
+  /// Spans the real wait (`previous line end` → `next line start`) so a short
+  /// intro starts empty instead of appearing already three-quarters full, and
+  /// a long instrumental is one continuous fill — not a ♪ that later jumps
+  /// to a 3-2-1 overlay.
+  public static func runwayProgress(
+    lines: [LyricLine],
+    t: Double,
+    activeLi: Int,
+    instrumental: Bool,
+    countIn: CountIn?
+  ) -> Double? {
+    let nextIdx = activeLi < 0 ? 0 : activeLi + 1
+    guard nextIdx < lines.count, t.isFinite else { return nil }
+    let nextStart = lines[nextIdx].start
+    let prevEnd = activeLi >= 0 ? lines[activeLi].end : 0
+    guard t < nextStart, t >= prevEnd else { return nil }
+    let waitingForFirstLine = activeLi < 0
+    guard waitingForFirstLine || instrumental || countIn != nil else { return nil }
+    let span = max(0.001, nextStart - prevEnd)
+    return min(1, max(0, (t - prevEnd) / span))
   }
 
   public static func resolveActiveLine(
@@ -227,5 +253,44 @@ public enum DisplayMath {
     let gap = line.start - prev.end
     if gap < minGap { return false }
     return t >= prev.end && t < line.start
+  }
+}
+
+/// How the clock treats the singer. Sing cues the wipe early so a person can
+/// start on the beat. Listen lights the word with the recording — Music's job.
+public enum PerformanceMode: String, Equatable, Sendable {
+  case sing
+  case listen
+
+  public var label: String {
+    switch self {
+    case .sing: return "Sing"
+    case .listen: return "Listen"
+    }
+  }
+
+  public var lead: Double {
+    switch self {
+    case .sing: return DisplayMath.singerLead
+    case .listen: return DisplayMath.singerLeadListen
+    }
+  }
+
+  /// Word lead-in used for the upcoming/arm colour. Sing arms the word;
+  /// Listen does not preview it before the vocal.
+  public var wordLeadIn: Double {
+    switch self {
+    case .sing: return DisplayMath.leadInWord
+    case .listen: return 0
+    }
+  }
+
+  public var toggled: PerformanceMode {
+    self == .sing ? .listen : .sing
+  }
+
+  /// Anything more than a breath of lead is Sing, including a custom stepper.
+  public static func from(lead: Double) -> PerformanceMode {
+    lead <= 0.05 ? .listen : .sing
   }
 }

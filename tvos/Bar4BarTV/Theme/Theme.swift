@@ -1,43 +1,31 @@
 import SwiftUI
+import CoreText
 import Bar4BarCore
 
-/// Bar4Bar "Dark Luxury" design tokens for tvOS — the Swift port of
-/// `app/styles/tokens.css` at its `[data-surface="tv"]` density.
-///
-/// Two rules carried over from the CSS:
-///
-/// 1. Nothing below this file hard-codes a color. If you are typing
-///    `Color.white.opacity(0.06)` into a view, the token you want is `surface2`.
-/// 2. Identity is champagne gold on warm espresso, but `accent` is REASSIGNED
-///    PER SONG from the album artwork (see `AccentPalette`), which is why views
-///    must read `theme.accent` and never the literal gold.
-///
-/// The tvOS density is not the desktop scale: this file *is* the TV branch, so
-/// the sizes below correspond to `body[data-surface="tv"]`, already doubled for
-/// a 1920pt canvas viewed from across the room.
+/// Shared typography, surfaces, and motion for the television app.
 enum Tokens {
 
   // MARK: - Brand
 
-  /// Champagne gold. The brand constant — never overwritten. Per-song accents
+  /// Vermilion. The brand constant — never overwritten. Per-song accents
   /// fall back to exactly this when the artwork can't supply a usable hue.
-  static let accentStatic = Color(hex: 0xE3C27A)
-  static let accentSoft = Color(hex: 0xF4E3BD)
+  static let accentStatic = Color(hex: 0xEF684B)
+  static let accentSoft = Color(hex: 0xB9A1DC)
   /// Text ON an accent fill.
-  static let accentInk = Color(hex: 0x171106)
-  /// The brand "4". Not the gold — a genuinely different color.
-  static let ember = Color(hex: 0xFF715B)
+  static let accentInk = Color(hex: 0x100F15)
+  /// The brand vermilion.
+  static let ember = Color(hex: 0xEF684B)
 
   // MARK: - Surfaces (elevation: 0 = the room, 3 = closest to you)
 
-  static let surface0 = Color(hex: 0x0B0908)
+  static let surface0 = Color(hex: 0x19121F)
   static let surface1 = Color.white.opacity(0.035)
   static let surface2 = Color.white.opacity(0.065)
   static let surface3 = Color.white.opacity(0.10)
   /// Opaque variants — for anything sitting over a blur/material.
-  static let surfaceSolid1 = Color(hex: 0x100D0B)
-  static let surfaceSolid2 = Color(hex: 0x16120F)
-  static let scrim = Color(hex: 0x0B0908).opacity(0.76)
+  static let surfaceSolid1 = Color(hex: 0x100F15)
+  static let surfaceSolid2 = Color(hex: 0x241B2D)
+  static let scrim = Color(hex: 0x19121F).opacity(0.76)
 
   // MARK: - Hairlines
 
@@ -47,10 +35,10 @@ enum Tokens {
 
   // MARK: - Text
 
-  static let ink = Color(hex: 0xF6F0E4)
-  static let text1 = Color(hex: 0xF6F0E4)
-  static let text2 = Color(hex: 0xF6F0E4).opacity(0.62)
-  static let text3 = Color(hex: 0xF6F0E4).opacity(0.38)
+  static let ink = Color(hex: 0xF2EBDD)
+  static let text1 = Color(hex: 0xF2EBDD)
+  static let text2 = Color(hex: 0xF2EBDD).opacity(0.72)
+  static let text3 = Color(hex: 0xF2EBDD).opacity(0.55)
 
   // MARK: - Semantic
 
@@ -60,18 +48,30 @@ enum Tokens {
 
   // MARK: - Lyric word states
 
-  static let wordDim = Color(hex: 0xF6F0E4).opacity(0.28)
-  static let wordUpcoming = Color(hex: 0xF6F0E4).opacity(0.42)
+  static let wordDim = Color(hex: 0xF2EBDD).opacity(0.28)
+  static let wordUpcoming = Color(hex: 0xF2EBDD).opacity(0.42)
   /// A word already sung stays full ink — the accent marks the *current* word.
   static let wordSung = text1
+
+  // MARK: - Glass (performance stage)
+  enum Glass {
+    static let envelope      = Color(hex: 0x0C0A08)
+    static let fieldFallback = Color(hex: 0x3A2418)
+    static let filament      = Color(hex: 0xF4E6D0)
+    static let filamentDim   = Color(hex: 0xF4E6D0).opacity(0.28)
+    static let filamentSung  = Color(hex: 0xF4E6D0).opacity(0.62)
+    static let meter         = Color(hex: 0x3D6CFF)
+    static let legend        = Color(hex: 0xF4E6D0).opacity(0.45)
+    static let holdHorizon   = Color(hex: 0x3D6CFF).opacity(0.85)
+  }
 
   // MARK: - Type (TV density)
 
   enum FontSize {
-    static let xs: CGFloat = 15
-    static let sm: CGFloat = 18
-    static let base: CGFloat = 24
-    static let md: CGFloat = 28
+    static let xs: CGFloat = 20
+    static let sm: CGFloat = 24
+    static let base: CGFloat = 28
+    static let md: CGFloat = 34
     static let lg: CGFloat = 34
     static let xl: CGFloat = 46
     static let xxl: CGFloat = 62
@@ -106,40 +106,77 @@ enum Tokens {
   static let safeX: CGFloat = 96
   static let safeY: CGFloat = 54
   static let cardW: CGFloat = 260
-  static let ringWidth: CGFloat = 4
-  static let ringLift: CGFloat = -6
+  static let ringWidth: CGFloat = 2
+  static let ringLift: CGFloat = -2
 
   // MARK: - Lyric depth-of-field (body[data-surface="tv"] .line states)
 
   enum DOF {
     static let idleOpacity: Double = 0.12
-    static let idleBlur: CGFloat = 2.0
-    static let pastOpacity: Double = 0.05
-    static let pastBlur: CGFloat = 2.6
+    static let idleBlur: CGFloat = 0
+    static let pastOpacity: Double = 0.22
+    static let pastBlur: CGFloat = 0
     static let nextOpacity: Double = 0.52
-    static let nextBlur: CGFloat = 0.5
+    static let nextBlur: CGFloat = 0
     static let prepOpacity: Double = 0.70
-    static let prepBlur: CGFloat = 0.12
+    static let prepBlur: CGFloat = 0
   }
 
   // MARK: - Motion
 
   enum Motion {
-    static let fast: Double = 0.14
-    static let normal: Double = 0.28
+    static let fast: Double = 0.12
+    static let normal: Double = 0.24
     static let slow: Double = 0.55
     /// `--ease-out: cubic-bezier(.16, 1, .3, 1)`
-    static let easeOut = Animation.timingCurve(0.16, 1, 0.3, 1, duration: normal)
+    static let easeOut = Animation.smooth(duration: normal, extraBounce: 0)
+    static let lyric = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.48)
+    /// Line placement on the ladder — longer than `lyric` so a 4K panel does
+    /// not see the neighbors jump.
+    static let stage = Animation.timingCurve(0.16, 1, 0.3, 1, duration: 0.78)
     static let easeOutSlow = Animation.timingCurve(0.16, 1, 0.3, 1, duration: slow)
+    /// Chrome and lyric-band inset. Shorter than `stage` so the remote feels instant.
+    static let chrome = Animation.timingCurve(0.16, 1, 0.3, 1, duration: 0.42)
+    /// Hub / search content settling.
+    static let page = Animation.timingCurve(0.16, 1, 0.3, 1, duration: 0.52)
   }
 
   // MARK: - Type helpers
 
-  /// The brand face is SF Pro Display bold — emphatically *not* `.rounded`,
-  /// which reads friendly/toylike and undercuts "premium on a projector".
-  static func display(_ size: CGFloat, _ weight: Font.Weight = .bold) -> Font {
-    .system(size: size, weight: weight, design: .default)
+  static let lilac = Color(hex: 0xB9A1DC)
+  static let chartreuse = Color(hex: 0xD8E77B)
+
+  private static let fontCache = NSCache<NSString, FontBox>()
+  private static let fontLock = NSLock()
+  private final class FontBox { let font: CTFont; init(_ font: CTFont) { self.font = font } }
+
+  /// CoreText supplies fallback runs for scripts outside the bundled faces.
+  static func typeface(_ size: CGFloat, editorial: Bool = false, italic: Bool = false) -> CTFont {
+    fontLock.lock(); defer { fontLock.unlock() }
+    fontCache.countLimit = 128
+    let key = "\(size)-\(editorial)-\(italic)" as NSString
+    if let cached = fontCache.object(forKey: key) { return cached.font }
+    let name = editorial ? (italic ? "Fraunces-9ptBlackItalic" : "Fraunces-9ptBlack") : "Manrope-ExtraLight"
+    let axes: [NSNumber: NSNumber] = editorial
+      ? [0x77676874: 650, 0x6F70737A: 96, 0x534F4654: 45, 0x574F4E4B: 1]
+      : [0x77676874: 600]
+    let descriptor = CTFontDescriptorCreateWithAttributes([
+      kCTFontNameAttribute: name, kCTFontVariationAttribute: axes
+    ] as CFDictionary)
+    let font = CTFontCreateWithFontDescriptor(descriptor, size, nil)
+    fontCache.setObject(FontBox(font), forKey: key)
+    return font
   }
+  static func lyric(_ size: CGFloat) -> Font { Font(typeface(size)) }
+  static func editorial(_ size: CGFloat, italic: Bool = false) -> Font {
+    Font(typeface(size, editorial: true, italic: italic))
+  }
+  static func caption(_ size: CGFloat = 20) -> Font { Font(typeface(size)) }
+  static func control(_ size: CGFloat = 24) -> Font { Font(typeface(size)) }
+  static func display(_ size: CGFloat, _ weight: Font.Weight = .bold) -> Font {
+    Font(typeface(size))
+  }
+
 }
 
 // MARK: - Per-song accent
@@ -160,7 +197,7 @@ struct AccentPalette: Equatable {
   )
 
   /// Build an accent from a dominant artwork color, falling back to the brand
-  /// gold whenever the artwork can't support one.
+  /// vermilion whenever the artwork can't support one.
   static func from(dominant rgb: RGB) -> AccentPalette {
     guard let built = AccentMath.rebuild(dominant: rgb) else { return .brand }
     return AccentPalette(

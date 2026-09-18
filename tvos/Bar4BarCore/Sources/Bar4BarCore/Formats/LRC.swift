@@ -25,6 +25,7 @@ public enum LRC {
     let rawLines = parseRawLines(lrc).filter { !$0.text.isEmpty }
     guard !rawLines.isEmpty else { return Timeline(lines: [], duration: 0) }
 
+    var estimated = false
     let lines: [LyricLine] = rawLines.enumerated().map { i, line in
       let next = i + 1 < rawLines.count ? rawLines[i + 1] : nil
       let end = next?.start ?? (line.start + trailingLineSeconds)
@@ -35,16 +36,18 @@ public enum LRC {
           LyricWord(
             text: text,
             start: times[wi],
-            end: wi + 1 < times.count ? times[wi + 1] : end
+            end: wi + 1 < times.count ? times[wi + 1] : end,
+            timingQuality: .reliable
           )
         }
       } else {
+        estimated = true
         words = Estimate.wordsAcrossSpan(tokens: tokens, start: line.start, end: end)
       }
       return LyricLine(start: line.start, end: end, words: words)
     }
 
-    return Timeline(lines: lines, duration: lines.last?.end ?? 0, source: "lrc")
+    return Timeline(lines: lines, duration: lines.last?.end ?? 0, estimated: estimated, source: estimated ? "lrc" : "elrc")
   }
 
   private static func parseRawLines(_ lrc: String) -> [RawLine] {

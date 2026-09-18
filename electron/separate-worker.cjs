@@ -1,8 +1,10 @@
 // Child-process worker for MDX vocal separation (onnxruntime-node).
 //
 // Runs outside Electron's main process so a native ORT abort (SIGTRAP/SIGSEGV)
-// cannot take down the app — the parent soft-fails and aligns the raw mix.
+// cannot take down the app — the parent soft-fails and the caller keeps estimated
+// word timing (raw-mix CTC is worse than the syllable estimate).
 // Launched with ELECTRON_RUN_AS_NODE=1 (plain Node, not another Electron).
+// Parent injects the resolved SEPARATE_MODEL_URL (default or empty) into env.
 
 const path = require('node:path');
 const fs = require('node:fs');

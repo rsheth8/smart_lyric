@@ -12,6 +12,7 @@ export default function handler(req, res) {
     appleMusicDeveloperToken: process.env.APPLE_MUSIC_DEVELOPER_TOKEN || '',
     // Optional override; otherwise the page uses location.origin + "/"
     spotifyRedirectUri: process.env.SPOTIFY_REDIRECT_URI || '',
+    youtubeConfigured: !!(process.env.YOUTUBE_API_KEY || '').trim(),
   };
 
   res.statusCode = 200;

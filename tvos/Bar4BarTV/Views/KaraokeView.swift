@@ -1,502 +1,439 @@
 import SwiftUI
+import UIKit
 import Bar4BarCore
 
-/// Full-bleed 10-foot karaoke surface.
-///
-/// Everything on screen is derived from one number — the cue time — recomputed
-/// each frame. There is deliberately no implicit SwiftUI animation on the lyric
-/// layer: an animation has its own idea of when a value should arrive, and a
-/// karaoke highlight that eases toward the truth is, by definition, late. The
-/// clock is the only authority.
+/// A stable performance canvas with a separate, remote-driven control deck.
 struct KaraokeView: View {
   @EnvironmentObject private var music: MusicPlayerService
   @EnvironmentObject private var session: LyricsSession
   @Binding var path: NavigationPath
-
-  /// How much runway to show around the active line.
-  private let lookahead = 2
-  private let lookbehind = 1
-
-  @State private var chromeWake = Date()
-  @Namespace private var emptyNamespace
-
-  var body: some View {
-    TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: false)) { context in
-      let t = cueTime
-      let lines = session.timeline.lines
-      let activeLi = DisplayMath.resolveActiveLine(lines, t: t)
-      let countIn = DisplayMath.countInState(lines: lines, t: t, activeLi: activeLi)
-      let gap = DisplayMath.gapState(lines: lines, t: t, activeLi: activeLi)
-      let chromeVisible = chromeIsAwake(now: context.date)
-
-      ZStack {
-        backdrop
-
-        if lines.isEmpty {
-          emptyState
-        } else {
-          lyricLadder(lines: lines, t: t, activeLi: activeLi, countIn: countIn, gap: gap)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.horizontal, Tokens.safeX)
-
-          // Floated rather than stacked above the lyrics: putting it in the
-          // ladder's flow shoved every line down when a break began, and a
-          // whole-screen jump on every instrumental is worse than the gap it
-          // is reporting. It sits in the empty band between the chrome and the
-          // first line — a scrim was tried instead and read as a hole punched
-          // through the screen.
-          if gap.instrumental {
-            instrumentalIndicator(nextIn: gap.nextVocalIn)
-              .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-              .padding(.top, 150)
-          }
-        }
-
-        if hasLyrics {
-          VStack {
-            topChrome
-              .opacity(chromeVisible ? 1 : 0)
-            Spacer()
-            bottomChrome()
-              .opacity(chromeVisible ? 1 : 0)
-          }
-          .padding(.horizontal, Tokens.safeX)
-          .padding(.vertical, Tokens.safeY)
-          .animation(.easeOut(duration: Tokens.Motion.slow), value: chromeVisible)
-        }
-      }
-    }
-    // Only claim focus when there is something to steer. The empty state has
-    // real buttons, and a focusable backdrop competing with them means the
-    // first press of the remote does nothing.
-    .focusable(hasLyrics)
-    .onPlayPauseCommand {
-      wake()
-      Task { await music.togglePlayPause() }
-    }
-    .onMoveCommand { direction in
-      // Any direction wakes the chrome — that is how the controls are
-      // discovered at all, since there is nothing else to press on this screen.
-      wake()
-      switch direction {
-      case .left: session.nudgeSync(by: -0.05)
-      case .right: session.nudgeSync(by: 0.05)
-      default: break
-      }
-    }
-  }
+  private let immersive = true
+  @State private var controlsVisible = !DemoLaunch.cleanStage
+  @State private var menuHidCount = 0
+  @AppStorage("bar4bar.stage.setupSeen") private var stageSetupSeen = false
+  @State private var stagePresented = false
+  @State private var timingPresented = false
+  @State private var optionsPresented = false
+  @State private var hideTask: Task<Void, Never>?
+  @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+  private var reduceMotion: Bool { systemReduceMotion || DemoLaunch.reduceMotion }
+  @Environment(\.resetFocus) private var resetFocus
+  @Namespace private var stageNamespace
+  private enum Focus: Hashable { case stage, home, previous, back, play, forward, next, timing, view, more, hide, cheer }
+  @FocusState private var focus: Focus?
 
   private var hasLyrics: Bool { !session.timeline.lines.isEmpty }
+  private var defaultControl: Focus { music.canTransport ? .play : .timing }
 
-  /// Read per frame from the live clock, not from the 20 Hz published snapshot —
-  /// see `MusicPlayerService.liveTime`. This is what makes the wipe continuous.
-  private var cueTime: Double {
-    music.liveTime + session.syncOffset + session.singerLead
-  }
-
-  private var accent: AccentPalette {
-    session.accent
-  }
-
-  // MARK: - Chrome auto-hide
-
-  /// Lean-back rule: chrome shows on input, then gets out of the way. 4.8 s
-  /// rather than the desktop's 3.5 s — a viewer across the room needs longer.
-  private func chromeIsAwake(now: Date) -> Bool {
-    now.timeIntervalSince(chromeWake) < 4.8
-  }
-
-  private func wake() {
-    chromeWake = Date()
-  }
-
-  // MARK: - Backdrop
-
-  /// Espresso ground plus a slow album-art glow. The glow is what ties the
-  /// screen to this particular song, so it uses the per-song accent rather
-  /// than the brand gold.
-  private var backdrop: some View {
+  var body: some View {
     ZStack {
       Tokens.surface0
-
-      RadialGradient(
-        colors: [accent.glow.opacity(0.22), accent.glow.opacity(0.05), .clear],
-        center: .init(x: 0.5, y: 0.42),
-        startRadius: 0,
-        endRadius: 900
-      )
-      .blendMode(.screen)
-
-      // Vignette keeps the eye centered on a large panel.
-      RadialGradient(
-        colors: [.clear, Color.black.opacity(0.55)],
-        center: .center,
-        startRadius: 420,
-        endRadius: 1250
-      )
+      if hasLyrics {
+        performance
+        if !controlsVisible { stageCatcher }
+      } else {
+        emptyState
+      }
+      if music.nowPlaying != nil && controlsVisible {
+        controls
+          .transition(.opacity)
+          .zIndex(2)
+      }
     }
+    .focusScope(stageNamespace)
+    .task(id: controlsVisible) {
+      try? await Task.sleep(for: .milliseconds(100))
+      guard !Task.isCancelled, !stagePresented else { return }
+      focus = controlsVisible ? defaultControl : (hasLyrics ? .stage : nil)
+      resetFocus(in: stageNamespace)
+    }
+    .onAppear {
+      if !stageSetupSeen && ProcessInfo.processInfo.environment["BAR4BAR_SKIP_STAGE_SETUP"] != "1" { stagePresented = true }
+      scheduleHide()
+    }
+    .onDisappear { hideTask?.cancel() }
+    .onChange(of: focus) { _, _ in scheduleHide() }
+    .onChange(of: hasLyrics) { _, _ in scheduleHide() }
+    .onChange(of: music.isPlaying) { _, _ in scheduleHide() }
+    .onPlayPauseCommand {
+      showControls()
+      if music.canTransport { Task { await music.togglePlayPause() } }
+    }
+    .onExitCommand {
+      if controlsVisible {
+        hideControls()
+        menuHidCount += 1
+      } else if menuHidCount > 0 {
+        menuHidCount = 0
+        path = NavigationPath()
+      } else {
+        showControls()
+      }
+    }
+    .sheet(isPresented: $stagePresented, onDismiss: { stageSetupSeen = true; recover(.view) }) {
+      StageSettingsPanel().environmentObject(session).environmentObject(music)
+    }
+    .sheet(isPresented: $timingPresented, onDismiss: { recover(.timing) }) {
+      LyricsTimingPanel().environmentObject(session)
+    }
+    .sheet(isPresented: $optionsPresented, onDismiss: { recover(.more) }) {
+      RoomOptionsPanel()
+        .environmentObject(session)
+        .environmentObject(music)
+    }
+    .navigationBarBackButtonHidden(true)
+    .toolbar(.hidden, for: .navigationBar)
     .ignoresSafeArea()
   }
 
-  // MARK: - Lyric ladder
-
-  @ViewBuilder
-  private func lyricLadder(
-    lines: [LyricLine],
-    t: Double,
-    activeLi: Int,
-    countIn: DisplayMath.CountIn?,
-    gap: DisplayMath.GapState
-  ) -> some View {
-    let lower = max(0, activeLi - lookbehind)
-    let upper = min(lines.count - 1, max(activeLi, 0) + lookahead)
-
-    VStack(spacing: Tokens.Space.s5) {
-      if activeLi < 0, let countIn {
-        // Before the first line the runway *is* the content.
-        countInRunway(countIn)
-      }
-
-      if upper >= lower {
-        ForEach(lower...upper, id: \.self) { index in
-          let depth = depthFor(
-            index: index,
-            activeLi: activeLi,
-            countIn: countIn,
-            instrumental: gap.instrumental
-          )
-          LyricLineView(line: lines[index], t: t, depth: depth, accent: accent)
-            .opacity(depth.opacity)
-            .blur(radius: depth.blur)
-            .scaleEffect(depth.scale)
-        }
-      }
-    }
-    .frame(maxWidth: 1600)
-  }
-
-  private func depthFor(
-    index: Int,
-    activeLi: Int,
-    countIn: DisplayMath.CountIn?,
-    instrumental: Bool
-  ) -> LineDepth {
-    // During a break the "active" line has already been sung. Leaving it lit
-    // is the parked-highlight bug: the screen keeps pointing at a word nobody
-    // is singing. Let it recede and give the runway to what's coming.
-    if instrumental {
-      if index <= activeLi { return .past }
-      if index == activeLi + 1 { return .prep }
-      return .idle
-    }
-    if index == activeLi { return .active }
-    if index < activeLi { return .past }
-    if index == activeLi + 1 {
-      // "prep-ready": the count-in is already running for this line, so lift it
-      // toward legibility before it becomes active.
-      let prepping = countIn?.idx == index && (countIn?.progress ?? 0) > 0.35
-      return prepping ? .prep : .next
-    }
-    return .idle
-  }
-
-  // MARK: - Count-in
-
-  private func countInRunway(_ countIn: DisplayMath.CountIn) -> some View {
-    VStack(spacing: Tokens.Space.s3) {
-      Text("\(countIn.beat)")
-        .font(Tokens.display(Tokens.FontSize.xxl * 1.4, .bold))
-        .foregroundStyle(accent.accent)
-        .monospacedDigit()
-
-      Capsule()
-        .fill(Tokens.surface2)
-        .frame(width: 460, height: 8)
-        .overlay(alignment: .leading) {
-          Capsule()
-            .fill(accent.accent)
-            .frame(width: 460 * countIn.progress, height: 8)
+  private var performance: some View {
+    GeometryReader { geo in
+      PhraseStage()
+        .id(session.lyricRevision)
+        .frame(width: geo.size.width, height: geo.size.height)
+        .overlay {
+          // Hidden accessibility element for VoiceOver + UITests (WP-6)
+          if session.partyMode == "Take turns" {
+            Color.clear
+              .accessibilityElement(children: .ignore)
+              .accessibilityLabel(singerHandoffLabel)
+              .accessibilityIdentifier("singerHandoff")
+          }
         }
     }
+    .allowsHitTesting(false)
   }
 
-  // MARK: - Instrumental
+  private var singerHandoffLabel: String { "SIDE B takes this line" }
 
-  private func instrumentalIndicator(nextIn: Double?) -> some View {
-    VStack(spacing: Tokens.Space.s2) {
-      Text("♪")
-        .font(Tokens.display(Tokens.FontSize.xxl, .semibold))
-        .foregroundStyle(accent.accent)
-      if let nextIn, nextIn.isFinite, nextIn > 0 {
-        Text("next line in \(Int(nextIn.rounded()))s")
-          .font(Tokens.display(Tokens.FontSize.sm, .medium))
-          .foregroundStyle(Tokens.text3)
+  private func songIdentity(side: CGFloat) -> some View {
+    VStack(alignment: .leading, spacing: 24) {
+      Group {
+        if music.isDemo { RoomSleeve(side: side) }
+        else { CoverArt(url: music.nowPlaying?.artworkURL, side: side, corner: 12) }
       }
-    }
-    .padding(.vertical, Tokens.Space.s3)
-  }
-
-  // MARK: - Chrome
-
-  private var topChrome: some View {
-    HStack(alignment: .center, spacing: Tokens.Space.s3) {
-      // The cover is what tells you, at a glance from the couch, *which* song
-      // is on screen. Without it the header was two lines of text floating on
-      // black — the karaoke screen carried no artwork at all, on a surface
-      // whose whole accent system is derived from artwork.
-      if let track = music.nowPlaying {
-        CoverArt(
-          url: track.artworkURL,
-          side: 92,
-          corner: Tokens.Radius.md,
-          fallbackTint: track.isDemo ? accent.glow : nil
-        )
-      }
-      VStack(alignment: .leading, spacing: Tokens.Space.s1) {
-        Text(music.nowPlaying?.title ?? "No track")
-          .font(Tokens.display(Tokens.FontSize.md, .semibold))
+      .shadow(color: .black.opacity(0.4), radius: 28, y: 18)
+      VStack(alignment: .leading, spacing: 10) {
+        Text(music.nowPlaying?.title ?? "")
+          .font(Tokens.display(38, .semibold))
+          .tracking(-1)
           .foregroundStyle(Tokens.text1)
-          .lineLimit(1)
+          .lineLimit(2)
+          .minimumScaleFactor(0.75)
         Text(music.nowPlaying?.artist ?? "")
-          .font(Tokens.display(Tokens.FontSize.base, .regular))
+          .font(Tokens.display(25, .regular))
           .foregroundStyle(Tokens.text2)
-          .lineLimit(1)
+          .lineLimit(2)
+        HStack(spacing: 8) {
+          Circle().fill(session.accent.accent).frame(width: 6, height: 6)
+          Text(music.isDemo ? "VISUAL DEMO" : (session.timeline.hasWordTiming ? "WORD SYNC" : "LINE SYNC"))
+            .tracking(2.4)
+        }
+        .font(Tokens.display(16, .semibold))
+        .foregroundStyle(session.accent.soft)
+        .padding(.top, 12)
+        if let next = session.nextPrepTitle {
+          Text("Up next  ·  \(next)")
+            .font(Tokens.display(19, .regular))
+            .foregroundStyle(Tokens.text2)
+            .lineLimit(1)
+            .padding(.top, 6)
+        }
+      }
+    }
+  }
+
+  private var stageCatcher: some View {
+    Button { showControls() } label: {
+      Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity).contentShape(Rectangle())
+    }
+    .buttonStyle(StageCatcherStyle())
+    .focused($focus, equals: .stage)
+    .focusEffectDisabled()
+    .prefersDefaultFocus(true, in: stageNamespace)
+    .defaultFocus($focus, .stage, priority: .userInitiated)
+    .onMoveCommand { _ in showControls() }
+    .accessibilityLabel("Show playback controls")
+    .accessibilityIdentifier("showPlaybackControls")
+  }
+
+  private var controls: some View {
+    VStack {
+      HStack(spacing: 28) {
+        Button { path = NavigationPath() } label: { Label("Home", systemImage: "chevron.left") }
+          .buttonStyle(RoomButtonStyle())
+          .focused($focus, equals: .home)
+        if immersive || !hasLyrics {
+          VStack(alignment: .leading, spacing: 4) {
+            Text(music.nowPlaying?.title ?? "").font(Tokens.display(26, .semibold))
+            Text(music.nowPlaying?.artist ?? "").font(Tokens.display(21, .regular)).foregroundStyle(Tokens.text2)
+          }.lineLimit(1)
+        }
+        Spacer()
+        if let message = music.actionHint ?? session.aidMessage {
+          Text(message).font(Tokens.display(22, .medium)).foregroundStyle(Tokens.text2).lineLimit(2)
+        } else {
+          Text(music.isDemo ? "52-second visual demo" : (music.isFollowing ? "Following your music" : "Now playing"))
+            .font(Tokens.display(21, .medium)).foregroundStyle(Tokens.text2)
+        }
       }
       Spacer()
-      statusChip
-    }
-  }
-
-  @ViewBuilder
-  private var statusChip: some View {
-    if session.isLoading {
-      chip(label: "Fetching lyrics…", tint: Tokens.text2, dot: false)
-    } else if music.isDemo {
-      chip(label: "Demo", tint: accent.accent, dot: true)
-    } else if let status = session.statusMessage {
-      chip(label: status, tint: Tokens.text2, dot: false)
-    }
-  }
-
-  private func chip(label: String, tint: Color, dot: Bool) -> some View {
-    HStack(spacing: Tokens.Space.s2) {
-      if dot {
-        Circle().fill(tint).frame(width: 10, height: 10)
-      }
-      Text(label)
-        .font(Tokens.display(Tokens.FontSize.sm, .semibold))
-        .foregroundStyle(tint)
-    }
-    .padding(.horizontal, Tokens.Space.s3)
-    .padding(.vertical, Tokens.Space.s2)
-    .background(Tokens.surface2, in: Capsule())
-    .overlay(Capsule().stroke(Tokens.line1, lineWidth: 1))
-  }
-
-  private func bottomChrome() -> some View {
-    VStack(spacing: Tokens.Space.s3) {
-      progressBar
-
-      HStack(spacing: Tokens.Space.s4) {
-        Image(systemName: music.isPlaying ? "pause.fill" : "play.fill")
-          .font(.system(size: Tokens.FontSize.base))
-          .foregroundStyle(Tokens.text1)
-
-        Text(elapsedLabel)
-          .font(Tokens.display(Tokens.FontSize.sm, .medium))
-          .monospacedDigit()
-          .foregroundStyle(Tokens.text2)
-
-        Spacer()
-
-        // Nothing on this screen is pressable, so the only way anyone learns
-        // that the remote does anything is to be told. The legend rides the
-        // same auto-hide as the rest of the chrome, so it teaches once and
-        // then gets out of the way.
-        remoteHint(icon: "playpause.fill", label: "Play / pause")
-        remoteHint(
-          icon: "arrow.left.and.right",
-          label: String(format: "Trim sync  %+.2fs", session.syncOffset),
-          highlighted: session.syncOffset != 0
-        )
-        remoteHint(icon: "chevron.left", label: "Menu · back")
-      }
-    }
-  }
-
-  /// A hairline of elapsed progress. The only thing on the karaoke screen that
-  /// answers "how much of this song is left".
-  @ViewBuilder
-  private var progressBar: some View {
-    if let duration = music.nowPlaying?.duration, duration > 0 {
-      // Live, like the wipe: the playhead marker glides instead of ticking.
-      let fraction = min(1, max(0, music.liveTime / duration))
-      let sections = session.sections
-
-      VStack(alignment: .leading, spacing: Tokens.Space.s2) {
-        // The structure rail. Where the app knows the song's shape it says so:
-        // segment widths are real durations, so "the chorus is next and it is
-        // long" is legible at a glance instead of being a surprise.
-        GeometryReader { proxy in
-          if sections.count >= 2 {
-            HStack(spacing: 2) {
-              ForEach(Array(sections.enumerated()), id: \.offset) { index, section in
-                segment(
-                  section,
-                  width: max(2, proxy.size.width * (section.duration / duration) - 2),
-                  isCurrent: index == session.sectionIndex(at: music.playbackTime)
-                )
-              }
-            }
-            .overlay(alignment: .leading) {
-              // The playhead rides over the segments rather than filling them:
-              // a fill would hide which section is which behind it.
-              Capsule()
-                .fill(accent.accent)
-                .frame(width: 3, height: 18)
-                .offset(x: proxy.size.width * fraction - 1.5)
-                .shadow(color: accent.accent.opacity(0.6), radius: 6)
-            }
-          } else {
-            ZStack(alignment: .leading) {
-              Capsule().fill(Tokens.line1)
-              Capsule()
-                .fill(accent.accent)
-                .frame(width: proxy.size.width * fraction)
-            }
-            .frame(height: 4)
-            .frame(maxHeight: .infinity)
+      VStack(spacing: 22) {
+        progressRail
+        HStack(spacing: 16) {
+          if music.canTransport { transport }
+          Spacer(minLength: 28)
+          action("Timing", icon: "metronome", target: .timing, id: "Lyrics timing") {
+            hideTask?.cancel()
+            timingPresented = true
           }
+          action("Stage", icon: "sparkles", target: .view, id: "stageView") {
+            hideTask?.cancel()
+            stagePresented = true
+          }
+          action("More", icon: "ellipsis", target: .more, id: "moreOptions") {
+            hideTask?.cancel()
+            optionsPresented = true
+          }
+          action("Hide", icon: "chevron.down", target: .hide, id: "Hide controls") { hideControls() }
+          action("Cheer", icon: "hands.clap", target: .cheer, id: "stageCheer") { session.cheer() }
         }
-        .frame(height: sections.count >= 2 ? 14 : 4)
-
-        if let label = session.sectionLabel(at: music.playbackTime) {
-          Text(label.uppercased())
-            .font(Tokens.display(Tokens.FontSize.xs, .semibold))
-            .tracking(1.6)
-            .foregroundStyle(Tokens.text3)
-            .transition(.opacity)
+        .focusSection()
+        HStack {
+          Text(transportHint)
+          Spacer()
+          Text("Swipe up to return to the music")
         }
-      }
-      .animation(Tokens.Motion.easeOut, value: session.sectionIndex(at: music.playbackTime))
-    }
-  }
-
-  /// One rail segment. Sung sections read as solid; instrumental ones are
-  /// hollow, which is the distinction a singer actually cares about — those are
-  /// the stretches with nothing to sing.
-  private func segment(_ section: Sections.Section, width: CGFloat, isCurrent: Bool) -> some View {
-    let solid = !section.part.isInstrumental
-    return Capsule()
-      .fill(
-        solid
-          ? (isCurrent ? accent.accent.opacity(0.85) : Tokens.line3)
-          : (isCurrent ? accent.accent.opacity(0.35) : Tokens.line1)
-      )
-      .frame(width: width, height: isCurrent ? 12 : 6)
-      .frame(height: 14)
-  }
-
-  private func remoteHint(icon: String, label: String, highlighted: Bool = false) -> some View {
-    HStack(spacing: Tokens.Space.s2) {
-      Image(systemName: icon)
-        .font(.system(size: Tokens.FontSize.xs))
-        .foregroundStyle(highlighted ? accent.accent : Tokens.text3)
-      Text(label)
-        .font(Tokens.display(Tokens.FontSize.sm, .medium))
-        .monospacedDigit()
-        .foregroundStyle(highlighted ? Tokens.text1 : Tokens.text2)
-    }
-    .padding(.horizontal, Tokens.Space.s3)
-    .padding(.vertical, Tokens.Space.s2)
-    .background(Tokens.surface1, in: Capsule())
-    .overlay(Capsule().stroke(highlighted ? accent.accent.opacity(0.45) : Tokens.line1, lineWidth: 1))
-  }
-
-  private var elapsedLabel: String {
-    guard let duration = music.nowPlaying?.duration, duration > 0 else {
-      return formatTime(music.playbackTime)
-    }
-    return "\(formatTime(music.playbackTime)) / \(formatTime(duration))"
-  }
-
-  /// The no-lyrics screen.
-  ///
-  /// Previously this was one grey sentence — "Pick a song to start." — with no
-  /// way to pick one, under a transport bar for a track that did not exist.
-  /// Every branch here now offers the thing it is telling you to do.
-  private var emptyState: some View {
-    VStack(spacing: Tokens.Space.s4) {
-      Image(systemName: emptyIcon)
-        .font(.system(size: 78, weight: .light))
-        .foregroundStyle(session.errorMessage != nil ? Tokens.ember : Tokens.accentStatic)
-        .opacity(0.85)
-
-      Text(emptyTitle)
-        .font(Tokens.display(Tokens.FontSize.xl, .bold))
-        .multilineTextAlignment(.center)
-        .foregroundStyle(Tokens.text1)
-
-      Text(emptyDetail)
-        .font(Tokens.display(Tokens.FontSize.base, .regular))
-        .multilineTextAlignment(.center)
+        .font(Tokens.display(18, .regular))
         .foregroundStyle(Tokens.text2)
-        .frame(maxWidth: 900)
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(height: 24)
+        .accessibilityHidden(true)
+      }
+      .padding(28)
+      .background(Tokens.surfaceSolid1.opacity(0.96), in: RoundedRectangle(cornerRadius: 12))
+      .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.1), lineWidth: 1))
+    }
+    .padding(.horizontal, Tokens.safeX)
+    .padding(.top, 48)
+    .padding(.bottom, 48)
+    .defaultFocus($focus, defaultControl, priority: .userInitiated)
+  }
 
-      if !session.isLoading {
-        // Without an explicit default, tvOS left this screen with nothing
-        // focused: the backdrop stops being focusable when there are no
-        // lyrics, and the focus engine does not adopt a pushed view's buttons
-        // on its own. The first press of the remote did nothing at all.
-        HStack(spacing: Tokens.Space.s3) {
-          if !music.isDemo {
-            Button("Play the demo") { music.startDemo() }
-              .buttonStyle(TVPillStyle())
-              .prefersDefaultFocus(in: emptyNamespace)
+  private func action(_ title: String, icon: String, target: Focus, id: String, perform: @escaping () -> Void) -> some View {
+    Button { scheduleHide(); perform() } label: { Label(title, systemImage: icon) }
+      .buttonStyle(RoomButtonStyle())
+      .focused($focus, equals: target)
+      .accessibilityIdentifier(id)
+      .onMoveCommand { direction in
+        if direction == .up { hideControls() }
+        let row: [Focus] = [.timing, .view, .more, .hide, .cheer]
+        if let index = row.firstIndex(of: target) {
+          if direction == .right, index + 1 < row.count { focus = row[index + 1] }
+          if direction == .left {
+            focus = index > 0 ? row[index - 1] : (music.canTransport ? (music.canSkipTracks ? .next : .forward) : .timing)
           }
-          if music.authStatus == .authorized {
-            Button("Find a song") { path.append(Route.search) }
-              .buttonStyle(TVPillStyle())
-          }
-          Button("Back to hub") { path = NavigationPath() }
-            .buttonStyle(TVPillStyle())
-            .prefersDefaultFocus(music.isDemo, in: emptyNamespace)
         }
-        .focusScope(emptyNamespace)
-        .padding(.top, Tokens.Space.s2)
+      }
+  }
+
+  @ViewBuilder private var transport: some View {
+    if music.canSkipTracks {
+      transportButton("Previous", icon: "backward.end.fill", target: .previous) { Task { await music.skipPrevious() } }
+    }
+    transportButton("Skip back 15 seconds", icon: "gobackward.15", target: .back) { music.seekBy(-PlaybackSkip.nudge) }
+    transportButton(music.isPlaying ? "Pause" : "Play", icon: music.isPlaying ? "pause.fill" : "play.fill", target: .play) {
+      Task { await music.togglePlayPause() }
+    }
+    transportButton("Skip forward 15 seconds", icon: "goforward.15", target: .forward) { music.seekBy(PlaybackSkip.nudge) }
+    if music.canSkipTracks {
+      transportButton("Next", icon: "forward.end.fill", target: .next) { Task { await music.skipNext() } }
+    }
+  }
+
+  private func transportButton(_ title: String, icon: String, target: Focus, perform: @escaping () -> Void) -> some View {
+    Button { scheduleHide(); perform() } label: { Image(systemName: icon) }
+      .buttonStyle(TVTransportStyle(diameter: target == .play ? 72 : 60, prominent: target == .play))
+      .focused($focus, equals: target)
+      .accessibilityLabel(title)
+      .accessibilityIdentifier(target == .play ? "transportPlayPause" : title)
+      .onMoveCommand { direction in
+        if direction == .up { hideControls() }
+        if direction == .down { focus = .timing }
+        let row: [Focus] = music.canSkipTracks ? [.previous, .back, .play, .forward, .next, .timing] : [.back, .play, .forward, .timing]
+        if let index = row.firstIndex(of: target) {
+          if direction == .right, index + 1 < row.count { focus = row[index + 1] }
+          if direction == .left, index > 0 { focus = row[index - 1] }
+        }
+      }
+  }
+
+  private var transportHint: String {
+    switch focus {
+    case .previous: return "Previous song"
+    case .back: return "Back 15 seconds"
+    case .play: return music.isPlaying ? "Pause" : "Play"
+    case .forward: return "Forward 15 seconds"
+    case .next: return "Next song"
+    case .timing: return "Match the words to what you hear"
+    case .view: return "Choose your show, preview and singer roles"
+    case .more: return "Language, sing mode and playback options"
+    case .cheer: return "Give the room a cheer"
+    default: return music.canTransport ? "" : "Control playback in your music app"
+    }
+  }
+
+  private var progressRail: some View {
+    let duration = music.nowPlaying?.duration ?? session.timeline.duration
+    let fraction = duration > 0 ? min(1, max(0, music.liveTime / duration)) : 0
+    return HStack(spacing: 18) {
+      Text(timeLabel(music.liveTime)).frame(width: 56, alignment: .leading)
+      GeometryReader { geo in
+        ZStack(alignment: .leading) {
+          Capsule().fill(.white.opacity(0.14))
+          Capsule().fill(Tokens.ember).frame(width: max(0, geo.size.width * fraction))
+          Circle().fill(Tokens.text1).frame(width: 8, height: 8).offset(x: geo.size.width * fraction - 4)
+        }.frame(height: 3).frame(maxHeight: .infinity)
+      }.frame(height: 10)
+      Text("−" + timeLabel(max(0, duration - music.liveTime))).frame(width: 66, alignment: .trailing)
+    }
+    .font(Tokens.display(19, .medium)).monospacedDigit().foregroundStyle(Tokens.text2)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel("Song position")
+    .accessibilityValue("\(timeLabel(music.liveTime)) of \(timeLabel(duration))")
+  }
+
+  private func timeLabel(_ time: Double) -> String {
+    let value = max(0, Int(time.isFinite ? time : 0))
+    return String(format: "%d:%02d", value / 60, value % 60)
+  }
+
+  private func showControls() {
+    menuHidCount = 0
+    guard !controlsVisible else { scheduleHide(); return }
+    focus = nil
+    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { controlsVisible = true }
+    scheduleHide()
+  }
+  private func hideControls() {
+    guard hasLyrics else { return }
+    hideTask?.cancel()
+    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { controlsVisible = false }
+  }
+  private func recover(_ target: Focus) {
+    focus = target
+    scheduleHide()
+  }
+  private func scheduleHide() {
+    hideTask?.cancel()
+    guard controlsVisible, hasLyrics, music.isPlaying, !timingPresented, !optionsPresented, !stagePresented else { return }
+    hideTask = Task { @MainActor in
+      try? await Task.sleep(for: .seconds(8))
+      guard !Task.isCancelled, !timingPresented, !optionsPresented, !stagePresented else { return }
+      hideControls()
+    }
+  }
+
+  private var emptyState: some View {
+    VStack(spacing: 28) {
+      if session.isLoading { ProgressView().tint(Tokens.accentStatic).scaleEffect(1.5) }
+      else { Image(systemName: "text.quote").font(.system(size: 64)).foregroundStyle(Tokens.accentStatic) }
+      Text(session.isLoading ? "Finding the words…" : (music.nowPlaying == nil ? "Let’s put a song on." : "No synced lyrics for this one."))
+        .font(Tokens.display(48, .semibold))
+      Text(session.isLoading ? "Your music keeps playing while we look." : (session.errorMessage ?? "Choose a song, or explore the visual demo."))
+        .font(Tokens.display(26, .regular)).foregroundStyle(Tokens.text2)
+        .multilineTextAlignment(.center).frame(maxWidth: 1000)
+      if !session.isLoading {
+        HStack(spacing: 20) {
+          if let track = music.nowPlaying, !track.isDemo {
+            Button("Try again") { Task { await session.load(for: track) } }.buttonStyle(RoomButtonStyle())
+          }
+          Button("Play the demo") { music.startDemo() }.buttonStyle(RoomButtonStyle(prominent: true))
+          Button("Find a song") { path.append(Route.search) }.buttonStyle(RoomButtonStyle())
+        }
       }
     }
-    .padding(Tokens.safeX)
-  }
-
-  private var emptyIcon: String {
-    if session.errorMessage != nil { return "text.badge.xmark" }
-    if session.isLoading { return "waveform" }
-    return music.nowPlaying == nil ? "music.note.list" : "waveform"
-  }
-
-  private var emptyTitle: String {
-    if session.errorMessage != nil { return "No synced lyrics for this one" }
-    if session.isLoading { return "Fetching lyrics…" }
-    return music.nowPlaying == nil ? "Nothing is playing yet" : "Waiting for lyrics…"
-  }
-
-  private var emptyDetail: String {
-    if let err = session.errorMessage { return err }
-    if session.isLoading { return "Looking through the catalog for word-level timing." }
-    if music.nowPlaying == nil {
-      return "Start the bundled demo to see word-by-word timing, or pick something from the Apple Music catalog."
-    }
-    return "\(music.nowPlaying?.title ?? "This track") is playing — the lyrics will appear as soon as they arrive."
-  }
-
-  private func formatTime(_ t: Double) -> String {
-    let s = Int(max(0, t).rounded(.down))
-    return String(format: "%d:%02d", s / 60, s % 60)
+    .padding(.bottom, music.nowPlaying != nil ? 180 : 0)
+    .foregroundStyle(Tokens.text1)
   }
 }
 
+private struct RoomOptionsPanel: View {
+  @EnvironmentObject private var music: MusicPlayerService
+  @EnvironmentObject private var session: LyricsSession
+  @Environment(\.dismiss) private var dismiss
+  @FocusState private var firstFocused: Bool
+
+  var body: some View {
+    ZStack {
+      PosterEnvironment(letters: "MY", browsing: true)
+      VStack(alignment: .leading, spacing: 28) {
+        HStack {
+          VStack(alignment: .leading, spacing: 8) {
+            Text("Make it yours.").font(Tokens.editorial(48, italic: true)).tracking(-1.5)
+            Text("A few ways to enjoy this song.").font(Tokens.display(25, .regular)).foregroundStyle(Tokens.text2)
+          }
+          Spacer()
+          Button("Done") { dismiss() }.buttonStyle(RoomButtonStyle())
+        }
+        TVGroup(title: "The words") {
+          TVActionRow(title: "Language aid", subtitle: session.aidMessage ?? session.aidMode.label, icon: "textformat") {
+            Task { await session.cycleAid() }
+          }
+          .focused($firstFocused)
+          .accessibilityIdentifier("languageAid")
+          .accessibilityValue(session.aidMode.label)
+          TVActionRow(title: session.performanceMode == .sing ? "Sing along" : "Listen", subtitle: session.performanceMode == .sing ? "Words light a little early, so you can join in" : "Words light with the recording", icon: session.performanceMode == .sing ? "mic" : "headphones") {
+            session.togglePerformanceMode()
+          }
+          .accessibilityIdentifier("performanceMode")
+        }
+        if music.canTransport {
+          TVGroup(title: "One more time") {
+            TVActionRow(title: "This line again", subtitle: "Jump to the start of the current line", icon: "arrow.uturn.backward") { replayLine() }
+              .accessibilityIdentifier("againLine")
+            if StageDirection.nextChorusStart(sections: session.sections, t: cueTime) != nil {
+              TVActionRow(title: "Skip to chorus", icon: "music.note.list") { skipChorus() }
+                .accessibilityIdentifier("skipChorus")
+            }
+          }
+        }
+        if music.canControlQueue {
+          HStack(spacing: 18) {
+            Button(music.isLoved ? "Loved" : "Love") { Task { await music.toggleLove() } }
+              .disabled(!music.canLove || music.isLoving)
+            Button(music.isInLibrary ? "In library" : "Add to library") { Task { await music.addCurrentToLibrary() } }
+              .disabled(!music.canAddToLibrary || music.isInLibrary || music.isAddingToLibrary)
+            Button(music.shuffleEnabled ? "Shuffle on" : "Shuffle off") { music.toggleShuffle() }
+            Button(music.repeatCycle.label) { music.cycleRepeat() }
+          }.buttonStyle(RoomButtonStyle())
+          if let hint = music.actionHint {
+            Text(hint).font(Tokens.display(21, .medium)).foregroundStyle(Tokens.accentSoft)
+          }
+        }
+      }
+      .frame(maxWidth: 1180)
+      .padding(64)
+    }
+    .task {
+      try? await Task.sleep(for: .milliseconds(160))
+      firstFocused = true
+    }
+    .onExitCommand { dismiss() }
+  }
+  private var cueTime: Double { music.liveTime + session.totalAlignment + session.singerLead }
+  private func seek(_ cue: Double) {
+    music.seek(to: max(0, cue - session.totalAlignment - session.singerLead))
+    dismiss()
+  }
+  private func replayLine() {
+    let lines = session.timeline.lines
+    let active = DisplayMath.resolveActiveLine(lines, t: cueTime)
+    if let start = StageDirection.currentLineStart(lines: lines, t: cueTime, activeLi: active) { seek(start) }
+  }
+  private func skipChorus() {
+    if let start = StageDirection.nextChorusStart(sections: session.sections, t: cueTime) { seek(start) }
+  }
+}
 // MARK: - Line depth
 
 /// The depth-of-field ladder, ported from `body[data-surface="tv"] .line` in
@@ -524,12 +461,31 @@ enum LineDepth {
     }
   }
 
-  var scale: CGFloat { self == .active ? 1.0 : 0.965 }
-
-  var fontSize: CGFloat { self == .active ? 72 : 46 }
+  var scale: CGFloat { self == .active ? 1.0 : 0.82 }
 
   var isActive: Bool { self == .active }
 }
+
+extension StageLook {
+  /// Type size for this camera. Document keeps the established 84pt ladder;
+  /// Anthem is a close-up that still wraps inside the field; Picture is a
+  /// ghost; Breath is a held silhouette.
+  var lyricSize: CGFloat {
+    switch self {
+    case .document: return 84
+    case .anthem: return 100
+    case .picture: return 52
+    case .breath: return 96
+    }
+  }
+}
+
+// MARK: - Render mode
+
+/// Controls how `WordWipeView` renders each glyph.
+/// - `.wipe`: existing L-R mask wipe (default, unchanged).
+/// - `.filament`: whole-glyph heat — opacity ramps with `wipeProgress`, no mask.
+enum WordRenderMode { case wipe, filament }
 
 // MARK: - Line
 
@@ -538,24 +494,114 @@ struct LyricLineView: View {
   let t: Double
   let depth: LineDepth
   let accent: AccentPalette
+  var wordTiming: Bool = true
+  var aidText: String? = nil
+  var aidMode: LanguageAidMode = .off
+  var look: StageLook = .document
+  var dense: Bool = false
+  var finale: Bool = false
+  var listen: Bool = false
+  var typeSize: CGFloat? = nil
+  var leading: Bool = false
+  var emphasisWord: Int? = nil
+  var emphasisAmount: Double = 0
+  var heldWord: Int? = nil
+  var expressiveScale = false
+  var estimatedWords: Set<Int> = []
+  var renderMode: WordRenderMode = .wipe
 
   var body: some View {
-    FlowLayout(
-      spacing: depth.isActive ? 20 : 14,
-      lineSpacing: depth.isActive ? 12 : 8,
-      alignment: horizontalAlignment
-    ) {
-      ForEach(Array(line.words.enumerated()), id: \.offset) { index, word in
-        WordWipeView(
-          word: word,
-          t: t,
-          depth: depth,
-          accent: accent,
-          gapToNext: gapToNext(after: index)
-        )
+    VStack(spacing: aidText == nil ? 0 : 8) {
+      if let slug = StageDirection.lane(for: line).slug {
+        Text(slug)
+          .font(Tokens.display(22, .semibold))
+          .tracking(4)
+          .foregroundStyle(fill.opacity(depth.isActive ? 0.72 : 0.32))
+      }
+      if wordTiming {
+        FlowLayout(
+          spacing: dense ? 10 : (look == .anthem ? 22 : 16),
+          lineSpacing: dense ? 6 : (look == .anthem ? 14 : 10),
+          alignment: horizontalAlignment,
+          balanced: leading
+        ) {
+          ForEach(Array(line.words.enumerated()), id: \.offset) { index, word in
+            if depth.isActive {
+              WordWipeView(
+                word: word, t: t, depth: depth,
+                gapToNext: gapToNext(after: index),
+                typeSize: resolvedTypeSize, fill: fill,
+                listen: listen,
+                estimated: estimatedWords.contains(index),
+                emphasis: emphasisWord == index ? emphasisAmount : 0,
+                held: heldWord == index,
+                expressiveScale: expressiveScale,
+                renderMode: renderMode
+              )
+            } else {
+              // Off-axis lines do not need a per-word overlay, animated mask,
+              // glow and scale. Keeping only their glyphs dramatically lowers
+              // the frame cost while preserving identical wrapping.
+              Text(word.text)
+                .font(Tokens.lyric(resolvedTypeSize))
+                .foregroundStyle(Tokens.text1)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .allowsTightening(true)
+            }
+          }
+        }
+      } else {
+        // LRC gives us the line boundary, not trustworthy word boundaries.
+        // Light the whole line as one cue instead of animating invented word
+        // timing and presenting guesses as precision.
+        Text(line.text)
+          .font(Tokens.lyric(resolvedTypeSize))
+          .foregroundStyle(lineSyncColor)
+          .multilineTextAlignment(textAlignment)
+          .lineLimit(2)
+          .minimumScaleFactor(0.5)
+          .allowsTightening(true)
+      }
+      if let aidText {
+        VStack(spacing: 6) {
+          if let kind = aidMode.plateKind {
+            Text(kind)
+              .font(Tokens.display(18, .semibold))
+              .tracking(3.5)
+              .foregroundStyle(Tokens.text3)
+          }
+          Text(aidText)
+            .font(Tokens.display(max(26, resolvedTypeSize * 0.32), .medium))
+            .foregroundStyle(Tokens.ink.opacity(0.55))
+            .multilineTextAlignment(textAlignment)
+            .lineLimit(2)
+            .minimumScaleFactor(0.55)
+        }
+        .padding(.top, 4)
       }
     }
     .frame(maxWidth: .infinity, alignment: frameAlignment)
+  }
+
+  private var resolvedTypeSize: CGFloat {
+    if let typeSize { return typeSize }
+    if dense { return 62 }
+    if finale && look == .anthem { return 108 }
+    return look.lyricSize
+  }
+
+  private var fill: Color {
+    StageDirection.lane(for: line) == .room ? Tokens.ember : accent.accent
+  }
+
+  private var lineSyncColor: Color {
+    guard depth.isActive else {
+      return Tokens.text1
+    }
+    if t < line.start { return Tokens.wordUpcoming.opacity(0.85) }
+    if t <= line.end { return fill }
+    return Tokens.wordSung
   }
 
   /// Duet staging: a second vocalist's lines sit on the opposite side, the way
@@ -566,12 +612,17 @@ struct LyricLineView: View {
   }
 
   private var horizontalAlignment: HorizontalAlignment {
-    guard line.agent != nil else { return .center }
+    guard line.agent != nil else { return leading ? .leading : .center }
     return isSecondaryAgent ? .trailing : .leading
   }
 
   private var frameAlignment: Alignment {
-    guard line.agent != nil else { return .center }
+    guard line.agent != nil else { return leading ? .leading : .center }
+    return isSecondaryAgent ? .trailing : .leading
+  }
+
+  private var textAlignment: TextAlignment {
+    guard line.agent != nil else { return leading ? .leading : .center }
     return isSecondaryAgent ? .trailing : .leading
   }
 
@@ -596,25 +647,84 @@ struct WordWipeView: View {
   let word: LyricWord
   let t: Double
   let depth: LineDepth
-  let accent: AccentPalette
   let gapToNext: Double
+  var typeSize: CGFloat = 84
+  var fill: Color = Tokens.accentStatic
+  var listen: Bool = false
+  var estimated = false
+  var emphasis: Double = 0
+  var held = false
+  var expressiveScale = false
+  var renderMode: WordRenderMode = .wipe
+  @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+  private var reduceMotion: Bool { systemReduceMotion || DemoLaunch.reduceMotion }
 
   var body: some View {
-    let phase = DisplayMath.wordPhase(t: t, start: word.start, end: word.end)
+    Group {
+      if renderMode == .filament {
+        filamentBody
+      } else {
+        wipeBody
+      }
+    }
+  }
+
+  /// Filament mode: whole-glyph heat, no L-R mask. Opacity ramps with
+  /// `wipeProgress`. Hold: 3 pt meter-blue horizon. Estimated: 0.75× heat.
+  @ViewBuilder private var filamentBody: some View {
+    let rawWipe = DisplayMath.wipeProgress(t: t, start: word.start, end: word.end)
+    let phase = DisplayMath.wordPhase(
+      t: t, start: word.start, end: word.end,
+      leadin: listen ? 0 : DisplayMath.leadInWord
+    )
+    let baseHeat: Double = {
+      switch phase {
+      case .leadin, .upcoming: return 0.38
+      case .current: return held ? 1.0 : 0.55 + 0.45 * rawWipe
+      case .sung: return 0.72
+      }
+    }()
+    let heat = estimated ? baseHeat * 0.75 : baseHeat
+    let filamentColor = Tokens.Glass.filament.opacity(heat)
+    let glowOpacity = phase == .current ? 0.30 * rawWipe : 0.0
+    ZStack(alignment: .bottom) {
+      glyphs
+        .foregroundStyle(filamentColor)
+        .shadow(color: Tokens.Glass.filament.opacity(glowOpacity), radius: 8)
+      if held && !estimated {
+        Rectangle()
+          .fill(Tokens.Glass.holdHorizon)
+          .frame(height: 3)
+          .offset(y: 6)
+      }
+    }
+    .transaction { $0.animation = nil }
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(word.text)
+  }
+
+  @ViewBuilder private var wipeBody: some View {
+    let phase = DisplayMath.wordPhase(
+      t: t, start: word.start, end: word.end,
+      leadin: listen ? 0 : DisplayMath.leadInWord
+    )
     let rawWipe = DisplayMath.wipeProgress(t: t, start: word.start, end: word.end)
     let cut = DisplayMath.cutAmount(gapToNext: gapToNext)
     let wipe = DisplayMath.wipeWithCut(wipe: rawWipe, cut: cut)
-    let dim = DisplayMath.confidenceDim(score: word.score)
+    let dim = estimated ? 0.65 : DisplayMath.confidenceDim(score: word.score)
     let attack = DisplayMath.attackAmount(t: t, start: word.start)
-    let hold = DisplayMath.holdAmount(word.end - word.start)
+    let hold = reduceMotion || !held ? 0 : DisplayMath.holdAmount(word.end - word.start)
 
-    Text(word.text)
-      .font(Tokens.display(depth.fontSize, .bold))
+    glyphs
+      .background(alignment: .leading) {
+        if held {
+          glyphs.foregroundStyle(Tokens.lilac.opacity(0.16))
+            .offset(x: reduceMotion ? 5 : 5 + 7 * rawWipe, y: 5)
+        }
+      }
       .foregroundStyle(baseColor(phase: phase))
       .overlay(alignment: .leading) {
-        // The lit layer, revealed left-to-right by the wipe mask.
-        Text(word.text)
-          .font(Tokens.display(depth.fontSize, .bold))
+        glyphs
           .foregroundStyle(litColor(dim: dim))
           .mask(alignment: .leading) { wipeMask(wipe) }
           .shadow(
@@ -622,9 +732,27 @@ struct WordWipeView: View {
             radius: glowRadius(phase: phase, attack: attack, hold: hold)
           )
       }
-      // A short scale kick on the attack frame makes the onset feel struck
-      // rather than merely switched on.
-      .scaleEffect(depth.isActive ? 1 + 0.035 * attack : 1)
+      .background {
+        RoundedRectangle(cornerRadius: 5).fill(fill.opacity(emphasis * 0.2)).padding(.horizontal, -4)
+      }
+      .overlay(alignment: .bottom) {
+        if held { Rectangle().fill(fill.opacity(0.65)).frame(height: 3).offset(y: 6) }
+      }
+      .scaleEffect(reduceMotion || !expressiveScale ? 1 : 1 + emphasis * min(0.08, 12 / max(1, PhraseFitting.wordWidth(word.text, size: typeSize))))
+      .transaction { $0.animation = nil }
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel(word.text)
+  }
+
+  /// Same glyphs for the base and the wipe overlay, so a squeezed long word
+  /// stays aligned. `minimumScaleFactor` only kicks in when FlowLayout proposes
+  /// a width smaller than the word — never mid-line, which would look uneven.
+  private var glyphs: some View {
+    Text(word.text)
+      .font(Tokens.lyric(typeSize))
+      .lineLimit(1)
+      .minimumScaleFactor(0.5)
+      .allowsTightening(true)
   }
 
   /// The un-sung remainder of the word.
@@ -638,7 +766,7 @@ struct WordWipeView: View {
   /// The filled portion. Gold while being sung, settling to ink afterwards so
   /// the accent always marks exactly one place on screen.
   private func litColor(dim: Double) -> Color {
-    let lit = accent.accent.mixed(with: Tokens.wordSung, by: settleAmount())
+    let lit = fill.mixed(with: Tokens.wordSung, by: settleAmount())
     // Low CTC confidence softens the fill rather than hiding it — an honest
     // signal that this word's timing is a guess.
     return lit.opacity(1 - 0.35 * dim)
@@ -652,12 +780,12 @@ struct WordWipeView: View {
 
   private func glowColor(phase: DisplayMath.WordPhase, hold: Double) -> Color {
     guard depth.isActive, phase == .current else { return .clear }
-    return accent.accent.opacity(0.30 + 0.25 * hold)
+    return fill.opacity(0.10 + 0.16 * hold)
   }
 
   private func glowRadius(phase: DisplayMath.WordPhase, attack: Double, hold: Double) -> CGFloat {
     guard depth.isActive, phase == .current else { return 0 }
-    return 14 + 16 * attack + 10 * hold
+    return reduceMotion ? 0 : 3
   }
 
   /// Soft-edged reveal. The ramp narrows as the word completes, so a finished
@@ -704,5 +832,72 @@ extension Color {
     #else
     return k < 0.5 ? self : other
     #endif
+  }
+}
+
+/// All adjustments are ordinary buttons. Directional gestures only move focus.
+private struct LyricsTimingPanel: View {
+  @EnvironmentObject private var session: LyricsSession
+  @EnvironmentObject private var listening: TVListeningService
+  @Environment(\.dismiss) private var dismiss
+  private enum Focus: Hashable { case earlier, later, reset, live, done }
+  @FocusState private var focus: Focus?
+
+  var body: some View {
+    ZStack {
+      Tokens.surface0
+      VStack(spacing: 36) {
+        TVPageHeading(title: "Lyrics timing", subtitle: "Move the lyrics to match what you hear.")
+        Text("Lyrics arrive late? Choose Earlier.\nLyrics arrive too soon? Choose Later.")
+          .font(Tokens.display(28, .regular))
+          .foregroundStyle(Tokens.text2)
+          .multilineTextAlignment(.center)
+        Text(String(format: "%+.2f seconds", session.syncOffset))
+          .font(Tokens.display(54, .semibold))
+          .monospacedDigit()
+          .foregroundStyle(Tokens.accentStatic)
+          .accessibilityIdentifier("timingOffset")
+        HStack(spacing: 24) {
+          Button("Earlier") { session.nudgeSync(by: 0.05) }
+            .focused($focus, equals: .earlier)
+          Button("Later") { session.nudgeSync(by: -0.05) }
+            .focused($focus, equals: .later)
+          Button("Reset") { session.resetSync() }
+            .focused($focus, equals: .reset)
+          Button("Done") { dismiss() }
+            .focused($focus, equals: .done)
+        }
+        .buttonStyle(TVPillStyle())
+        NavigationLink {
+          LiveListeningPanel()
+        } label: {
+          Label("Live listening · \(listening.status.title)", systemImage: "waveform")
+        }
+        .buttonStyle(TVPillStyle())
+        .focused($focus, equals: .live)
+        .accessibilityIdentifier("liveListening")
+        Text(session.timeline.hasWordTiming
+          ? "Saved for this song. Each press moves the lyrics by 0.05 seconds."
+          : "Word timing is estimated for this song. This adjustment moves all words together.")
+          .font(Tokens.display(24, .regular))
+          .foregroundStyle(Tokens.text2)
+          .multilineTextAlignment(.center)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+      .padding(48)
+      .frame(maxWidth: 1080)
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .task {
+      try? await Task.sleep(for: .milliseconds(150))
+      focus = .earlier
+    }
+    .onExitCommand { dismiss() }
+  }
+}
+
+private struct StageCatcherStyle: ButtonStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
   }
 }

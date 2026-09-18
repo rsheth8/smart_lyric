@@ -500,7 +500,7 @@ export function alignmentAvailable() {
   return typeof window !== 'undefined' && typeof window.bar4bar?.alignSong === 'function';
 }
 
-/** Kick off the ~90 MB model download/load without blocking playback. */
+/** Kick off the acoustic model download/load without blocking playback. */
 export async function warmAlignModel() {
   if (!alignmentAvailable()) return false;
   try {
@@ -511,6 +511,24 @@ export async function warmAlignModel() {
     return true;
   } catch {
     return false;
+  }
+}
+
+/** Switch between default (~90 MB) and high-accuracy (~300 MB) English models. */
+export async function setAlignAccuracy(high) {
+  if (!alignmentAvailable() || typeof window.bar4bar?.alignSetModel !== 'function') return null;
+  try {
+    return await window.bar4bar.alignSetModel(high ? 'high' : 'default');
+  } catch {
+    return null;
+  }
+}
+
+export async function alignModelStatus() {
+  try {
+    return (await window.bar4bar?.alignModelStatus?.()) || null;
+  } catch {
+    return null;
   }
 }
 
@@ -832,16 +850,28 @@ async function micWindowStem(monoPcm, sampleRate, { onStatus } = {}) {
  * @param {File|Blob|ArrayBuffer|Float32Array} fileOrBuffer  source audio, or
  *   pre-decoded 16 kHz mono PCM (Float32Array) — the latter skips Web Audio decode.
  * @param {{ onStatus?: Function, onProgress?: (done:number,total:number)=>void,
- *           batchLines?: number, stem?: boolean }} [opts]
+ *           batchLines?: number, stem?: boolean, allowRawMix?: boolean }} [opts]
  *   `stem` declares that pre-decoded PCM is ALREADY an isolated vocal, so it gets
  *   the stem tuning (relaxed score gate, onset fitting, voice-end detection)
  *   instead of the conservative full-mix gates. Ignored when we separate here.
- * @returns {Promise<{aligned:number, error?:string}|false>} false when unavailable.
+ *   `allowRawMix` opts into CTC on the full mix when separation is unavailable —
+ *   A/B scripts only. The shipped app path refuses raw-mix CTC (median error is
+ *   worse than the syllable estimate; see alignment-accuracy-roadmap.md).
+ * @returns {Promise<{aligned:number, error?:string, skipped?:string}|false>}
+ *   false when unavailable; `skipped:'no-stem'` when separation failed and raw
+ *   mix was refused (estimated timing kept).
  */
 export async function refineTimelineWithAudio(
   timeline,
   fileOrBuffer,
-  { onStatus, onProgress, batchLines = ALIGN_BATCH_LINES, stem = false } = {}
+  {
+    onStatus,
+    onProgress,
+    onFirstBatch,
+    batchLines = ALIGN_BATCH_LINES,
+    stem = false,
+    allowRawMix = false,
+  } = {}
 ) {
   if (!alignmentAvailable() || !timeline?.lines?.length || !fileOrBuffer) return false;
 
@@ -850,19 +880,26 @@ export async function refineTimelineWithAudio(
   if (fileOrBuffer instanceof Float32Array) {
     pcm = fileOrBuffer; // already 16 kHz mono (test / pre-decoded callers)
     fromStem = !!stem;
+    // Pre-decoded PCM is an explicit caller choice (truth-check, unit tests).
+    // Refuse only when the caller asked for stem-quality but didn't mark it and
+    // didn't opt into raw-mix — that path isn't used; File/Blob is the gated one.
   } else {
-    // Prefer the isolated vocal stem (far cleaner for CTC); fall back to the raw
-    // mix when separation is unavailable or fails.
+    // Prefer the isolated vocal stem (far cleaner for CTC). Raw-mix CTC is a
+    // measured regression vs the syllable estimate, so we keep estimates unless
+    // the caller opts in (`allowRawMix`) for A/B measurement.
     pcm = await vocalStemMono16k(fileOrBuffer, { onStatus });
     if (pcm?.length) {
       fromStem = true;
-    } else {
+    } else if (allowRawMix) {
       try {
         onStatus?.('Decoding audio…');
         pcm = await decodeMono16k(fileOrBuffer);
       } catch {
         return false;
       }
+    } else {
+      onStatus?.('Vocal isolation unavailable — keeping estimated timing');
+      return { aligned: 0, skipped: 'no-stem' };
     }
   }
 
@@ -890,6 +927,7 @@ export async function refineTimelineWithAudio(
 
   let aligned = 0;
   let done = 0;
+  let firstBatchNotified = false;
   // Lower bound for the next re-anchored line.start, so re-anchoring can't make a
   // line start before the previous one ends. Seeded below the first line.
   let floorSec = targets[0].line.start - ALIGN_SEARCH_PAD_SEC;
@@ -906,6 +944,14 @@ export async function refineTimelineWithAudio(
     done += batch.length;
     if (i1 - i0 < 800) {
       onProgress?.(done, targets.length);
+      if (!firstBatchNotified) {
+        firstBatchNotified = true;
+        try {
+          onFirstBatch?.({ aligned, done, total: targets.length });
+        } catch {
+          /* UI callback */
+        }
+      }
       continue;
     }
 
@@ -972,6 +1018,14 @@ export async function refineTimelineWithAudio(
       else if (aligned > 0) _emitLiveSep();
     }
     onProgress?.(done, targets.length);
+    if (!firstBatchNotified) {
+      firstBatchNotified = true;
+      try {
+        onFirstBatch?.({ aligned, done, total: targets.length });
+      } catch {
+        /* UI callback */
+      }
+    }
   }
 
   markTimelineAlignedIfComplete(timeline);
@@ -1086,18 +1140,22 @@ export async function refineTimelineFromMic(
   const bi0 = Math.max(0, Math.floor((batchStart - windowStart) * sampleRate));
   const bi1 = Math.min(pcm.length, Math.ceil((batchEnd - windowStart) * sampleRate));
   // On the word-refinement pass, isolate the vocal for this window first (dense
-  // mixes align far better on the stem); fall back to the raw mix when separation
-  // is unavailable/too-short/fails. Timing-only passes stay on the raw mix.
+  // mixes align far better on the stem). Raw-mix CTC is a measured regression vs
+  // the syllable estimate, so when the stem is unavailable we skip word CTC and
+  // keep estimates — timing-only latency measurement still uses the raw mix.
   let batchPcm = null;
   let fromStem = false;
   if (bi1 - bi0 >= 800) {
     const rawWin = pcm.subarray(bi0, bi1);
-    const stem16k = timingOnly ? null : await micWindowStem(rawWin, sampleRate, { onStatus });
-    if (stem16k?.length) {
-      batchPcm = stem16k;
-      fromStem = true;
-    } else {
+    if (timingOnly) {
       batchPcm = resampleTo16k(rawWin, sampleRate);
+    } else {
+      const stem16k = await micWindowStem(rawWin, sampleRate, { onStatus });
+      if (stem16k?.length) {
+        batchPcm = stem16k;
+        fromStem = true;
+      }
+      // else: leave batchPcm null → skip CTC word placement below
     }
   }
   // A clean stem lets us trust more CTC words and snap onsets aggressively; the raw
@@ -1207,6 +1265,13 @@ export async function refineTimelineFromMic(
       if (aligned > 0) _emitLiveSep();
       return aligned > 0 || timingSamples.length ? { aligned, timingSamples } : false;
     }
+  }
+
+  // Word refinement without a stem: do not fall through to legacy per-line
+  // raw-mix CTC (measured worse than the syllable estimate). Timing-only keeps
+  // the fallback so latency measurement still works when the batch path misses.
+  if (!timingOnly && !fromStem) {
+    return timingSamples.length ? { aligned: 0, timingSamples } : false;
   }
 
   // Fallback for older bridges or an unexpected batch failure.

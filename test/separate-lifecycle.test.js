@@ -1,11 +1,11 @@
 // Contract tests for the separation module's failure and lifecycle behaviour.
 //
-// The whole design is soft-fail-to-raw-mix: `vocalStemMono16k` awaits
-// `separateVocals`, so anything that returns a never-settling promise turns a
-// graceful degradation into a hang that stops alignment entirely. These run
-// without a model configured — which is exactly the unconfigured-user path.
+// Soft-fail returns null so callers keep estimated word timing (raw-mix CTC is
+// refused). Anything that returns a never-settling promise turns graceful
+// degradation into a hang that stops alignment entirely. These run with the
+// baked-in default URL disabled — the explicit opt-out path.
 
-import { test, describe } from 'node:test';
+import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
@@ -13,6 +13,26 @@ const require = createRequire(import.meta.url);
 const separate = require('../electron/separate.cjs');
 
 const PCM = { left: new Float32Array(1024), right: new Float32Array(1024), sampleRate: 44100 };
+
+let savedPath;
+let savedUrl;
+
+function disableDefaultModel() {
+  savedPath = process.env.SEPARATE_MODEL_PATH;
+  savedUrl = process.env.SEPARATE_MODEL_URL;
+  delete process.env.SEPARATE_MODEL_PATH;
+  process.env.SEPARATE_MODEL_URL = '';
+}
+
+function restoreEnv() {
+  if (savedPath === undefined) delete process.env.SEPARATE_MODEL_PATH;
+  else process.env.SEPARATE_MODEL_PATH = savedPath;
+  if (savedUrl === undefined) delete process.env.SEPARATE_MODEL_URL;
+  else process.env.SEPARATE_MODEL_URL = savedUrl;
+}
+
+before(() => disableDefaultModel());
+after(() => restoreEnv());
 
 describe('separation module surface', () => {
   test('exports the lifecycle helpers callers depend on', () => {
@@ -28,13 +48,12 @@ describe('separation module surface', () => {
     }
   });
 
-  test('reports unavailable with no model configured', () => {
-    // npm test does not load .env, so no SEPARATE_MODEL_PATH/URL is set.
+  test('reports unavailable when URL is explicitly disabled', () => {
     assert.equal(separate.separateAvailable(), false);
     assert.equal(separate.separateReady(), false);
   });
 
-  test('separateStatus describes why it is unavailable', () => {
+  test('separateStatus describes why it is unavailable when disabled', () => {
     const s = separate.separateStatus();
     assert.equal(s.available, false);
     assert.equal(s.ready, false);

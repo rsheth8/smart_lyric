@@ -240,7 +240,7 @@ export class SongSession {
    * durability on the next run, never correctness on this one.
    */
   saveAlignedCache() {
-    if (!this.cacheKey || !this.timeline?.aligned) return false;
+    if (!this.cacheKey || (!this.timeline?.aligned && !this.timeline?.humanEdited)) return false;
     const saved = putCachedTimeline(this.cacheKey, this.timeline, this.meta || {});
     if (saved) {
       saveToSidecar({ key: this.cacheKey, audioFile: this.audioFile }).catch(() => {});

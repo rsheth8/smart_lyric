@@ -13,6 +13,7 @@ struct SettingsView: View {
   @EnvironmentObject private var music: MusicPlayerService
   @EnvironmentObject private var session: LyricsSession
   @EnvironmentObject private var spotify: SpotifyService
+  @ObservedObject private var logs = TVLogStore.shared
   @Binding var path: NavigationPath
 
   var body: some View {
@@ -33,8 +34,11 @@ struct SettingsView: View {
             }
             VStack(alignment: .leading, spacing: Tokens.Space.s5) {
               appleMusicGroup
-              spotifyGroup
+              if AppConfig.spotifyFollowEnabled { spotifyGroup }
               lyricsGroup
+              #if DEBUG
+              logsGroup
+              #endif
               aboutGroup
             }
           }
@@ -48,14 +52,7 @@ struct SettingsView: View {
   // MARK: - Header
 
   private var header: some View {
-    VStack(alignment: .leading, spacing: Tokens.Space.s2) {
-      Text("Settings")
-        .font(Tokens.display(Tokens.FontSize.xxl, .bold))
-        .foregroundStyle(Tokens.text1)
-      Text("Press Menu on the remote to go back.")
-        .font(Tokens.display(Tokens.FontSize.base, .regular))
-        .foregroundStyle(Tokens.text3)
-    }
+    TVPageHeading(title: "Settings", subtitle: "Make yourself at home.")
   }
 
   // MARK: - Demo
@@ -63,7 +60,7 @@ struct SettingsView: View {
   private var demoGroup: some View {
     TVGroup(
       title: "Demo",
-      footnote: "A bundled 50-second track with original lyrics. It runs the same display pipeline a real song does, so it is a genuine preview of word-by-word timing — no Apple Music subscription required."
+      footnote: "Explore the lyric stage with a 52-second visual demo. No account needed."
     ) {
       TVActionRow(
         title: music.isDemo ? "Back to the demo" : "Play the demo track",
@@ -126,9 +123,9 @@ struct SettingsView: View {
     case .restricted:
       return "Access to Apple Music is restricted on this Apple TV, most likely by Screen Time or a profile."
     case .authorized:
-      return "Bar4Bar follows Apple Music's playhead. It never uploads your listening history."
+      return "Play a song in Music or from Bar4Bar — the words follow this Apple TV."
     default:
-      return "Connecting lets Bar4Bar search the catalog, start playback, and follow the playhead for word-by-word lyrics."
+      return "Connecting lets Bar4Bar search the catalog, start playback, and follow whatever is already playing in Music."
     }
   }
 
@@ -137,7 +134,7 @@ struct SettingsView: View {
   private var timingGroup: some View {
     TVGroup(
       title: "Timing",
-      footnote: "Sync offset is remembered per song. Singer lead is a global preference: it cues the highlight slightly ahead of the vocal so you can start the word on the beat rather than after it."
+      footnote: "Sync offset is remembered per song. Sing is the default: the wipe arms 120 ms early so you can start on the beat. Listen lights the word with the recording — toggle it on the stage."
     ) {
       TVStepperRow(
         label: "Sync offset",
@@ -159,7 +156,11 @@ struct SettingsView: View {
         onIncrease: { session.setSingerLead(session.singerLead + 0.02) }
       )
       Divider().overlay(Tokens.line1)
-      TVActionRow(title: "Reset singer lead to 120 ms", icon: "arrow.counterclockwise") {
+      TVActionRow(title: "Listen mode · 0 ms", icon: "headphones") {
+        session.setSingerLead(DisplayMath.singerLeadListen)
+      }
+      Divider().overlay(Tokens.line1)
+      TVActionRow(title: "Sing mode · 120 ms", icon: "mic") {
         session.setSingerLead(DisplayMath.singerLead)
       }
     }
@@ -169,7 +170,7 @@ struct SettingsView: View {
   /// made here looks global when it is actually stored per song.
   private var offsetHint: String {
     guard let track = music.nowPlaying else {
-      return "Nothing is playing — this will apply to the next song"
+      return "Start a song to adjust its timing"
     }
     if track.isDemo { return "Demo only — not saved" }
     return "Saved for “\(track.title)”"
@@ -185,7 +186,7 @@ struct SettingsView: View {
   private var spotifyGroup: some View {
     TVGroup(
       title: "Spotify",
-      footnote: "Following shows the words for whatever your Spotify account is playing, on any device. Bar4Bar never takes over playback."
+      footnote: "Pause and skip from the remote. Sound still plays on your phone or speaker — this TV cannot play Spotify audio."
     ) {
       TVInfoRow(
         label: "Status",
@@ -196,6 +197,11 @@ struct SettingsView: View {
         TVInfoRow(
           label: "Now following",
           value: spotify.track.map(\.title) ?? "Nothing playing",
+          tint: Tokens.text2
+        )
+        TVInfoRow(
+          label: "Next in queue",
+          value: spotify.nextUp?.title ?? "Unknown yet",
           tint: Tokens.text2
         )
         TVActionRow(title: "Disconnect Spotify", icon: "xmark.circle", tint: Tokens.ember) {
@@ -209,18 +215,47 @@ struct SettingsView: View {
     }
   }
 
+  private var logsGroup: some View {
+    TVGroup(
+      title: "Recent logs",
+      footnote: "Queue reads and next-song lyric fetches. The line you want on a track change is “installed prep”."
+    ) {
+      if logs.lines.isEmpty {
+        TVInfoRow(label: "Log", value: "Play a playlist — lines show up here", tint: Tokens.text3)
+      } else {
+        ForEach(Array(logs.lines.suffix(8).reversed().enumerated()), id: \.offset) { _, line in
+          Text(line)
+            .font(Tokens.display(Tokens.FontSize.xs, .regular))
+            .foregroundStyle(Tokens.text2)
+            .fixedSize(horizontal: false, vertical: true)
+          Divider().overlay(Tokens.line1)
+        }
+      }
+    }
+  }
+
   private var lyricsGroup: some View {
     TVGroup(
       title: "Lyrics source",
-      footnote: "Point LYRICS_API_BASE at your own deploy for word-level NetEase and Musixmatch timing. Provider keys stay on that server and are never shipped in the app."
+      footnote: "Lyrics are matched automatically. Word timing follows the singer when available; other songs highlight line by line."
     ) {
       TVInfoRow(
-        label: "Word-level provider",
-        value: AppConfig.lyricsAPIBase?.host ?? "Not configured",
+        label: "Catalog policy",
+        value: AppConfig.officialLyricsOnly ? "Licensed + reviewed only" : "Development coverage",
         tint: AppConfig.lyricsAPIBase == nil ? Tokens.text3 : Tokens.ok
       )
+      if !AppConfig.officialLyricsOnly {
+        Divider().overlay(Tokens.line1)
+        TVInfoRow(label: "Fallback", value: "LRCLIB · line-level", tint: Tokens.text2)
+      }
       Divider().overlay(Tokens.line1)
-      TVInfoRow(label: "Always available", value: "LRCLIB · line-level", tint: Tokens.text2)
+      TVActionRow(
+        title: "Language aid",
+        subtitle: session.preferredAidMode.label + " · pronunciation and English sit under the line, not beside it",
+        icon: "globe"
+      ) {
+        Task { await session.cycleAid() }
+      }
     }
   }
 
@@ -229,7 +264,7 @@ struct SettingsView: View {
   private var aboutGroup: some View {
     TVGroup(
       title: "About",
-      footnote: "Vinyl capture, forced alignment, and vocal separation live in the Mac app — they need a microphone and a lot more compute than an Apple TV has."
+      footnote: "Cinematic synced lyrics for the moments when you know the song by heart. Timing quality varies by recording and is shown on the stage."
     ) {
       TVInfoRow(label: "Bar4Bar for Apple TV", value: versionString, tint: Tokens.text2)
     }

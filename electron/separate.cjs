@@ -6,14 +6,19 @@
 //
 // Inference runs in `separate-worker.cjs` (plain Node via ELECTRON_RUN_AS_NODE).
 // A native ORT abort used to SIGTRAP Electron's main process; the worker dying
-// now soft-fails to null so the caller aligns the raw mix instead.
+// soft-fails to null so the caller keeps estimated word timing instead.
 //
 // Config (env, since MDX models differ):
 //   SEPARATE_MODEL_PATH  local .onnx path (takes precedence)
-//   SEPARATE_MODEL_URL   downloaded once into the cache dir if no local path
+//   SEPARATE_MODEL_URL   downloaded once into the cache dir if no local path.
+//                        Unset → DEFAULT_SEPARATE_MODEL_URL (UVR-MDX-NET-Voc_FT).
+//                        Set to empty string to disable separation entirely.
 //   SEPARATE_MODEL_PARAMS JSON {nFft,hop,dimF,dimT,compensation} overriding defaults
-// Left OFF until a real model is validated in the desktop app (see
-// docs/alignment-accuracy-roadmap.md) — separateAvailable() is false with no model.
+//
+// Separation is ON by default: aligning on the raw mix is worse than the syllable
+// estimate (see docs/alignment-accuracy-roadmap.md). Callers soft-fail to keeping
+// estimated word timing when separation is unavailable or fails — they do NOT
+// fall through to raw-mix CTC.
 
 const os = require('node:os');
 const path = require('node:path');
@@ -22,6 +27,9 @@ const { fork } = require('node:child_process');
 
 const MODEL_RATE = 44100;
 const DEFAULT_PARAMS = { nFft: 6144, hop: 1024, dimF: 3072, dimT: 256, compensation: 1.0 };
+// Pinned vocal-FT MDX model — measured to cut median word error ~46% vs raw mix.
+const DEFAULT_SEPARATE_MODEL_URL =
+  'https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/UVR-MDX-NET-Voc_FT.onnx';
 const CACHE_DIR = path.join(os.homedir(), '.cache', 'bar4bar-transformers', 'separate');
 const WORKER_PATH = path.join(__dirname, 'separate-worker.cjs');
 
@@ -44,12 +52,25 @@ function params() {
   return p;
 }
 
+/**
+ * Effective model URL. Explicit empty `SEPARATE_MODEL_URL=` disables; unset uses
+ * the pinned default so a fresh install separates without editing .env.
+ */
+function resolveModelUrl() {
+  if (Object.prototype.hasOwnProperty.call(process.env, 'SEPARATE_MODEL_URL')) {
+    const v = String(process.env.SEPARATE_MODEL_URL || '').trim();
+    return v || null;
+  }
+  return DEFAULT_SEPARATE_MODEL_URL;
+}
+
 function localModelPath() {
   if (process.env.SEPARATE_MODEL_PATH && fs.existsSync(process.env.SEPARATE_MODEL_PATH)) {
     return process.env.SEPARATE_MODEL_PATH;
   }
-  if (process.env.SEPARATE_MODEL_URL) {
-    const name = path.basename(new URL(process.env.SEPARATE_MODEL_URL).pathname) || 'mdx.onnx';
+  const url = resolveModelUrl();
+  if (url) {
+    const name = path.basename(new URL(url).pathname) || 'mdx.onnx';
     const dest = path.join(CACHE_DIR, name);
     if (fs.existsSync(dest)) return dest;
   }
@@ -74,7 +95,7 @@ function onnxInstalled() {
 function separateAvailable() {
   if (_failed) return false;
   if (!onnxInstalled()) return false;
-  return !!localModelPath() || !!process.env.SEPARATE_MODEL_URL;
+  return !!localModelPath() || !!resolveModelUrl();
 }
 
 /**
@@ -108,7 +129,13 @@ function ensureWorker() {
     const child = fork(WORKER_PATH, [], {
       // Critical: run as plain Node so we don't spawn another Electron, and so a
       // native ORT crash stays inside this child.
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+      // Resolve the default URL here so the worker always sees an explicit value
+      // (including empty = disabled) without duplicating the default constant.
+      env: {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: '1',
+        SEPARATE_MODEL_URL: resolveModelUrl() || '',
+      },
       stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
       // Preserve Float32Array payloads (JSON serialization turns them into {}).
       serialization: 'advanced',
@@ -249,12 +276,12 @@ async function separateWarm() {
  * @param {{ left: ArrayBuffer|Float32Array, right?: ArrayBuffer|Float32Array,
  *           sampleRate?: number }} payload
  * @returns {Promise<{ left: Float32Array, right: Float32Array, sampleRate: number }|null>}
- *   null on any failure (caller aligns the raw mix instead).
+ *   null on any failure (caller keeps estimated timing — does not run raw-mix CTC).
  */
 async function separateVocals(payload, { throwOnError = false } = {}) {
   if (!payload?.left) return null;
   if (!separateAvailable()) {
-    if (throwOnError) throw new Error('separation unavailable (no SEPARATE_MODEL_PATH/URL)');
+    if (throwOnError) throw new Error('separation unavailable (no model path/URL)');
     return null;
   }
 
@@ -305,5 +332,7 @@ module.exports = {
   separateWarm,
   separateStatus,
   separateShutdown,
+  resolveModelUrl,
+  DEFAULT_SEPARATE_MODEL_URL,
   MODEL_RATE,
 };

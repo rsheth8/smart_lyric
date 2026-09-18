@@ -50,6 +50,9 @@ export default async function handler(req, res) {
         if (!clientId) {
           return json(res, 503, { error: 'SPOTIFY_CLIENT_ID is not set on this deployment.' });
         }
+        if (!isDurable && process.env.VERCEL) {
+          return json(res, 503, { error: "Spotify connection is temporarily unavailable. The pairing service needs to be configured." });
+        }
         const started = await pair.start();
         return json(res, 200, {
           ...started,
@@ -106,13 +109,14 @@ export default async function handler(req, res) {
         const token = url.searchParams.get('refresh_token') || '';
         if (!token) return json(res, 400, { error: 'missing refresh_token' });
         const result = await pair.refresh(token, { clientId });
-        return json(res, result.error ? 502 : 200, result);
+        return json(res, result.error ? (result.status || 502) : 200, result);
       }
 
       default:
         return json(res, 400, { error: `unknown action “${action}”` });
     }
   } catch (err) {
-    return json(res, 500, { error: String(err?.message || err) });
+    console.error('TV pairing request failed:', err?.name || 'Error');
+    return json(res, 503, { error: 'Spotify connection is temporarily unavailable. Please try again shortly.' });
   }
 }

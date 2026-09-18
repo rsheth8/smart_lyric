@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "recording": {
+    "appleMusicID": "bar4bar-demo-v1"
+  },
+  "lyricRevision": "eb7742e4c7ff73f6",
+  "sections": [
+    {
+      "start": 0,
+      "end": 8.6,
+      "kind": "chorus",
+      "provenance": "reviewed"
+    },
+    {
+      "start": 8.6,
+      "end": 13.2,
+      "kind": "instrumental",
+      "provenance": "reviewed"
+    },
+    {
+      "start": 13.2,
+      "end": 31.4,
+      "kind": "verse",
+      "provenance": "reviewed"
+    },
+    {
+      "start": 31.4,
+      "end": 35.8,
+      "kind": "build",
+      "provenance": "reviewed"
+    },
+    {
+      "start": 35.8,
+      "end": 40,
+      "kind": "finale",
+      "provenance": "reviewed"
+    },
+    {
+      "start": 40,
+      "end": 44,
+      "kind": "instrumental",
+      "provenance": "reviewed"
+    },
+    {
+      "start": 44,
+      "end": 48.5,
+      "kind": "finale",
+      "provenance": "reviewed"
+    }
+  ],
+  "cues": [
+    {
+      "line": 0,
+      "word": 7,
+      "effect": "emphasis",
+      "provenance": "reviewed"
+    },
+    {
+      "line": 3,
+      "word": 4,
+      "effect": "emphasis",
+      "provenance": "reviewed"
+    },
+    {
+      "line": 4,
+      "word": 2,
+      "effect": "hold",
+      "provenance": "reviewed"
+    },
+    {
+      "line": 7,
+      "word": 7,
+      "effect": "emphasis",
+      "provenance": "reviewed"
+    },
+    {
+      "line": 8,
+      "word": 6,
+      "effect": "hold",
+      "provenance": "reviewed"
+    },
+    {
+      "line": 7,
+      "effect": "arrival",
+      "provenance": "reviewed"
+    },
+    {
+      "line": 8,
+      "effect": "arrival",
+      "provenance": "reviewed"
+    }
+  ]
+}

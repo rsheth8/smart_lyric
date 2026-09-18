@@ -186,6 +186,9 @@ export function applyWordSpans(
     floorSec,
     Math.min(anchors[0].start, originalEnd - 0.1, Number.isFinite(endCap) ? endCap : Infinity)
   );
+  // How far we moved the catalog line start — folded into global syncOffset by
+  // the caller (median across early lines ≈ constant catalog lead-in).
+  line._reanchorDelta = line.start - originalStart;
   line.end = Math.min(Math.max(originalEnd, anchors[anchors.length - 1].end), endCap);
   if (!(line.end > line.start)) line.end = line.start + 0.05;
 

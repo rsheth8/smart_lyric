@@ -49,6 +49,7 @@ function buildMenu({ send }) {
         { label: 'Search Songs…', accelerator: 'CmdOrCtrl+F', click: to('search') },
         { type: 'separator' },
         { label: 'Open Audio File…', accelerator: 'CmdOrCtrl+O', click: to('open-audio') },
+        { label: 'Open Music Video…', accelerator: 'CmdOrCtrl+Shift+V', click: to('open-video') },
         { label: 'Import Lyrics…', accelerator: 'CmdOrCtrl+Shift+O', click: to('open-lyrics') },
         { type: 'separator' },
         { label: 'Change Song', accelerator: 'CmdOrCtrl+L', click: to('change-song') },

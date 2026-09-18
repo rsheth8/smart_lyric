@@ -39,9 +39,9 @@ async function fetchViaBridgeOrProxy(query) {
 }
 
 /**
- * @returns {Promise<{ text: string, format: 'yrc'|'lrc', meta: object, source: string }|null>}
- *   Prefers word-level `yrc`; only returns when it actually parses to timed lines
- *   so we don't block LRCLIB with unusable NetEase payloads.
+ * @returns {Promise<{ text?: string, lrc?: string, format: 'yrc'|'lrc', roman?: string|null, meta: object, source: string }|null>}
+ *   Prefers word-level `yrc` when it parses to timed lines; otherwise line-level
+ *   `lrc` (with optional roman overlay). Empty payloads return null.
  */
 export async function fetchFromNetease(query) {
   let data;
@@ -60,11 +60,14 @@ export async function fetchFromNetease(query) {
       return { text: data.yrc, format: 'yrc', roman, meta: data.meta || {}, source: 'netease' };
     }
   }
-  // No word-level timing. Normally we defer to LRCLIB for line-level lyrics — but
-  // if NetEase carries a romanization, keep its line-level `lrc` so the
-  // pronunciation overlay has aligned original text to sit under.
-  if (roman && data.lrc && data.lrc.trim()) {
+  // No word-level timing. Still return line-level `lrc` when present — Hindi /
+  // Bollywood (and many non-CJK) tracks often have NetEase LRC with no yrc and
+  // no romalrc. Dropping those used to look like a total catalog miss and kick
+  // off AI generation. Prefer order in fetchCatalogLyrics still puts LRCLIB
+  // ahead of bare NetEase LRC, and keeps NetEase LRC+roman ahead of LRCLIB so
+  // the pronunciation overlay is not lost for J/K/C.
+  if (data.lrc && data.lrc.trim()) {
     return { lrc: data.lrc, format: 'lrc', roman, meta: data.meta || {}, source: 'netease' };
   }
-  return null; // let LRCLIB handle line-level
+  return null;
 }

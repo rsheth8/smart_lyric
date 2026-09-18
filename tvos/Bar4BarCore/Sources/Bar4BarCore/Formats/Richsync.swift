@@ -23,53 +23,33 @@ public enum Richsync {
     }
     entries.sort { $0.ts < $1.ts }
 
+    var estimated = false
     let lines: [LyricLine] = entries.enumerated().map { i, e in
       let start = e.ts
       let next = i + 1 < entries.count ? entries[i + 1] : nil
-      let end = next?.ts ?? max(e.te ?? start, start + trailingLineSeconds)
+      let end = e.te ?? next?.ts ?? (start + trailingLineSeconds)
 
       var words: [LyricWord] = []
       for chunk in e.l ?? [] {
+        guard let offset = chunk.o else { estimated = true; continue }
         let text = (chunk.c ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if text.isEmpty { continue }
-        words.append(LyricWord(text: text, start: start + (chunk.o ?? 0), end: start))
+        words.append(LyricWord(text: text, start: start + offset, end: start, timingQuality: .reliable))
       }
       if words.isEmpty {
+        estimated = true
         let text = (e.x ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        words = [LyricWord(text: text, start: start, end: end)]
+        words = Estimate.wordsAcrossSpan(tokens: Estimate.tokenizeLine(text), start: start, end: end)
       } else {
         for k in 0..<words.count {
           words[k].end = k + 1 < words.count ? words[k + 1].start : end
         }
       }
 
-      let maxOffset = words.last!.start - start
-      let span = end - start
-      if words.count > 1, span > 1.5, maxOffset < 0.4 * span {
-        words = interpolateBySyllable(words, start: start, end: end)
-      }
-
       return LyricLine(start: start, end: end, words: words)
     }
 
-    return Timeline(lines: lines, duration: lines.last?.end ?? 0, source: "richsync")
+    return Timeline(lines: lines, duration: lines.last?.end ?? 0, estimated: estimated, source: "richsync")
   }
 
-  private static func interpolateBySyllable(
-    _ words: [LyricWord],
-    start: Double,
-    end: Double
-  ) -> [LyricWord] {
-    let span = max(0.001, end - start)
-    let weights = words.map { 0.4 + Double(Estimate.syllableCount($0.text)) }
-    let total = weights.reduce(0, +)
-    let safe = total > 0 ? total : 1
-    var t = start
-    return words.enumerated().map { i, w in
-      let dur = (weights[i] / safe) * span
-      let out = LyricWord(text: w.text, start: t, end: t + dur)
-      t += dur
-      return out
-    }
-  }
 }

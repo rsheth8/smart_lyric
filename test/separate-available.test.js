@@ -27,17 +27,26 @@ function withEnv(env, fn) {
   }
 }
 
-test('unavailable with no model configured', () => {
-  withEnv({ SEPARATE_MODEL_PATH: undefined, SEPARATE_MODEL_URL: undefined }, () => {
+test('unavailable when URL is explicitly disabled (empty string)', () => {
+  withEnv({ SEPARATE_MODEL_PATH: undefined, SEPARATE_MODEL_URL: '' }, () => {
     assert.equal(separateAvailable(), false);
     assert.equal(separateReady(), false);
   });
 });
 
-test('a PATH pointing at a missing file with no URL is NOT available (the bug fix)', () => {
-  withEnv({ SEPARATE_MODEL_PATH: '/no/such/model.onnx', SEPARATE_MODEL_URL: undefined }, () => {
+test('a PATH pointing at a missing file with URL disabled is NOT available (the bug fix)', () => {
+  withEnv({ SEPARATE_MODEL_PATH: '/no/such/model.onnx', SEPARATE_MODEL_URL: '' }, () => {
     assert.equal(separateAvailable(), false);
     assert.equal(separateReady(), false);
+  });
+});
+
+test('unset URL falls back to the baked-in default (available, not ready until downloaded)', () => {
+  withEnv({ SEPARATE_MODEL_PATH: undefined, SEPARATE_MODEL_URL: undefined }, () => {
+    // Delete so resolveModelUrl uses DEFAULT — withEnv already deleted when undefined.
+    assert.equal(separateAvailable(), true);
+    // Ready only if the default model is already cached on this machine.
+    assert.equal(typeof separateReady(), 'boolean');
   });
 });
 
@@ -52,7 +61,7 @@ test('an existing local model file is available AND ready', () => {
   const dir = mkdtempSync(join(tmpdir(), 'sep-'));
   const modelPath = join(dir, 'model.onnx');
   writeFileSync(modelPath, 'not-a-real-model');
-  withEnv({ SEPARATE_MODEL_PATH: modelPath, SEPARATE_MODEL_URL: undefined }, () => {
+  withEnv({ SEPARATE_MODEL_PATH: modelPath, SEPARATE_MODEL_URL: '' }, () => {
     assert.equal(separateAvailable(), true);
     assert.equal(separateReady(), true);
     const st = separateStatus();

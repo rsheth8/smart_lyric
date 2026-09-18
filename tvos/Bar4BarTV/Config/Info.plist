@@ -23,7 +23,18 @@
 	<key>LYRICS_API_BASE</key>
 	<string>$(LYRICS_API_BASE)</string>
 	<key>NSAppleMusicUsageDescription</key>
-	<string>Bar4Bar follows Apple Music playback to show word-by-word lyrics on your TV.</string>
+	<string>Bar4Bar uses Apple Music to play your selections and present synchronized lyrics on your TV.</string>
+	<key>OFFICIAL_LYRICS_ONLY</key>
+	<string>$(OFFICIAL_LYRICS_ONLY)</string>
+	<key>SPOTIFY_FOLLOW_ENABLED</key>
+	<string>$(SPOTIFY_FOLLOW_ENABLED)</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>BarlowCondensed-Bold.ttf</string>
+		<string>Fraunces.ttf</string>
+		<string>Fraunces-Italic.ttf</string>
+		<string>Manrope.ttf</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UIRequiredDeviceCapabilities</key>

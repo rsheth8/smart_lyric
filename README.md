@@ -1,14 +1,25 @@
-# Bar4Bar (`smart_lyric`)
+<p align="center">
+  <img src="docs/brand/logo.png" width="128" alt="Bar4Bar">
+</p>
 
-Projector karaoke: every bar, every word, in sync. Mic on a record player, a local file, Spotify, or Apple Music — cinematic word-by-word highlight.
+<h1 align="center">Bar4Bar</h1>
 
-| | |
-| --- | --- |
-| **Author** | [Rahil Sheth](https://github.com/rsheth8) |
-| **Live** | [smartlyric.vercel.app](https://smartlyric.vercel.app) (streaming / search; vinyl + projector need the desktop app) |
-| **Repo** | [rsheth8/smart_lyric](https://github.com/rsheth8/smart_lyric) |
-| **Stack** | Node, Electron, native tvOS (Swift), Chromaprint/AcoustID, Spotify & Apple Music SDKs |
-| **Status** | Personal product. Vinyl auto-detect needs `fpcalc` + an AcoustID key. |
+<p align="center">
+  Every bar. Every word. In sync.
+</p>
+
+<p align="center">
+  <a href="https://smartlyric.vercel.app">Live</a>&nbsp;·&nbsp;<a href="https://github.com/rsheth8/smart_lyric">Source</a>&nbsp;·&nbsp;<a href="CONTRIBUTING.md">Run locally</a>
+</p>
+
+<p align="center">
+  <img alt="Electron" src="https://img.shields.io/badge/desktop-Electron-47848F?style=flat-square&logo=electron&logoColor=white">
+  <img alt="tvOS" src="https://img.shields.io/badge/Apple%20TV-native-000000?style=flat-square">
+</p>
+
+<p align="center"><sub>Streaming on the live site. Vinyl + projector need the desktop app.</sub></p>
+
+---
 
 ## Run it
 
@@ -120,3 +131,10 @@ speed between consecutive observations.
 export ACOUSTID_API_KEY=your_key_here
 python identify.py
 ```
+
+## Contributing
+
+PRs and issues welcome. How to run tests, env vars, and the expected layout: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Don't commit `.env`, API keys, or personal recordings.
+

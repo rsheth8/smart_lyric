@@ -1,5 +1,5 @@
 import { Display } from './display.js';
-import { MediaClock, PredictiveClock } from './clock.js';
+import { MediaClock, PredictiveClock, StreamingClock } from './clock.js';
 import { fetchArtworkUrl, paletteFromUrl } from './art.js';
 import { Mic } from './mic.js';
 import { startBestCapture, listInputDevices, findLoopbackDevice, waitForCaptureWindow } from './capture.js';
@@ -48,13 +48,16 @@ import {
   warmAlignModel,
   warmSeparationModel,
   setVocalSeparationEnabled,
+  setAlignAccuracy,
   needsVocalAlign,
   needsLatencyCalib,
   isWordSyncFormat,
   onLiveSepStat,
   liveSeparationStats,
   resetLiveSeparationStats,
+  markTimelineAlignedIfComplete,
 } from './align.js';
+import { nudgeTimeline } from './timing-nudge.js';
 import {
   transcriptionAvailable,
   fetchTranscriptFromPcm,
@@ -69,7 +72,22 @@ import {
   previousTrack as spotifyPreviousTrack,
   isSpotifyPlaying,
   getStreamingClock,
+  fetchPlaybackQueue,
+  seekTo as spotifySeekTo,
 } from './streaming/spotify.js';
+import {
+  ensureNextPrep,
+  takeReadyPrep,
+  clearNextPrep,
+  sameTrack,
+  peekNextPrep,
+} from './next-prep.js';
+import {
+  firstCatalogVocalSec,
+  prerollSeekSec,
+  waitForPrerollOnset,
+  timingSamplesFromReanchors,
+} from './preroll-calib.js';
 import { loadToken as loadAuthToken, isExpired } from './streaming/auth.js';
 import {
   fetchChartRecommendations,
@@ -78,8 +96,20 @@ import {
   fetchSpotifyNowPlaying,
 } from './recommendations.js';
 
+import {
+  parseYouTubeId,
+  parseYouTubeTitle,
+  guessMetaFromFilename,
+  createYouTubePlayer,
+  lookupYouTubeVideo,
+  isYouTubePlaying,
+  getYouTubeTime,
+  youtubePlayerErrorMessage,
+} from './youtube.js';
+
 import './mediums/manual.js';
 import './mediums/audioFile.js';
+import './mediums/musicVideo.js';
 import './mediums/vinyl.js';
 import './mediums/spotify.js';
 import './mediums/appleMusic.js';
@@ -123,13 +153,19 @@ addEventListener('fullscreenchange', () => {
 });
 
 const audio = $('audio');
+const video = $('video');
 const mediaClock = new MediaClock(audio);
+const videoClock = new MediaClock(video);
 const demoClock = new PredictiveClock();
 const vinylClock = new PredictiveClock();
 
 let haveAudio = false;
-let activeMedium = null;
+let haveVideo = false;
+let youtubePlayer = null;
+let youtubeClock = null;
 let pendingAudioFile = null;
+let pendingVideoFile = null;
+let activeMedium = null;
 let pendingLyricsFile = null;
 let activeMic = null;
 let alignMic = null; // silent capture for Spotify/streaming vocal align
@@ -143,6 +179,7 @@ let liveAlignTimer = null;
 let liveAlignBusy = false;
 let liveAlignStopped = true; // true = deliberately halted (not just idle this tick)
 let liveAlignReason = 'idle'; // why the last tick did nothing (diagnostics)
+let introLockTimer = null;
 // How the vocal aligner listens: 'auto' | 'system' | 'device' | 'off'.
 let alignSourceMode = localStorage.getItem('bar4bar.alignSource') || 'auto';
 let alignSourceDeviceId = localStorage.getItem('bar4bar.alignDevice') || null;
@@ -173,6 +210,8 @@ const RECAL_NUDGE = 0.08; // feel-late → earlier; feel-early → later
 // is configured (SEPARATE_MODEL_PATH). Default on so it's used once available.
 let vocalIsolation = localStorage.getItem('bar4bar.vocalIsolation') !== 'off';
 setVocalSeparationEnabled(vocalIsolation);
+// Larger English CTC model (XLSR). Opt-in; default stays the fast base model.
+let alignHighAccuracy = localStorage.getItem('bar4bar.alignHighAccuracy') === 'on';
 // Diagnostic HUD — a developer overlay, so it defaults OFF and is opted into
 // from Settings ▸ Diagnostics. (It used to default on and shipped on top of the
 // lyrics for every user.)
@@ -218,6 +257,7 @@ const session = new SongSession({
     $('np-title').textContent = m.track || '—';
     $('np-artist').textContent = [m.artist, m.album].filter(Boolean).join(' · ');
     loadArtwork(m.artist, m.track);
+    renderParkedBar();
     syncPublisher.publishFull();
   },
   onError: (msg) => setStatus('error', msg),
@@ -244,6 +284,7 @@ async function loadArtwork(artist, track) {
   currentArtUrl = url;
   $('cover').style.backgroundImage = `url("${url}")`;
   if (session.meta?.track) updateArt(session.meta, url);
+  renderParkedBar();
   const palette = await paletteFromUrl(url);
   if (palette?.length) {
     display.setPalette(palette);
@@ -262,7 +303,13 @@ async function prepareSong(query) {
   // Apply the best known timing offset for this track (saved per-song, else the
   // learned device default from prior nudges). Not BPM — speaker/Spotify lag.
   applySongTimingOffset(session.meta, { quiet: !result });
-  // Nudge the user toward the language aids; the display starts with them off.
+  announceSongLoad(result);
+  return result;
+}
+
+/** Toasts after a successful (or cache-hit) lyrics install. */
+function announceSongLoad(result) {
+  if (!result) return;
   const canRomanize =
     result?.hasRoman || needsRomanization((session.timeline?.lines || []).map(lineText));
   if (canRomanize) {
@@ -270,7 +317,6 @@ async function prepareSong(query) {
   } else if (result?.fromCache && result?.aligned) {
     setTimeout(() => showToast('Vocal-aligned (cached)'), 900);
   } else if (result?.provisionalCache) {
-    // Real cached word timing from an older aligner, being refreshed in place.
     setTimeout(() => showToast('Cached timing — refreshing with the new aligner…'), 900);
   } else if (result?.rebound) {
     setTimeout(() => showToast('Lyrics changed — retiming the edited lines…'), 900);
@@ -285,11 +331,51 @@ async function prepareSong(query) {
   } else if (result?.lines) {
     setTimeout(() => showToast('Line sync · words estimated'), 900);
   }
+}
+
+/**
+ * Install lyrics that were catalog-fetched in the background for the upcoming
+ * Spotify track. Same end state as prepareSong, without a second network trip.
+ */
+async function installPrefetchedSong(entry) {
+  resetLiveSeparationStats();
+  resetSyncDiag();
+  const meta = entry.meta || {};
+  const track = meta.title || meta.track || meta.name;
+  await session.hydrateAlignment({
+    artist: meta.artist,
+    track,
+    album: meta.album,
+    duration: meta.duration,
+    id: meta.id,
+    spotifyId: meta.id || meta.spotifyId,
+    meta: entry.result?.meta,
+  });
+  const result = session.applyResult(entry.result, {
+    artist: meta.artist,
+    track,
+    album: meta.album,
+    duration: meta.duration,
+    id: meta.id,
+    spotifyId: meta.id || meta.spotifyId,
+  });
+  applySongTimingOffset(session.meta, { quiet: !result });
+  announceSongLoad(result);
   return result;
 }
 
 /** Catalog lyrics first; on miss while Spotify is audible, capture + transcribe. */
 async function prepareSongOrAi(meta) {
+  // Prefer a buffer filled while the previous song was still playing.
+  const prepped = await takeReadyPrep(meta);
+  if (prepped?.result) {
+    const loaded = await installPrefetchedSong(prepped);
+    if (loaded) {
+      scheduleNextSongPrep({ after: meta });
+      return loaded;
+    }
+  }
+
   const query = {
     artist: meta.artist,
     track: meta.title || meta.track || meta.name,
@@ -309,7 +395,48 @@ async function prepareSongOrAi(meta) {
       `No lyrics found for “${query.track}”. Play on Spotify with Sync capture on, or choose an Audio file.`
     );
   }
+  if (loaded) scheduleNextSongPrep({ after: meta });
   return loaded;
+}
+
+// ---- Spotify next-song prep (catalog + timing prior while current plays) ----
+let nextPrepInflight = null;
+let nextPrepLastAt = 0;
+
+function scheduleNextSongPrep({ after, force = false } = {}) {
+  if (activeMedium?.id !== 'spotify') return;
+  const now = Date.now();
+  if (!force && now - nextPrepLastAt < 4000 && peekNextPrep()) return;
+  nextPrepLastAt = now;
+
+  const run = async () => {
+    try {
+      const next = await fetchPlaybackQueue();
+      if (!next) return;
+      if (after && sameTrack(next, after)) return;
+      if (session.meta && sameTrack(next, session.meta)) return;
+      ensureNextPrep(next, { skipIf: after || session.meta });
+      if (alignmentAvailable()) warmAlignModel?.();
+    } catch {
+      /* queue endpoint is best-effort */
+    }
+  };
+
+  nextPrepInflight = (nextPrepInflight || Promise.resolve()).then(run, run);
+}
+
+/** Called from Spotify onState — kick prep once enough of the song has played. */
+function onSpotifyFollowState(state) {
+  updatePlayBtn();
+  if (activeMedium?.id !== 'spotify') return;
+  const track = state?.track;
+  const pos = Number(state?.position) || 0;
+  const dur = Number(track?.duration) || 0;
+  if (!state?.playing || !dur) return;
+  const remaining = dur - pos;
+  if (remaining <= 90 || pos >= 15) {
+    scheduleNextSongPrep({ after: track, force: remaining <= 20 });
+  }
 }
 
 /** Load per-track or device-default latency offset when a song starts. */
@@ -400,8 +527,50 @@ function ingestTimingSamples(samples) {
   updateTimingReadout();
 }
 
-function enterSetup() {
+// The hub keeps its layout box while a song is up (so it can fade back in), so
+// it must be made genuinely inert — not merely invisible. `inert` blocks
+// pointer events, takes the subtree out of the tab order, and hides it from the
+// accessibility tree, all without touching `visibility` (which carries the
+// delayed transition that drives the fade, and would pop if forced here).
+// shell.css also forces pointer-events:none on .screen while playing — without
+// both, clicks land on the invisible Recommended shelf and load a new song.
+function setHubInert(on) {
+  const screens = $('screens');
+  if (screens) screens.inert = !!on;
+}
+
+// True after leaving the lyric view without ending the song — the hub shows a
+// "Back to lyrics" chip so the user can re-enter the same session.
+let sessionParked = false;
+
+function canResumeParkedSession() {
+  return !!(sessionParked && (session.meta?.track || activeMedium || session.timeline));
+}
+
+function renderParkedBar() {
+  const bar = $('parked-bar');
+  if (!bar) return;
+  const show = stage.dataset.mode === 'setup' && canResumeParkedSession();
+  bar.hidden = !show;
+  if (!show) return;
+  const title = session.meta?.track || $('np-title')?.textContent || 'Now playing';
+  const artist = session.meta?.artist || $('np-artist')?.textContent || '';
+  $('parked-title').textContent = title;
+  $('parked-artist').textContent = artist;
+  const art = $('parked-art');
+  if (currentArtUrl) {
+    art.style.backgroundImage = `url(${currentArtUrl})`;
+    art.textContent = '';
+  } else {
+    art.style.backgroundImage = '';
+    art.textContent = '♪';
+  }
+}
+
+/** Leave the lyric view. `keepSession` parks the song so it can be resumed. */
+function enterSetup({ keepSession = false } = {}) {
   stage.dataset.mode = 'setup';
+  setHubInert(false);
   clearTimeout(idleTimer);
   stage.dataset.chrome = 'awake';
   delete stage.dataset.playback; // no ambient paused scene on the hub
@@ -411,21 +580,34 @@ function enterSetup() {
   $('btn-more')?.setAttribute('aria-expanded', 'false');
   // Coming back from a song, the hub should reflect that it was just played.
   renderContinueShelf();
-  // The ♪ / count-in / peek overlays hang off `stage`, not `#viewport`, so
-  // fading the lyric viewport out doesn't take them with it — without this they
-  // sit on top of the menu after a song change. Also drop the old timeline so
-  // the RAF loop can't resurrect them while the menu is up.
-  display.clearPlayback();
   hideSuggestions();
-  stopActiveMedium();
+
+  if (keepSession && (session.meta?.track || activeMedium || session.timeline)) {
+    // Park: keep medium/clock/lyrics alive. Overlays hang off `stage` (not the
+    // faded viewport), so clear those; the RAF loop already no-ops in setup.
+    // Vinyl's listen panel is hidden by CSS in setup — don't closePanel() it or
+    // listenPanelDismissed stays true and the waiting UI never returns.
+    sessionParked = true;
+    display.clearOverlays();
+  } else {
+    sessionParked = false;
+    // Full teardown — drop the timeline so the RAF loop can't resurrect ♪ / peek.
+    display.clearPlayback();
+    stopActiveMedium();
+    if (!audio.paused) audio.pause();
+    if (demoClock.isPlaying()) demoClock.pause();
+    if (vinylClock.isPlaying()) vinylClock.pause();
+  }
+  renderParkedBar();
   updateTransport();
-  if (!audio.paused) audio.pause();
-  if (demoClock.isPlaying()) demoClock.pause();
-  if (vinylClock.isPlaying()) vinylClock.pause();
+  updatePlayBtn();
 }
 
 function enterPlaying() {
+  sessionParked = false;
+  renderParkedBar();
   stage.dataset.mode = 'playing';
+  setHubInert(true);
   updateTransport();
   updatePlayBtn();
   syncInspectorUi();
@@ -438,12 +620,27 @@ function enterPlaying() {
   poke(5200);
 }
 
+/** Re-enter lyrics for a song left running on the hub. */
+function resumeParkedSession() {
+  if (!canResumeParkedSession()) return;
+  enterPlaying();
+  // Live-align idles itself while mode !== playing; re-arm on the way back in.
+  if (session.timeline) scheduleLiveAlign();
+}
+
 function stopActiveMedium() {
   if (activeMedium?.stop) activeMedium.stop();
   activeMedium = null;
+  clearNextPrep();
+  clearTimeout(introLockTimer);
+  introLockTimer = null;
   stopLiveAlign();
   stopAlignCapture();
   stopListenMeter();
+  if (sessionParked) {
+    sessionParked = false;
+    renderParkedBar();
+  }
 }
 
 // Live feedback for vinyl "listen" mode: a mic-level meter + progressive status
@@ -537,6 +734,38 @@ function stopListenMeter() {
 // Without this, an attached audio/lyrics file (or a stale <audio> src) leaks into
 // later searches — and even into Spotify/vinyl follow, since session.load still
 // forwards the old lyricsFile. Call this whenever the user picks a new source.
+function ownsLocalMedia() {
+  return haveAudio || haveVideo;
+}
+
+function clearYouTubePlayer() {
+  if (youtubePlayer) {
+    try {
+      youtubePlayer.destroy?.();
+    } catch {
+      /* already gone */
+    }
+    youtubePlayer = null;
+  }
+  youtubeClock = null;
+  const host = $('yt-host');
+  if (host) host.innerHTML = '';
+}
+
+function clearVideoMedia() {
+  haveVideo = false;
+  pendingVideoFile = null;
+  clearYouTubePlayer();
+  if (video && !video.paused) video.pause();
+  if (video) {
+    video.removeAttribute('src');
+    video.load();
+  }
+  if (stage.dataset.media === 'video' || stage.dataset.media === 'youtube') {
+    delete stage.dataset.media;
+  }
+}
+
 function resetSongState() {
   setPracticeSlow(false, { quiet: true });
   haveAudio = false;
@@ -544,6 +773,8 @@ function resetSongState() {
   pendingLyricsFile = null;
   session.setAudioFile(null, null);
   session.setLyricsFile(null);
+  clearNextPrep();
+  clearVideoMedia();
   if (!audio.paused) audio.pause();
   audio.removeAttribute('src');
   audio.load();
@@ -566,6 +797,15 @@ function escapeHtml(s) {
 // ------------------------------ pick a song ------------------------------
 async function loadSong({ artist, track, duration }) {
   stopActiveMedium();
+  // A fresh pick from the hub replaces a parked local file — otherwise the old
+  // audio would keep playing under the new lyrics after Change song → park.
+  const sameAsParked =
+    !!session.meta?.track &&
+    session.meta.track === track &&
+    (!artist || session.meta.artist === artist);
+  if (ownsLocalMedia() && session.meta?.track && !sameAsParked) {
+    resetSongState();
+  }
   hideSuggestions();
   $('in-track').value = track || '';
   $('in-track-2').value = track || '';
@@ -575,9 +815,9 @@ async function loadSong({ artist, track, duration }) {
     $('in-track').focus();
     return;
   }
-  // Prefer an attached audio file; otherwise, if Spotify is connected, play the
+  // Prefer an attached audio/video file; otherwise, if Spotify is connected, play the
   // song on Spotify and follow it; otherwise fall back to the local demo clock.
-  if (!haveAudio && loadToken('spotify')) {
+  if (!ownsLocalMedia() && !youtubePlayer && loadToken('spotify')) {
     await startSpotifySong({ artist, track });
     return;
   }
@@ -587,23 +827,69 @@ async function loadSong({ artist, track, duration }) {
     artist,
     track,
     duration:
-      duration ?? (haveAudio && audio.duration ? audio.duration : session.audioTags?.duration),
+      duration ??
+      (haveVideo && video.duration
+        ? video.duration
+        : haveAudio && audio.duration
+          ? audio.duration
+          : session.audioTags?.duration),
   });
   $('btn-load').disabled = false;
   if (!ok) return;
 
   enterPlaying();
-  if (haveAudio) {
+  if (youtubePlayer && youtubeClock) {
+    activeMedium = getMedium('musicVideo');
+    activeMedium?.start?.({ session, clock: youtubeClock });
+    session.setClock(youtubeClock);
+    stage.dataset.media = 'youtube';
+    try {
+      youtubePlayer.playVideo?.();
+    } catch {
+      /* autoplay may need a click — Play still works */
+    }
+    ensureVocalAlignment({ capture: true });
+  } else if (haveVideo) {
+    activeMedium = getMedium('musicVideo');
+    activeMedium?.start?.({ session, clock: videoClock, videoEl: video });
+    session.setClock(videoClock);
+    stage.dataset.media = 'video';
+    const file = pendingVideoFile;
+    if (file && needsVocalAlign(session.timeline, session.meta || {}) && alignmentAvailable()) {
+      showBusy('Aligning first lines', 'Getting word timing right before play…');
+      setStatus('loading', 'Aligning first lines to the vocal…');
+      try {
+        await ensureVocalAlignment({ file, capture: true, waitFirstBatch: true });
+      } finally {
+        hideBusy();
+      }
+    } else {
+      ensureVocalAlignment({ file, capture: true });
+    }
+    video.play();
+  } else if (haveAudio) {
     session.setClock(mediaClock);
+    // Hold playback until the first align batch lands so line 1–6 aren't
+    // syllable guesses. Rest of the song keeps aligning in the background.
+    const file = pendingAudioFile;
+    if (file && needsVocalAlign(session.timeline, session.meta || {}) && alignmentAvailable()) {
+      showBusy('Aligning first lines', 'Getting word timing right before play…');
+      setStatus('loading', 'Aligning first lines to the vocal…');
+      try {
+        await ensureVocalAlignment({ file, capture: true, waitFirstBatch: true });
+      } finally {
+        hideBusy();
+      }
+    } else {
+      ensureVocalAlignment({ file, capture: true });
+    }
     audio.play();
-    // Refine word timing from the actual vocal in the background — don't hold up
-    // playback. The clean audio file is the ideal input for forced alignment.
-    ensureVocalAlignment({ file: pendingAudioFile, capture: true });
   } else {
     session.setClock(demoClock);
     demoClock.start(0);
   }
   updatePlayBtn();
+  updateTransport();
 }
 
 function markAlignedBadge() {
@@ -628,7 +914,12 @@ function persistAlignedTiming() {
  *   `forceCapture` starts listening even when the catalog already has word sync
  *   (used when the user opens Sync / changes source mid-song).
  */
-async function ensureVocalAlignment({ file = null, capture = false, forceCapture = false } = {}) {
+async function ensureVocalAlignment({
+  file = null,
+  capture = false,
+  forceCapture = false,
+  waitFirstBatch = false,
+} = {}) {
   if (!session.timeline) return;
   const needs = needsVocalAlign(session.timeline, session.meta || {});
   // Auto-timing needs audio even when provider/cached word timing is already
@@ -643,12 +934,21 @@ async function ensureVocalAlignment({ file = null, capture = false, forceCapture
     return;
   }
 
-  if (needs || autoTiming) warmAlignModel(); // fire-and-forget first-run download
+  if (needs || autoTiming) {
+    warmAlignModel(); // fire-and-forget first-run download
+    warmSeparationModel();
+  }
 
   if (file && needs) {
     try {
       let announced = false;
-      const res = await refineTimelineWithAudio(session.timeline, file, {
+      let firstBatchResolve;
+      const firstBatchPromise = waitFirstBatch
+        ? new Promise((r) => {
+            firstBatchResolve = r;
+          })
+        : null;
+      const alignPromise = refineTimelineWithAudio(session.timeline, file, {
         onProgress: (done, total) => {
           // Flip the badge as soon as the first lines sharpen; keep it quiet after.
           if (!announced && session.timeline.aligned) {
@@ -657,14 +957,45 @@ async function ensureVocalAlignment({ file = null, capture = false, forceCapture
           }
           if (done < total) setStatus('ok', `Aligning vocals… ${done}/${total}`);
         },
+        onFirstBatch: () => {
+          firstBatchResolve?.();
+          // Fold early re-anchors into the global lag before playback starts.
+          const samples = timingSamplesFromReanchors(session.timeline?.lines);
+          if (samples.length) ingestTimingSamples(samples);
+        },
       });
-      if (res && res.aligned > 0) {
-        markAlignedBadge();
-        persistAlignedTiming();
-        setStatus('ok', '');
-        showToast('Timing aligned to the vocal');
-      } else if (res && res.error) {
-        showToast('Vocal aligner unavailable — using estimated timing');
+      if (firstBatchPromise) {
+        await Promise.race([
+          firstBatchPromise,
+          alignPromise,
+          new Promise((r) => setTimeout(r, 25000)),
+        ]);
+        // Let remaining batches finish in the background.
+        alignPromise
+          .then((res) => {
+            if (res && res.aligned > 0) {
+              markAlignedBadge();
+              persistAlignedTiming();
+              const samples = timingSamplesFromReanchors(session.timeline?.lines);
+              if (samples.length) ingestTimingSamples(samples);
+            }
+          })
+          .catch(() => {});
+      } else {
+        const res = await alignPromise;
+        if (res && res.aligned > 0) {
+          markAlignedBadge();
+          persistAlignedTiming();
+          setStatus('ok', '');
+          showToast('Timing aligned to the vocal');
+          const samples = timingSamplesFromReanchors(session.timeline?.lines);
+          if (samples.length) ingestTimingSamples(samples);
+        } else if (res && res.skipped === 'no-stem') {
+          setStatus('ok', '');
+          showToast('Vocal isolation unavailable — using estimated timing');
+        } else if (res && res.error) {
+          showToast('Vocal aligner unavailable — using estimated timing');
+        }
       }
     } catch {
       /* keep existing timing */
@@ -678,9 +1009,9 @@ async function ensureVocalAlignment({ file = null, capture = false, forceCapture
     if (alignSourceMode === 'off') return;
     const ok = await startAlignCapture();
     if (ok) {
-      if (needs) {
+      if (needs && !waitFirstBatch) {
         showToast(`Aligning words to the vocal — ${alignCaptureLabel}`);
-      } else {
+      } else if (!needs) {
         showToast(
           autoTiming
             ? `Auto-timing is listening — ${alignCaptureLabel}`
@@ -857,6 +1188,9 @@ async function liveAlignTick() {
       markAlignedBadge();
       persistAlignedTiming();
       updateSyncSourceUi();
+      // Promote early CTC re-anchors into the global lag (catalog lead-in).
+      const reanchorSamples = timingSamplesFromReanchors(session.timeline?.lines);
+      if (reanchorSamples.length) ingestTimingSamples(reanchorSamples);
     }
     if (res?.timingSamples?.length) ingestTimingSamples(res.timingSamples);
     else if (res === false) updateSyncDiag({ loop: (liveAlignReason = 'no-candidate'), candidates: 0 });
@@ -894,9 +1228,13 @@ async function startSpotifySong({ artist, track }) {
     }
 
     setStatus('loading', `Loading lyrics for “${found.name}”…`);
-    // Lyrics + playback in parallel — don't serialize NetEase behind Spotify play
-    // (that was the "song starts, lyrics never show" feel).
-    let playErr = null;
+    showBusy('Getting in sync', 'Loading lyrics and opening audio capture…');
+
+    // Lyrics + capture/model warm BEFORE play — so the first vocal is already in
+    // the ring buffer and we can preroll-calibrate lag before the wipe matters.
+    warmAlignModel();
+    warmSeparationModel();
+    let captureOk = false;
     let [ok] = await Promise.all([
       prepareSong({
         artist: found.artist,
@@ -906,21 +1244,26 @@ async function startSpotifySong({ artist, track }) {
         id: found.id,
         spotifyId: found.id,
         quietMiss: true,
-        allowTranscript: false, // never AI until every catalog/plain source misses
+        allowTranscript: false,
       }),
-      playSpotifyTrack({ uri: found.uri, positionMs: 0 }).catch((err) => {
-        playErr = err;
-      }),
+      (async () => {
+        if (alignSourceMode === 'off') return;
+        captureOk = await startAlignCapture();
+      })(),
     ]);
 
-    if (playErr) {
-      // No device / not Premium — still show lyrics on the local demo clock if we have them.
-      if (ok) await showLyricsWithoutPlayback(found, playErr.message, { alreadyPrepared: true });
-      else setStatus('error', playErr.message || 'Couldn’t start Spotify playback.');
-      return;
-    }
     if (!ok) {
-      // Every catalog + plain source missed — only then listen and generate AI lyrics.
+      // Every catalog + plain source missed — start playback then AI-listen.
+      let playErr = null;
+      try {
+        await playSpotifyTrack({ uri: found.uri, positionMs: 0 });
+      } catch (err) {
+        playErr = err;
+      }
+      if (playErr) {
+        setStatus('error', playErr.message || 'Couldn’t start Spotify playback.');
+        return;
+      }
       ok = await trySpotifyAiLyrics({
         artist: found.artist,
         track: found.name,
@@ -930,23 +1273,44 @@ async function startSpotifySong({ artist, track }) {
         spotifyId: found.id,
       });
       if (!ok) return;
+    } else {
+      // Preroll: seek near first vocal, measure onset→catalog lag, seek home.
+      const calibrated = await runSpotifyPrerollCalib(found);
+      if (!calibrated) {
+        // No preroll (no capture / no vocal time) — start from 0 normally.
+        try {
+          await playSpotifyTrack({ uri: found.uri, positionMs: 0 });
+        } catch (err) {
+          if (ok) await showLyricsWithoutPlayback(found, err.message, { alreadyPrepared: true });
+          else setStatus('error', err.message || 'Couldn’t start Spotify playback.');
+          return;
+        }
+      }
     }
 
-    primeTrack({ artist: found.artist, name: found.name });
+    primeTrack({
+      artist: found.artist,
+      name: found.name,
+      id: found.id,
+      album: found.album,
+      duration: found.duration,
+      uri: found.uri,
+    });
 
     activeMedium = getMedium('spotify');
     await activeMedium.start({
       session,
-      firstPollDelayMs: 1000, // let Spotify's currently-playing catch up to our track
+      firstPollDelayMs: 1000,
       onError: (msg) => setStatus('error', msg),
       onStatus: (a, b) => (b != null ? setStatus(a || 'ok', b) : setStatus('ok', a)),
-      onState: () => updatePlayBtn(),
+      onState: onSpotifyFollowState,
       prepareSong: async (meta) => {
-        // Fired when the user skips to another track — reload lyrics for it.
         const loaded = await prepareSongOrAi(meta);
         if (loaded) {
           enterPlaying();
+          // Capture should already be open; warm + natural intro lock on skip.
           ensureVocalAlignment({ capture: true });
+          scheduleNaturalIntroLock();
         }
         return loaded;
       },
@@ -964,8 +1328,12 @@ async function startSpotifySong({ artist, track }) {
         : 'Playing on Spotify — lyrics are following.'
     );
     updatePlayBtn();
-    // Desktop: capture speakers/loopback/mic and force-align line timing → near word sync.
-    ensureVocalAlignment({ capture: true });
+    if (!captureOk && alignSourceMode !== 'off') {
+      ensureVocalAlignment({ capture: true });
+    } else if (autoTiming || needsVocalAlign(session.timeline, session.meta || {})) {
+      scheduleLiveAlign();
+    }
+    scheduleNextSongPrep({ after: found, force: true });
   } catch (err) {
     setStatus('error', err.message || 'Couldn’t start playback on Spotify.');
     console.error('[Bar4Bar] Spotify play failed', err);
@@ -973,6 +1341,94 @@ async function startSpotifySong({ artist, track }) {
     hideBusy();
     $('btn-load').disabled = false;
   }
+}
+
+/**
+ * Seek near the first catalog vocal, listen for the real onset, lock syncOffset,
+ * then seek back to 0 for the real listen. Returns true when playback is already
+ * running at 0 afterward (caller should not play again).
+ */
+async function runSpotifyPrerollCalib(found) {
+  if (alignSourceMode === 'off' || !alignMic) return false;
+  const expected = firstCatalogVocalSec(session.timeline);
+  if (!Number.isFinite(expected) || expected < 0.4) return false;
+
+  const seekSec = prerollSeekSec(expected, { padSec: 2.5 });
+  if (seekSec == null) return false;
+
+  showBusy('Calibrating timing', 'Listening for the vocal attack…');
+  setStatus('loading', 'Calibrating timing to your speakers…');
+
+  try {
+    await playSpotifyTrack({ uri: found.uri, positionMs: Math.round(seekSec * 1000) });
+  } catch {
+    return false;
+  }
+
+  primeTrack({
+    artist: found.artist,
+    name: found.name,
+    id: found.id,
+    album: found.album,
+    duration: found.duration,
+    uri: found.uri,
+  });
+
+  const clock = getStreamingClock();
+  const hit = await waitForPrerollOnset({
+    mic: alignMic,
+    expectedSec: expected,
+    getSongPos: () => (typeof clock?.now === 'function' ? clock.now() : 0),
+    timeoutSec: 7,
+  });
+
+  if (hit) {
+    ingestTimingSamples([
+      { value: hit.offset, score: hit.score, weight: 2.5, source: 'preroll' },
+    ]);
+    // Apply immediately — don't wait for the estimator's usual multi-sample lock.
+    if (autoTiming && Number.isFinite(hit.offset)) {
+      display.setSyncOffset(hit.offset, { source: 'auto', persistLegacy: true });
+      persistCurrentTiming(hit.offset, { fromLock: true, trainsDevice: !onDigitalTap() });
+      lastAutoApplied = hit.offset;
+      syncEstimator.seed(hit.offset, { weight: 2 });
+      updateTimingReadout();
+      showToast(`Timing locked (${Math.round(hit.offset * 1000)}ms)`);
+    }
+  }
+
+  try {
+    await spotifySeekTo(0);
+  } catch {
+    try {
+      await playSpotifyTrack({ uri: found.uri, positionMs: 0 });
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** After a queue skip: listen for the next vocal onset without seeking. */
+function scheduleNaturalIntroLock() {
+  clearTimeout(introLockTimer);
+  if (alignSourceMode === 'off' || !alignMic || !autoTiming) return;
+  const expected = firstCatalogVocalSec(session.timeline);
+  if (!Number.isFinite(expected)) return;
+  introLockTimer = setTimeout(async () => {
+    if (!alignMic || stage.dataset.mode !== 'playing') return;
+    const clock = getStreamingClock();
+    const hit = await waitForPrerollOnset({
+      mic: alignMic,
+      expectedSec: expected,
+      getSongPos: () => (typeof clock?.now === 'function' ? clock.now() : 0),
+      timeoutSec: Math.min(12, Math.max(4, expected + 3)),
+    });
+    if (!hit || stage.dataset.mode !== 'playing') return;
+    ingestTimingSamples([
+      { value: hit.offset, score: hit.score, weight: 2.0, source: 'intro' },
+    ]);
+  }, 400);
 }
 
 /**
@@ -1165,7 +1621,7 @@ function renderSuggestions(items) {
       (s, i) => `
     <button type="button" class="result-row" role="option" data-i="${i}" aria-selected="false">
       ${s.artwork
-        ? `<img src="${s.artwork}" alt="" loading="lazy" />`
+        ? `<img src="${s.artwork}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'art',textContent:'♪'}))" />`
         : '<span class="art">♪</span>'}
       <span class="t"><b>${escapeHtml(s.track)}</b><span>${escapeHtml(s.artist)}</span></span>
       <span class="dur">${formatDuration(s.duration)}</span>
@@ -1261,7 +1717,7 @@ function renderRecGrid(el, items, emptyMsg) {
     .map(
       (s, i) => `
     <button type="button" class="rec" data-i="${i}">
-      ${s.artwork ? `<img src="${s.artwork}" alt="" loading="lazy" />` : '<span class="art">♪</span>'}
+      ${s.artwork ? `<img src="${s.artwork}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'art',textContent:'♪'}))" />` : '<span class="art">♪</span>'}
       <span class="meta"><b>${escapeHtml(s.track)}</b><span>${escapeHtml(s.artist)}</span></span>
     </button>`
     )
@@ -1299,7 +1755,7 @@ function renderLibrary() {
     .map(
       (e, i) => `
     <button type="button" class="lib-row" data-i="${i}">
-      ${e.art ? `<img src="${e.art}" alt="" loading="lazy" />` : '<span class="art"></span>'}
+      ${e.art ? `<img src="${e.art}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'art',textContent:''}))" />` : '<span class="art"></span>'}
       <span class="t"><b>${escapeHtml(e.track)}</b><span>${escapeHtml(e.artist)}</span></span>
       ${getCachedTimeline(e) ? '<span class="badge-ready">aligned</span>' : ''}
       <span class="when">${relativeWhen(e.lastPlayedAt)}</span>
@@ -1327,7 +1783,7 @@ function renderContinueShelf() {
     .map(
       (e, i) => `
     <button type="button" class="rec" data-i="${i}">
-      ${e.art ? `<img src="${e.art}" alt="" loading="lazy" />` : '<span class="art">♪</span>'}
+      ${e.art ? `<img src="${e.art}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'art',textContent:'♪'}))" />` : '<span class="art">♪</span>'}
       <span class="meta">
         <b>${escapeHtml(e.track)}</b>
         <span class="${getCachedTimeline(e) ? 'ready' : ''}">${
@@ -1408,6 +1864,10 @@ $('lyrics-file').addEventListener('change', (e) => {
     setStatus('ok', `Lyrics paired with ${pendingAudioFile.name}. Load to sync.`);
     return;
   }
+  if (pendingVideoFile && basenamesMatch(file.name, pendingVideoFile.name)) {
+    setStatus('ok', `Lyrics paired with ${pendingVideoFile.name}. Load to sync.`);
+    return;
+  }
   setStatus('ok', `Lyrics file ready: ${file.name}. Load to preview.`);
 });
 
@@ -1416,6 +1876,8 @@ $('btn-audio').addEventListener('click', () => $('file').click());
 $('file').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
+  stopActiveMedium();
+  clearVideoMedia();
   pendingAudioFile = file;
   audio.src = URL.createObjectURL(file);
   haveAudio = true;
@@ -1449,6 +1911,165 @@ $('file').addEventListener('change', async (e) => {
   $('in-track').focus();
 });
 
+// --------------------------- music video file ----------------------------
+$('btn-video')?.addEventListener('click', () => $('video-file').click());
+$('video-file')?.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  stopActiveMedium();
+  // Local video owns both picture and sound — clear leftover audio.
+  haveAudio = false;
+  pendingAudioFile = null;
+  if (!audio.paused) audio.pause();
+  audio.removeAttribute('src');
+  audio.load();
+  clearYouTubePlayer();
+
+  pendingVideoFile = file;
+  video.src = URL.createObjectURL(file);
+  haveVideo = true;
+  stage.dataset.media = 'video';
+  session.setAudioFile(file); // aligner / transcript treat it like local media
+  display.setClock(videoClock);
+  activeMedium = getMedium('musicVideo');
+  activeMedium?.start?.({ session, clock: videoClock, videoEl: video });
+  updateTransport();
+
+  if (alignmentAvailable()) {
+    warmAlignModel();
+    warmSeparationModel();
+  }
+
+  const tags = (await readAudioTags(file)) || {};
+  const guessed = guessMetaFromFilename(file.name);
+  const track = tags.track || guessed.track;
+  const artist = tags.artist || guessed.artist;
+  session.setAudioFile(file, { ...tags, track, artist });
+  if (track) $('in-track').value = track;
+  if (artist) $('in-artist').value = artist;
+
+  if (!pendingLyricsFile && $('lyrics-file').files?.length) {
+    const paired = [...$('lyrics-file').files].find((f) => basenamesMatch(f.name, file.name));
+    if (paired) {
+      pendingLyricsFile = paired;
+      session.setLyricsFile(paired, { auto: true });
+      setStatus('ok', `Video + lyrics paired: ${file.name}`);
+      return;
+    }
+  }
+
+  setStatus('ok', `Video ready: ${file.name}. Load to sync lyrics over the picture.`);
+  $('in-track').focus();
+  router.go('home');
+});
+
+// --------------------------- YouTube embed -------------------------------
+$('youtube-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await startYouTubeFromInput();
+});
+
+async function startYouTubeFromInput() {
+  const raw = $('in-youtube')?.value?.trim() || '';
+  const videoId = parseYouTubeId(raw);
+  if (!videoId) {
+    setStatus('error', 'Paste a valid YouTube URL or 11-character video id.');
+    $('in-youtube')?.focus();
+    return;
+  }
+
+  stopActiveMedium();
+  haveAudio = false;
+  pendingAudioFile = null;
+  if (!audio.paused) audio.pause();
+  audio.removeAttribute('src');
+  audio.load();
+  haveVideo = false;
+  pendingVideoFile = null;
+  if (video && !video.paused) video.pause();
+  if (video) {
+    video.removeAttribute('src');
+    video.load();
+  }
+  clearYouTubePlayer();
+
+  $('btn-youtube').disabled = true;
+  setStatus('loading', 'Checking YouTube embed…');
+  showBusy('YouTube', 'Loading the official player…');
+
+  try {
+    const meta = await lookupYouTubeVideo(videoId);
+    if (meta && meta.embeddable === false) {
+      throw new Error(
+        'This video can’t be embedded. Open a local music-video file instead (Sources → Music video file).'
+      );
+    }
+
+    const host = $('yt-host');
+    if (!host) throw new Error('YouTube host missing');
+
+    youtubePlayer = await createYouTubePlayer(host, videoId, {
+      onStateChange: () => updatePlayBtn(),
+      onError: (ev) => {
+        setStatus('error', youtubePlayerErrorMessage(ev?.data));
+        updatePlayBtn();
+      },
+    });
+
+    youtubeClock = new StreamingClock({
+      getPosition: () => getYouTubeTime(youtubePlayer),
+      isPlaying: () => isYouTubePlaying(youtubePlayer),
+      lead: 0,
+    });
+
+    stage.dataset.media = 'youtube';
+    activeMedium = getMedium('musicVideo');
+    activeMedium?.start?.({ session, clock: youtubeClock });
+    display.setClock(youtubeClock);
+    session.setClock(youtubeClock);
+
+    let title = meta?.title || '';
+    try {
+      title = title || youtubePlayer.getVideoData?.()?.title || '';
+    } catch {
+      /* ignore */
+    }
+    const parsed = parseYouTubeTitle(title);
+    const artist = parsed.artist || meta?.channelTitle || '';
+    const track = parsed.track || title || 'YouTube video';
+    if (track) $('in-track').value = track;
+    if (artist) $('in-artist').value = artist;
+
+    setStatus('loading', `Loading lyrics for “${track}”…`);
+    const ok = await prepareSong({ artist, track });
+    if (!ok) {
+      setStatus('ok', `Video ready. Enter the song title and Load if lyrics didn’t match.`);
+      router.go('home');
+      return;
+    }
+
+    enterPlaying();
+    try {
+      youtubePlayer.playVideo?.();
+    } catch {
+      /* user can hit Play */
+    }
+    ensureVocalAlignment({ capture: true });
+    updatePlayBtn();
+    updateTransport();
+    setStatus('ok', meta?.configured === false
+      ? 'Playing via YouTube embed (no API key — embeddability wasn’t pre-checked).'
+      : '');
+  } catch (err) {
+    clearYouTubePlayer();
+    delete stage.dataset.media;
+    setStatus('error', err.message || 'YouTube embed failed.');
+  } finally {
+    $('btn-youtube').disabled = false;
+    hideBusy();
+  }
+}
+
 // ------------------------------ transport --------------------------------
 $('btn-play').addEventListener('click', togglePlay);
 $('btn-prev')?.addEventListener('click', () => spotifySkip(spotifyPreviousTrack, 'Loading previous track…'));
@@ -1460,6 +2081,16 @@ function togglePlay() {
     spotifyTogglePlayback()
       .then(updatePlayBtn)
       .catch((e) => setStatus('error', e.message || 'Spotify control failed.'));
+    return;
+  }
+  if (youtubePlayer) {
+    if (isYouTubePlaying(youtubePlayer)) youtubePlayer.pauseVideo?.();
+    else youtubePlayer.playVideo?.();
+    updatePlayBtn();
+    return;
+  }
+  if (haveVideo) {
+    video.paused ? video.play() : video.pause();
     return;
   }
   if (haveAudio) {
@@ -1487,10 +2118,11 @@ function updateTransport() {
   const spotify = activeMedium?.id === 'spotify';
   if ($('btn-prev')) $('btn-prev').hidden = !spotify;
   if ($('btn-next')) $('btn-next').hidden = !spotify;
-  // Practice 0.8× only makes sense when we own the <audio> element.
-  if ($('btn-practice')) $('btn-practice').hidden = !haveAudio;
-  if ($('practice-row')) $('practice-row').hidden = !haveAudio;
-  if (!haveAudio && practiceSlow) setPracticeSlow(false, { quiet: true });
+  // Practice 0.8× only when we own a local media element (not YouTube).
+  const canPractice = haveAudio || haveVideo;
+  if ($('btn-practice')) $('btn-practice').hidden = !canPractice;
+  if ($('practice-row')) $('practice-row').hidden = !canPractice;
+  if (!canPractice && practiceSlow) setPracticeSlow(false, { quiet: true });
 }
 
 function updatePlayBtn() {
@@ -1500,9 +2132,13 @@ function updatePlayBtn() {
     ? true
     : spotifyActive
       ? isSpotifyPlaying()
-      : haveAudio
-        ? !audio.paused
-        : demoClock.isPlaying();
+      : youtubePlayer
+        ? isYouTubePlaying(youtubePlayer)
+        : haveVideo
+          ? !video.paused
+          : haveAudio
+            ? !audio.paused
+            : demoClock.isPlaying();
   let label = playing ? 'Pause' : 'Play';
   if (vinylActive && activeMedium?.state === 'locked') {
     label = vinylClock.isPlaying() ? 'Following' : 'Paused';
@@ -1520,12 +2156,18 @@ function updatePlayBtn() {
 }
 audio.addEventListener('play', updatePlayBtn);
 audio.addEventListener('pause', updatePlayBtn);
+video?.addEventListener('play', updatePlayBtn);
+video?.addEventListener('pause', updatePlayBtn);
 
 $('btn-change').addEventListener('click', () => {
-  enterSetup();
-  resetSongState();
+  // Park the current song on the hub so "Back to lyrics" can restore it.
+  // Picking a different song from the menu tears this session down via loadSong.
+  enterSetup({ keepSession: true });
+  router.go('home');
   setStatus('', '');
 });
+
+$('parked-bar')?.addEventListener('click', () => resumeParkedSession());
 
 // --------------------- sync source (how the aligner listens) ---------------
 const SYNC_MODE_LABELS = {
@@ -1593,7 +2235,7 @@ $('btn-more').addEventListener('click', () => toggleInspector());
 $('btn-sync-source').addEventListener('click', () => {
   $('inspector').hidden = true;
   $('btn-more').setAttribute('aria-expanded', 'false');
-  enterSetup();
+  enterSetup({ keepSession: true });
   router.go('settings');
 });
 
@@ -1606,7 +2248,7 @@ async function refreshSyncSettings() {
     opt.value = id;
     opt.textContent =
       id === 'auto'
-        ? 'Auto — loopback → mic → system tap'
+        ? 'Auto — internal tap → loopback → mic'
         : id === 'system'
           ? 'System audio (internal tap, no noise)'
           : id === 'device'
@@ -1638,6 +2280,7 @@ async function refreshSyncSettings() {
   updateTimingReadout();
   updateSyncSourceUi();
   refreshVocalIsolationUi();
+  refreshAlignAccuracyUi();
 }
 
 // Show the vocal-isolation toggle only when a separation model is configured in
@@ -1661,6 +2304,29 @@ async function refreshVocalIsolationUi() {
   box.checked = vocalIsolation;
   if (state) state.textContent = vocalIsolation ? 'on — cleaner alignment' : 'off';
   if (hudBox) hudBox.checked = sepHudEnabled;
+}
+
+/** High-accuracy aligner — desktop only (needs the Electron CTC bridge). */
+async function refreshAlignAccuracyUi() {
+  const row = $('align-accuracy-row');
+  const box = $('align-accuracy');
+  const state = $('align-accuracy-state');
+  if (!row || !box) return;
+  const available = alignmentAvailable() && typeof window.bar4bar?.alignSetModel === 'function';
+  row.hidden = !available;
+  if (!available) return;
+  box.checked = alignHighAccuracy;
+  if (state) {
+    state.textContent = alignHighAccuracy
+      ? 'on — large English XLSR model, sharper, slower'
+      : 'off — fast base model (~90 MB)';
+  }
+  // Keep main-process model in sync with the preference (no-op if already set).
+  try {
+    await setAlignAccuracy(alignHighAccuracy);
+  } catch {
+    /* ignore */
+  }
 }
 
 async function populateSyncDevices() {
@@ -1983,13 +2649,14 @@ async function connectStreaming(id) {
         if (b != null) setStatus(a || 'ok', b);
         else setStatus('ok', a);
       },
-      onState: () => updatePlayBtn(),
+      onState: id === 'spotify' ? onSpotifyFollowState : () => updatePlayBtn(),
       prepareSong: async (meta) => {
         const loaded = await prepareSongOrAi(meta);
         if (loaded) {
           hideBusy();
           enterPlaying();
           ensureVocalAlignment({ capture: true });
+          if (id === 'spotify') scheduleNaturalIntroLock();
         }
         return loaded;
       },
@@ -2005,6 +2672,7 @@ async function connectStreaming(id) {
         ? 'Following Spotify — play a song on any device, or pick one below.'
         : 'Following — start playback, or pick a song below.'
     );
+    if (id === 'spotify') scheduleNextSongPrep({ force: true });
   } catch (err) {
     hideBusy();
     setStatus('error', err.message || 'Failed to start streaming.');
@@ -2347,7 +3015,11 @@ $('btn-retry-tap')?.addEventListener('click', async (e) => {
 });
 
 function applyTimingNudge(deltaSec) {
-  // Manual is instant and authoritative — apply first, always.
+  if (timingScope === 'word' || timingScope === 'line') {
+    applyShapeNudge(deltaSec, timingScope);
+    return;
+  }
+  // Song scope: manual is instant and authoritative — apply first, always.
   showSyncToast(display.nudgeSyncOffset(deltaSec, persistCurrentTiming));
 
   nudgeState = manualNudgePolicy(nudgeState, { deltaSec, nowMs: Date.now() });
@@ -2369,6 +3041,70 @@ function applyTimingNudge(deltaSec) {
     updateTimingReadout();
   }, NUDGE_DEBOUNCE_MS);
   updateTimingReadout();
+}
+
+/**
+ * Reshape karaoke word/line spans (not speaker lag). Persists into the
+ * alignment sidecar so the correction survives the next play.
+ */
+function applyShapeNudge(deltaSec, scope = 'word') {
+  if (!session.timeline?.lines?.length) {
+    showToast('Load a song first');
+    return;
+  }
+  const target = display.nudgeTarget?.();
+  if (!target) {
+    showToast(scope === 'line' ? 'No active line to nudge' : 'Click a word, or wait for the active line');
+    return;
+  }
+  const res = nudgeTimeline(session.timeline, {
+    scope,
+    lineIndex: target.lineIndex,
+    wordIndex: target.wordIndex,
+    deltaSec,
+  });
+  if (!res) {
+    showToast('Can’t nudge further — edge of the line');
+    return;
+  }
+  markTimelineAlignedIfComplete(session.timeline);
+  persistAlignedTiming();
+  const ms = Math.round(Math.abs(deltaSec) * 1000);
+  const dir = deltaSec > 0 ? 'earlier' : 'later';
+  const label =
+    scope === 'line'
+      ? `Line ${dir} ${ms}ms — saved`
+      : `Word ${dir} ${ms}ms — saved`;
+  showToast(label);
+  updateTimingReadout();
+}
+
+let timingScope = 'song'; // 'song' | 'word' | 'line'
+
+function setTimingScope(scope) {
+  timingScope = scope === 'word' || scope === 'line' ? scope : 'song';
+  try {
+    localStorage.setItem('bar4bar.timingScope', timingScope);
+  } catch {
+    /* ignore */
+  }
+  $('timing-scope')?.querySelectorAll('[data-timing-scope]').forEach((btn) => {
+    btn.setAttribute('aria-pressed', btn.dataset.timingScope === timingScope ? 'true' : 'false');
+  });
+  const hint = $('insp-timing-hint');
+  if (hint) {
+    hint.textContent =
+      timingScope === 'word'
+        ? 'Nudge the selected word (click a word to pin it). Saved into this song’s timing.'
+        : timingScope === 'line'
+          ? 'Nudge the whole active line. Saved into this song’s timing.'
+          : 'Song = speaker lag for the whole track. Word/Line rewrite karaoke timing.';
+  }
+  // Feel early/late only applies to song-level latency learning.
+  ['btn-recal', 'btn-recal-early'].forEach((id) => {
+    const el = $(id);
+    if (el) el.hidden = timingScope !== 'song';
+  });
 }
 
 /**
@@ -2397,20 +3133,23 @@ function applyFeelRecal(sense) {
 }
 
 function setPracticeSlow(on, { quiet = false } = {}) {
-  practiceSlow = !!on && haveAudio;
-  if (haveAudio) audio.playbackRate = practiceSlow ? PRACTICE_RATE : 1;
+  practiceSlow = !!on && (haveAudio || haveVideo);
+  const rate = practiceSlow ? PRACTICE_RATE : 1;
+  if (haveAudio) audio.playbackRate = rate;
   else if (audio) audio.playbackRate = 1;
+  if (haveVideo) video.playbackRate = rate;
+  else if (video) video.playbackRate = 1;
   const btn = $('btn-practice');
   if (btn) {
-    btn.hidden = !haveAudio;
+    btn.hidden = !(haveAudio || haveVideo);
     btn.setAttribute('aria-pressed', practiceSlow ? 'true' : 'false');
     btn.textContent = practiceSlow ? '0.8× on' : '0.8×';
   }
   const row = $('practice-row');
-  if (row) row.hidden = !haveAudio;
+  if (row) row.hidden = !(haveAudio || haveVideo);
   const box = $('practice-slow');
   if (box) box.checked = practiceSlow;
-  if (!quiet && haveAudio) {
+  if (!quiet && (haveAudio || haveVideo)) {
     showToast(practiceSlow ? 'Practice mode — Esc or “Exit 0.8×” to leave' : 'Normal speed');
   }
   updateModeExits();
@@ -2492,6 +3231,31 @@ function exitTopOverlayMode() {
 
 $('btn-timing-early')?.addEventListener('click', () => applyTimingNudge(0.025));
 $('btn-timing-late')?.addEventListener('click', () => applyTimingNudge(-0.025));
+$('timing-scope')?.addEventListener('click', (e) => {
+  const btn = e.target.closest?.('[data-timing-scope]');
+  if (!btn) return;
+  setTimingScope(btn.dataset.timingScope);
+});
+try {
+  const savedScope = localStorage.getItem('bar4bar.timingScope');
+  if (savedScope === 'word' || savedScope === 'line' || savedScope === 'song') setTimingScope(savedScope);
+  else setTimingScope('song');
+} catch {
+  setTimingScope('song');
+}
+
+// Click a lyric word to pin it for Word-scope nudges.
+$('lyrics')?.addEventListener('click', (e) => {
+  const span = e.target.closest?.('.word[data-li]');
+  if (!span || stage.dataset.mode !== 'playing') return;
+  const li = Number(span.dataset.li);
+  const wi = Number(span.dataset.wi);
+  if (!Number.isInteger(li) || !Number.isInteger(wi)) return;
+  display.selectWord(li, wi);
+  if (timingScope === 'song') setTimingScope('word');
+  showToast('Word selected — [ ] nudge its timing');
+});
+
 $('btn-recal')?.addEventListener('click', () => applyFeelRecal('late'));
 $('btn-recal-early')?.addEventListener('click', () => applyFeelRecal('early'));
 $('btn-focus')?.addEventListener('click', () => {
@@ -2543,6 +3307,24 @@ $('vocal-isolation')?.addEventListener('change', (e) => {
       ? 'Vocal isolation on — re-load the song to re-align on the clean vocal'
       : 'Vocal isolation off — aligning on the full mix'
   );
+});
+
+$('align-accuracy')?.addEventListener('change', async (e) => {
+  alignHighAccuracy = e.target.checked;
+  localStorage.setItem('bar4bar.alignHighAccuracy', alignHighAccuracy ? 'on' : 'off');
+  const status = await setAlignAccuracy(alignHighAccuracy);
+  const state = $('align-accuracy-state');
+  if (state) {
+    state.textContent = alignHighAccuracy
+      ? 'on — large English XLSR model, sharper, slower'
+      : 'off — fast base model (~90 MB)';
+  }
+  showToast(
+    alignHighAccuracy
+      ? 'High-accuracy aligner — downloads on next align'
+      : 'Back to the fast aligner'
+  );
+  if (alignHighAccuracy && status && !status.loaded) warmAlignModel();
 });
 
 $('sep-hud-toggle')?.addEventListener('change', (e) => {
@@ -2600,7 +3382,8 @@ function handleBack() {
   if (closeAnyOpenPopup()) return true;
   if (stage.dataset.mode === 'playing' && exitTopOverlayMode()) return true;
   if (stage.dataset.mode === 'playing') {
-    $('btn-change').click();
+    enterSetup({ keepSession: true });
+    router.go('home');
     return true;
   }
   return router.back();
@@ -2749,6 +3532,11 @@ $('tb-back')?.addEventListener('click', () => router.back());
 $('hub-sources').addEventListener('click', (e) => {
   const tile = e.target.closest?.('[data-source]');
   if (!tile) return;
+  if (tile.dataset.source === 'video') {
+    router.go('sources');
+    queueMicrotask(() => $('in-youtube')?.focus());
+    return;
+  }
   const target = { spotify: 'btn-spotify', listen: 'btn-listen', audio: 'btn-audio' }[
     tile.dataset.source
   ];
@@ -2817,26 +3605,27 @@ $('btn-clear-library')?.addEventListener('click', () => {
 window.bar4bar?.onMenu?.((action) => {
   switch (action) {
     case 'settings':
-      if (stage.dataset.mode === 'playing') enterSetup();
+      if (stage.dataset.mode === 'playing') enterSetup({ keepSession: true });
       router.go('settings');
       break;
     case 'library':
-      if (stage.dataset.mode === 'playing') enterSetup();
+      if (stage.dataset.mode === 'playing') enterSetup({ keepSession: true });
       router.go('library');
       break;
     case 'sources':
-      if (stage.dataset.mode === 'playing') enterSetup();
+      if (stage.dataset.mode === 'playing') enterSetup({ keepSession: true });
       router.go('sources');
       break;
     case 'search':
-      if (stage.dataset.mode === 'playing') enterSetup();
+      if (stage.dataset.mode === 'playing') enterSetup({ keepSession: true });
       openSearch('');
       break;
     case 'home':
-      if (stage.dataset.mode === 'playing') enterSetup();
+      if (stage.dataset.mode === 'playing') enterSetup({ keepSession: true });
       router.home();
       break;
     case 'open-audio': $('btn-audio')?.click(); break;
+    case 'open-video': $('btn-video')?.click(); break;
     case 'open-lyrics': $('btn-lyrics')?.click(); break;
     case 'change-song': if (stage.dataset.mode === 'playing') $('btn-change').click(); break;
     case 'play-pause': togglePlay(); break;

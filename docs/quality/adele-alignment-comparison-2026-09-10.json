@@ -1,0 +1,28 @@
+{
+  "measuredAt": "2026-09-11T04:33:40.293Z",
+  "referenceWords": 339,
+  "predictedWords": 335,
+  "matchedWords": 333,
+  "matchedFraction": 0.9823008849557522,
+  "missingReferenceWords": 6,
+  "absolute": {
+    "medianMs": 106.8750000000307,
+    "p95Ms": 940.5000000000001,
+    "maxMs": 3779.062500000009,
+    "within100ms": 0.46846846846846846,
+    "within200ms": 0.7417417417417418
+  },
+  "afterConstantOffset": {
+    "medianMs": 63.87499999999591,
+    "p95Ms": 835.1249999999908,
+    "maxMs": 3673.6875,
+    "within100ms": 0.6186186186186187,
+    "within200ms": 0.7987987987987988
+  },
+  "constantOffsetMs": 105.37500000000932,
+  "warning": "Offset-adjusted results do not prove end-to-end sync. Missing words are not silently counted as accurate.",
+  "referenceKind": "Catalog YRC comparison, not independently hand-checked vocal ground truth",
+  "audioDurationSeconds": 290.06367346938777,
+  "catalogDurationSeconds": 285.24,
+  "recordingMismatch": "Local recording exceeds catalog duration by 4.82 seconds; TV lookup must reject this artifact for the catalog version."
+}

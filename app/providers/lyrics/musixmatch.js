@@ -14,6 +14,10 @@ async function fetchViaBridgeOrProxy(query) {
   const params = new URLSearchParams();
   if (query.artist) params.set('artist', query.artist);
   if (query.track) params.set('track', query.track);
+  if (query.isrc) params.set('isrc', query.isrc);
+  if (query.spotifyID || query.spotifyId) params.set('spotifyID', query.spotifyID || query.spotifyId);
+  if (query.appleMusicID || query.appleMusicId) params.set('appleMusicID', query.appleMusicID || query.appleMusicId);
+  if (Number.isFinite(query.duration)) params.set('duration', String(query.duration));
   const res = await fetch(`/api/richsync?${params}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!res.ok) return null;
   return res.json();

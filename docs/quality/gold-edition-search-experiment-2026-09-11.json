@@ -1,0 +1,195 @@
+{
+  "checkedAt": "2026-09-11T05:13:04.817Z",
+  "warning": "Search experiment only. Returned payloads are not acoustically verified or deployed changes.",
+  "rows": [
+    {
+      "position": 4,
+      "spotifyId": "0t3pcqgBjuAVBgY2oEUIlH",
+      "artist": "Chris Brown, Bryson Tiller",
+      "track": "It Depends (feat. Bryson Tiller)",
+      "query": {
+        "artist": "Chris Brown",
+        "track": "It Depends",
+        "duration": "271"
+      },
+      "wordPayload": false,
+      "linePayload": true,
+      "meta": {
+        "trackName": "It Depends",
+        "artistName": "Chris Brown, Bryson Tiller",
+        "albumName": "It Depends",
+        "duration": 271.908,
+        "neteaseId": 2728375175
+      },
+      "status": 200
+    },
+    {
+      "position": 33,
+      "spotifyId": "5VA4Ispp52EA1sOqzMz3Av",
+      "artist": "Miguel, J. Cole",
+      "track": "All I Want Is You (feat. J. Cole)",
+      "query": {
+        "artist": "Miguel",
+        "track": "All I Want Is You",
+        "duration": "297"
+      },
+      "wordPayload": false,
+      "linePayload": true,
+      "meta": {
+        "trackName": "All I Want Is You",
+        "artistName": "Miguel, J. Cole",
+        "albumName": "R&B Love Songs 2011",
+        "duration": 298.306,
+        "neteaseId": 24208039
+      },
+      "status": 200
+    },
+    {
+      "position": 42,
+      "spotifyId": "6XHVuErjQ4XNm6nDPVCxVX",
+      "artist": "Chris Brown, Drake",
+      "track": "No Guidance (feat. Drake)",
+      "query": {
+        "artist": "Chris Brown",
+        "track": "No Guidance",
+        "duration": "260"
+      },
+      "wordPayload": true,
+      "linePayload": true,
+      "meta": {
+        "trackName": "No Guidance",
+        "artistName": "Chris Brown, Drake",
+        "albumName": "Indigo (Extended)",
+        "duration": 260.645,
+        "neteaseId": 1394672734
+      },
+      "status": 200
+    },
+    {
+      "position": 54,
+      "spotifyId": "5FG7Tl93LdH117jEKYl3Cm",
+      "artist": "Wizkid, Tems",
+      "track": "Essence (feat. Tems)",
+      "query": {
+        "artist": "Wizkid",
+        "track": "Essence",
+        "duration": "249"
+      },
+      "wordPayload": true,
+      "linePayload": true,
+      "meta": {
+        "trackName": "Essence",
+        "artistName": "WizKid, Tems",
+        "albumName": "Made In Lagos: Deluxe Edition",
+        "duration": 249.103,
+        "neteaseId": 1872628102
+      },
+      "status": 200
+    },
+    {
+      "position": 65,
+      "spotifyId": "6oEVnWKgPqIEPc53OYDNqG",
+      "artist": "H.E.R., Bryson Tiller",
+      "track": "Could've Been (feat. Bryson Tiller)",
+      "query": {
+        "artist": "H.E.R.",
+        "track": "Could've Been",
+        "duration": "252"
+      },
+      "wordPayload": true,
+      "linePayload": true,
+      "meta": {
+        "trackName": "Could've Been",
+        "artistName": "H.E.R., Bryson Tiller",
+        "albumName": "I Used To Know Her: The Prelude",
+        "duration": 252.75,
+        "neteaseId": 1298477537
+      },
+      "status": 200
+    },
+    {
+      "position": 135,
+      "spotifyId": "4204hwPYuToiuSunPFUoML",
+      "artist": "Wizkid, Tay Iwar, Projexx",
+      "track": "True Love (feat. Tay Iwar & Projexx)",
+      "query": {
+        "artist": "Wizkid",
+        "track": "True Love",
+        "duration": "247"
+      },
+      "wordPayload": true,
+      "linePayload": true,
+      "meta": {
+        "trackName": "True Love",
+        "artistName": "WizKid, Tay Iwar, Projexx",
+        "albumName": "Made In Lagos: Deluxe Edition",
+        "duration": 247.431,
+        "neteaseId": 1872628830
+      },
+      "status": 200
+    },
+    {
+      "position": 142,
+      "spotifyId": "2vXgyN14LX2zl7JEASw242",
+      "artist": "Normani, Cardi B",
+      "track": "Wild Side (feat. Cardi B)",
+      "query": {
+        "artist": "Normani",
+        "track": "Wild Side",
+        "duration": "209"
+      },
+      "wordPayload": true,
+      "linePayload": true,
+      "meta": {
+        "trackName": "Wild Side",
+        "artistName": "Normani, Cardi B",
+        "albumName": "Wild Side",
+        "duration": 209.536,
+        "neteaseId": 1861313741
+      },
+      "status": 200
+    },
+    {
+      "position": 143,
+      "spotifyId": "2sITbbWIOeg2Lwp4WN2jqr",
+      "artist": "FLO, Missy Elliott",
+      "track": "Fly Girl (feat. Missy Elliott)",
+      "query": {
+        "artist": "FLO",
+        "track": "Fly Girl",
+        "duration": "205"
+      },
+      "wordPayload": false,
+      "linePayload": true,
+      "meta": {
+        "trackName": "Fly Girl",
+        "artistName": "FLO, Missy Elliott",
+        "albumName": "Fly Girl",
+        "duration": 205.384,
+        "neteaseId": 2032942173
+      },
+      "status": 200
+    },
+    {
+      "position": 145,
+      "spotifyId": "3krZxyBsWEHfEfJegYaWTd",
+      "artist": "H.E.R., Chris Brown",
+      "track": "Come Through (feat. Chris Brown)",
+      "query": {
+        "artist": "H.E.R.",
+        "track": "Come Through",
+        "duration": "214"
+      },
+      "wordPayload": true,
+      "linePayload": true,
+      "meta": {
+        "trackName": "Come Through",
+        "artistName": "H.E.R., Chris Brown",
+        "albumName": "Come Through",
+        "duration": 214.691,
+        "neteaseId": 1838886738
+      },
+      "status": 200
+    }
+  ]
+}

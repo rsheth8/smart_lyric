@@ -7,6 +7,7 @@ import Bar4BarCore
 /// character code — to someone holding a phone ten feet away, so those two
 /// strings get the type budget and everything else gets out of the way.
 struct SpotifyPairingView: View {
+  @EnvironmentObject private var music: MusicPlayerService
   @EnvironmentObject private var spotify: SpotifyService
   @EnvironmentObject private var session: LyricsSession
   @Binding var path: NavigationPath
@@ -27,8 +28,8 @@ struct SpotifyPairingView: View {
     .task {
       if let code = DemoLaunch.fakePairCode {
         spotify.showPlaceholderPairing(code: code)
-      } else if DemoLaunch.autoPair {
-        spotify.startPairing()
+      } else if !spotify.isConnected {
+        await spotify.connect()
       }
     }
     .onDisappear {
@@ -37,19 +38,27 @@ struct SpotifyPairingView: View {
       // "connect" minutes later, on some other screen, with no explanation.
       if !spotify.isConnected { spotify.cancelPairing() }
     }
+    .onChange(of: spotify.track?.id) { _, _ in presentFollowKaraokeIfNeeded() }
+    .onChange(of: spotify.isPlaying) { _, playing in
+      if playing { presentFollowKaraokeIfNeeded() }
+    }
+  }
+
+  private func presentFollowKaraokeIfNeeded() {
+    guard PlaybackNavigation.shouldOpenFollowKaraoke(
+      connected: spotify.isConnected,
+      hasTrack: spotify.track != nil,
+      isPlaying: spotify.isPlaying
+    ) else { return }
+    if let track = spotify.track, let clock = spotify.followClock {
+      music.beginFollowing(clock, track: track, sourceLabel: "Spotify")
+    }
+    path = NavigationPath()
+    path.append(Route.karaoke)
   }
 
   private var header: some View {
-    VStack(alignment: .leading, spacing: Tokens.Space.s1) {
-      Text("Follow Spotify")
-        .font(Tokens.display(Tokens.FontSize.xl, .bold))
-        .foregroundStyle(Tokens.text1)
-      Text("Bar4Bar shows the words for whatever your Spotify account is playing — on your phone, a speaker, anywhere. It never takes over playback.")
-        .font(Tokens.display(Tokens.FontSize.base, .regular))
-        .foregroundStyle(Tokens.text2)
-        .frame(maxWidth: 1100, alignment: .leading)
-        .fixedSize(horizontal: false, vertical: true)
-    }
+    TVPageHeading(title: "Spotify", subtitle: "Play on your phone or speaker. Pause, skip, and follow every word on this TV.")
   }
 
   @ViewBuilder
@@ -216,9 +225,17 @@ struct SpotifyPairingView: View {
             .foregroundStyle(Tokens.text2)
         }
       }
+      if let message = spotify.connectionMessage {
+        Text(message).font(Tokens.display(24, .medium)).foregroundStyle(Tokens.warn)
+      }
       HStack(spacing: Tokens.Space.s3) {
         if spotify.track != nil {
-          Button("Show the lyrics") { path.append(Route.karaoke) }
+          Button("Show the lyrics") {
+            if let track = spotify.track, let clock = spotify.followClock {
+              music.beginFollowing(clock, track: track, sourceLabel: "Spotify")
+            }
+            path.append(Route.karaoke)
+          }
             .buttonStyle(TVPillStyle())
         }
         Button("Back to hub") { path = NavigationPath() }

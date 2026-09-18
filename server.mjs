@@ -36,6 +36,7 @@ function publicConfig() {
     spotifyClientId: process.env.SPOTIFY_CLIENT_ID || '',
     appleMusicDeveloperToken: process.env.APPLE_MUSIC_DEVELOPER_TOKEN || '',
     spotifyRedirectUri: process.env.SPOTIFY_REDIRECT_URI || '',
+    youtubeConfigured: !!(process.env.YOUTUBE_API_KEY || '').trim(),
   };
 }
 
@@ -69,10 +70,16 @@ createServer(async (req, res) => {
     if (path === '/api/richsync') {
       const q = new URL(req.url, 'http://localhost').searchParams;
       const track = q.get('track') || '';
+      const isrc = q.get('isrc') || '';
+      const spotifyID = q.get('spotifyID') || q.get('spotifyId') || '';
+      const appleMusicID = q.get('appleMusicID') || q.get('appleMusicId') || '';
       let payload = { richsync: '', meta: null };
-      if (track) {
+      if (track || isrc || spotifyID || appleMusicID) {
         try {
-          payload = (await fetchMusixmatchRichsync({ artist: q.get('artist') || '', track })) || payload;
+          payload = (await fetchMusixmatchRichsync({
+            artist: q.get('artist') || '', track, isrc, spotifyID, appleMusicID,
+            duration: q.get('duration'),
+          })) || payload;
         } catch { /* soft-fail → client falls through to line-level providers */ }
       }
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
@@ -89,6 +96,10 @@ createServer(async (req, res) => {
           payload = (await fetchGeniusLyrics({ artist: q.get('artist') || '', track })) || payload;
         } catch { /* soft-fail → no plain lyrics */ }
       }
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(payload));
+      return;
+    }
 
     // The Apple TV Spotify handshake. Shares the Vercel handler outright rather
     // than being reimplemented here — the two drifting apart would only ever be
@@ -98,8 +109,47 @@ createServer(async (req, res) => {
       await tvPairHandler(req, res);
       return;
     }
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-      res.end(JSON.stringify(payload));
+
+    if (path === '/api/youtube') {
+      const id = new URL(req.url, 'http://localhost').searchParams.get('id') || '';
+      const key = (process.env.YOUTUBE_API_KEY || '').trim();
+      if (!id || !/^[a-zA-Z0-9_-]{11}$/.test(id)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid id', configured: !!key }));
+        return;
+      }
+      if (!key) {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ id, embeddable: null, title: null, channelTitle: null, configured: false }));
+        return;
+      }
+      try {
+        const url =
+          'https://www.googleapis.com/youtube/v3/videos' +
+          `?part=status,snippet&id=${encodeURIComponent(id)}&key=${encodeURIComponent(key)}`;
+        const upstream = await fetch(url);
+        if (!upstream.ok) {
+          res.writeHead(upstream.status, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: `YouTube API ${upstream.status}`, configured: true }));
+          return;
+        }
+        const data = await upstream.json();
+        const item = data?.items?.[0];
+        const payload = item
+          ? {
+              id,
+              embeddable: item.status?.embeddable !== false,
+              title: item.snippet?.title || null,
+              channelTitle: item.snippet?.channelTitle || null,
+              configured: true,
+            }
+          : { id, embeddable: false, title: null, channelTitle: null, configured: true };
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify(payload));
+      } catch (e) {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message || 'lookup failed', configured: true }));
+      }
       return;
     }
 

@@ -2,6 +2,8 @@ node_modules/
 .cache/
 .venv/
 .env
+.env.local
+.env*.local
 *.wav
 .DS_Store
 public/
@@ -19,6 +21,7 @@ fixtures/
 
 # tvOS / Swift
 tvos/Bar4BarCore/.build/
+scripts/tv-coverage/.build/
 tvos/build/
 tvos/DerivedData/
 tvos/**/xcuserdata/

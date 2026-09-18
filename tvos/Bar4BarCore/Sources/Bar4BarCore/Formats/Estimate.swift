@@ -32,7 +32,7 @@ public enum Estimate {
     let span = max(0.001, end - start)
     if tokens.isEmpty { return [] }
     if tokens.count == 1 {
-      return [LyricWord(text: tokens[0], start: start, end: end)]
+      return [LyricWord(text: tokens[0], start: start, end: end, timingQuality: .estimated)]
     }
     let weights = tokens.map { 0.4 + Double(syllableCount($0)) }
     let total = weights.reduce(0, +)
@@ -55,7 +55,8 @@ public enum Estimate {
       LyricWord(
         text: text,
         start: starts[i],
-        end: i + 1 < starts.count ? starts[i + 1] : end
+        end: i + 1 < starts.count ? starts[i + 1] : end,
+        timingQuality: .estimated
       )
     }
   }

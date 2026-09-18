@@ -1,0 +1,5685 @@
+{
+  "checkedAt": "2026-09-12T07:58:39.075Z",
+  "sampleSize": 101,
+  "counts": {
+    "word_timestamps": 0,
+    "audio_refined_mixed": 0,
+    "estimated_words_only": 101,
+    "missing": 0
+  },
+  "warning": "Availability only. Returned word timestamps have not been auditioned or measured against the recording. This sample is not representative of the whole catalog.",
+  "rows": [
+    {
+      "position": 1,
+      "artist": "Jhené Aiko",
+      "track": "He Belongs",
+      "duration": 201.133,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6810716027",
+      "appleMusicURL": "https://music.apple.com/us/album/he-belongs/6810715695?i=6810716027",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 2401,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Jhené Aiko",
+            "track": "He Belongs",
+            "album": "Westside Whimsy",
+            "duration": 201.133
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 380,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 1522,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 377,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "artist": "Tems",
+      "track": "What You Need",
+      "duration": 234.08,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1853635937",
+      "appleMusicURL": "https://music.apple.com/us/album/what-you-need/1853635930?i=1853635937",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 754,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Tems",
+            "track": "What You Need",
+            "album": "What You Need",
+            "duration": 234.15
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 780,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 166,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Tems",
+            "track": "What You Need",
+            "album": "Tems Videos",
+            "duration": 232
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 139,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "artist": "Wale & Leon Thomas",
+      "track": "Watching Us",
+      "duration": 229.113,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "1849571246",
+      "appleMusicURL": "https://music.apple.com/us/album/watching-us/1849570906?i=1849571246",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 1562,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Wale, Leon Thomas",
+            "track": "Watching Us",
+            "album": "everything is a lot.",
+            "duration": 229.112
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 978,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 167,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Wale, Leon Thomas",
+            "track": "Watching Us",
+            "album": "everything is a lot.",
+            "duration": 230
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 104,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "artist": "Jhené Aiko",
+      "track": "So Good (feat. Kendrick Lamar)",
+      "duration": 237.251,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6810716062",
+      "appleMusicURL": "https://music.apple.com/us/album/so-good-feat-kendrick-lamar/6810715695?i=6810716062",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 770,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Jhené Aiko, Kendrick Lamar",
+            "track": "So Good",
+            "album": "Westside Whimsy",
+            "duration": 237.25
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 946,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 169,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Jhené Aiko",
+            "track": "So Good (feat. Kendrick Lamar)",
+            "album": "Westside Whimsy",
+            "duration": 236
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 103,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 5,
+      "artist": "Chris Brown",
+      "track": "Obvious",
+      "duration": 186.009,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "1891759136",
+      "appleMusicURL": "https://music.apple.com/us/album/obvious/1891759134?i=1891759136",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 746,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Chris Brown",
+            "track": "Obvious",
+            "album": "Obvious",
+            "duration": 186.044
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 689,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 224,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Chris Brown",
+            "track": "Obvious",
+            "album": "R&B Best of 2026 So Far",
+            "duration": 186
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 1620,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 6,
+      "artist": "Olivia Dean",
+      "track": "A Couple Minutes",
+      "duration": 212,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1817609514",
+      "appleMusicURL": "https://music.apple.com/us/album/a-couple-minutes/1817609404?i=1817609514",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 779,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Olivia Dean",
+            "track": "A Couple Minutes",
+            "album": "The Art of Loving",
+            "duration": 212
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 1005,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 1602,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Olivia Dean",
+            "track": "A Couple Minutes",
+            "album": "The Art of Loving [24-44.1]",
+            "duration": 212
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 107,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 7,
+      "artist": "Brent Faiyaz & Ama",
+      "track": "Need it Bad",
+      "duration": 187.096,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "1879918897",
+      "appleMusicURL": "https://music.apple.com/us/album/need-it-bad/1879918896?i=1879918897",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 776,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Ama, Brent Faiyaz",
+            "track": "Need it Bad",
+            "album": "Need it Bad (feat. Brent Faiyaz)",
+            "duration": 187.096
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 655,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 173,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 278,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 8,
+      "artist": "PARTYNEXTDOOR",
+      "track": "Some of Your Love",
+      "duration": 159.651,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6803231122",
+      "appleMusicURL": "https://music.apple.com/us/album/some-of-your-love/6803230832?i=6803231122",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 778,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "PARTYNEXTDOOR",
+            "track": "Some of Your Love",
+            "album": "PARTYNEXTDOOR 3 (P3) [10-YEAR EDITION]",
+            "duration": 159.65
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 851,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 164,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "PARTYNEXTDOOR",
+            "track": "Some Of Your Love",
+            "album": "Some Of Your Love",
+            "duration": 169
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 98,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 9,
+      "artist": "Jhené Aiko",
+      "track": "Ceiling (Freestyle)",
+      "duration": 207.555,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6810716020",
+      "appleMusicURL": "https://music.apple.com/us/album/ceiling-freestyle/6810715695?i=6810716020",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 747,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Jhené Aiko",
+            "track": "Ceiling (Freestyle)",
+            "album": "Westside Whimsy",
+            "duration": 207.555
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 511,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 419,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 101,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 10,
+      "artist": "GIVĒON",
+      "track": "FOOL ME ONCE (feat. Leon Thomas)",
+      "duration": 198.812,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1891467239",
+      "appleMusicURL": "https://music.apple.com/us/album/fool-me-once-feat-leon-thomas/1891467233?i=1891467239",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 865,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "GIVĒON, Leon Thomas",
+            "track": "FOOL ME ONCE",
+            "album": "BELOVED: ACT II",
+            "duration": 198.844
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 776,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 520,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "GIVĒON",
+            "track": "FOOL ME ONCE",
+            "album": "BELOVED: ACT II",
+            "duration": 199
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 109,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 11,
+      "artist": "Ella Mai",
+      "track": "100",
+      "duration": 234.609,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1858754874",
+      "appleMusicURL": "https://music.apple.com/us/album/100/1858754868?i=1858754874",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 824,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Ella Mai",
+            "track": "100",
+            "album": "Do You Still Love Me?",
+            "duration": 234.608
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 302,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 182,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Ella Mai",
+            "track": "100",
+            "album": "Do You Still Love Me?",
+            "duration": 235
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 187,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 12,
+      "artist": "Jhené Aiko",
+      "track": "Like, Whatever (feat. Tyga)",
+      "duration": 211.264,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6810716030",
+      "appleMusicURL": "https://music.apple.com/us/album/like-whatever-feat-tyga/6810715695?i=6810716030",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 728,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Jhené Aiko, Tyga",
+            "track": "Like, Whatever",
+            "album": "Westside Whimsy",
+            "duration": 211.264
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 255,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 1046,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Jhené Aiko, Tyga",
+            "track": "Like, Whatever (feat. Tyga)",
+            "album": "",
+            "duration": 211
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 90,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 13,
+      "artist": "Gunna",
+      "track": "forever be mine (feat. Wizkid)",
+      "duration": 173.253,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "1830597944",
+      "appleMusicURL": "https://music.apple.com/us/album/forever-be-mine-feat-wizkid/1830597627?i=1830597944",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 786,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Gunna, WizKid",
+            "track": "forever be mine (feat. Wizkid)",
+            "album": "The Last Wun",
+            "duration": 173.253
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 1041,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 313,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Gunna Wizkid",
+            "track": "forever be mine",
+            "album": "The Last Wun",
+            "duration": 195
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 108,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 14,
+      "artist": "Teyana Taylor & Wale",
+      "track": "Bed of Roses",
+      "duration": 185.532,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6765599768",
+      "appleMusicURL": "https://music.apple.com/us/album/bed-of-roses/1896005623?i=6765599768",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 819,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Teyana Taylor, Wale",
+            "track": "Bed of Roses",
+            "album": "Bed of Roses",
+            "duration": 185.531
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 844,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 154,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 85,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 15,
+      "artist": "Fridayy & Mariah the Scientist",
+      "track": "Death Do Us Part",
+      "duration": 205.44,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1858727435",
+      "appleMusicURL": "https://music.apple.com/us/album/death-do-us-part/1858727264?i=1858727435",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 865,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Fridayy, Mariah the Scientist",
+            "track": "Death Do Us Part",
+            "album": "Everybody Got Somebody",
+            "duration": 205.44
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 282,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 282,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Fridayy & Mariah the Scientist",
+            "track": "Death Do Us Part",
+            "album": "Everybody Got Somebody - EP",
+            "duration": 205
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 95,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 16,
+      "artist": "Kehlani",
+      "track": "Sweet Nuthins (feat. Leon Thomas)",
+      "duration": 162.515,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1885055432",
+      "appleMusicURL": "https://music.apple.com/us/album/sweet-nuthins-feat-leon-thomas/1885055310?i=1885055432",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 763,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Kehlani, Leon Thomas",
+            "track": "Sweet Nuthins (feat. Leon Thomas)",
+            "album": "Kehlani",
+            "duration": 162.514
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 678,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 166,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Kehlani, Leon Thomas",
+            "track": "Sweet Nuthins",
+            "album": "Kehlani",
+            "duration": 163
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 104,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 17,
+      "artist": "Brent Faiyaz",
+      "track": "like it was. [bonus track]",
+      "duration": 200.611,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6797579877",
+      "appleMusicURL": "https://music.apple.com/us/album/like-it-was-bonus-track/6797579589?i=6797579877",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 752,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Brent Faiyaz",
+            "track": "like it was. [bonus track]",
+            "album": "Icon (Director's Cut)",
+            "duration": 200.61
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 370,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 699,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Brent Faiyaz",
+            "track": "like it was.",
+            "album": "Icon (Director's Cut)",
+            "duration": 200
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 112,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 18,
+      "artist": "Isaiah Falls",
+      "track": "TABOO",
+      "duration": 165.559,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1880750236",
+      "appleMusicURL": "https://music.apple.com/us/album/taboo/1880750235?i=1880750236",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 753,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Isaiah falls",
+            "track": "TABOO",
+            "album": "TABOO",
+            "duration": 165.558
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 408,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 264,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Isaiah Falls",
+            "track": "TABOO",
+            "album": "Isaiah Falls Songs",
+            "duration": 166
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 99,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 19,
+      "artist": "Chris Brown",
+      "track": "Slow Jamz (feat. Lucky Daye)",
+      "duration": 210.462,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6764419278",
+      "appleMusicURL": "https://music.apple.com/us/album/slow-jamz-feat-lucky-daye/1895772091?i=6764419278",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 766,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Chris Brown, Lucky Daye",
+            "track": "Slow Jamz",
+            "album": "BROWN",
+            "duration": 210.494
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 270,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 173,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Chris Brown",
+            "track": "Slow Jamz ft. Lucky Daye",
+            "album": "BROWN",
+            "duration": 210
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 87,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 20,
+      "artist": "SZA",
+      "track": "Chill Baby",
+      "duration": 140.637,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "1786643054",
+      "appleMusicURL": "https://music.apple.com/us/album/chill-baby/1786643044?i=1786643054",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 739,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "SZA",
+            "track": "Chill Baby",
+            "album": "SOS Deluxe: LANA",
+            "duration": 140.669
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 239,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 170,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Sza",
+            "track": "Chill Baby",
+            "album": "Sos Deluxe : Lana (2025 Edition)",
+            "duration": 140.669388
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 101,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 21,
+      "artist": "Chris Brown",
+      "track": "Perfect Timing (feat. Fridayy)",
+      "duration": 258.271,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6764419282",
+      "appleMusicURL": "https://music.apple.com/us/album/perfect-timing-feat-fridayy/1895772091?i=6764419282",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 806,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Chris Brown, Fridayy",
+            "track": "Perfect Timing",
+            "album": "BROWN (The Chocolate Edition)",
+            "duration": 258.298
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 844,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 308,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Chris Brown, Fridayy",
+            "track": "Perfect Timing",
+            "album": "BROWN (The Chocolate Edition)",
+            "duration": 258
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 95,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 22,
+      "artist": "Brent Faiyaz",
+      "track": "four seasons.",
+      "duration": 185.813,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1867923707",
+      "appleMusicURL": "https://music.apple.com/us/album/four-seasons/1867923697?i=1867923707",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 751,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Brent Faiyaz",
+            "track": "four seasons.",
+            "album": "Icon",
+            "duration": 185.813
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 513,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 483,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Brent Faiyaz",
+            "track": "four seasons.",
+            "album": "Icon",
+            "duration": null
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 145,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 23,
+      "artist": "cortex",
+      "track": "Days Are Over",
+      "duration": 177.536,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1877757063",
+      "appleMusicURL": "https://music.apple.com/us/album/days-are-over/1877757060?i=1877757063",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 769,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Cortex",
+            "track": "Days Are Over",
+            "album": "Days Are Over",
+            "duration": 177.536
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 755,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 179,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "cortex",
+            "track": "Days Are Over",
+            "album": "cortex Songs",
+            "duration": 178
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 89,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 24,
+      "artist": "THEY.",
+      "track": "Straight Up",
+      "duration": 195.147,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "1779140398",
+      "appleMusicURL": "https://music.apple.com/us/album/straight-up/1779140192?i=1779140398",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 910,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "THEY.",
+            "track": "Straight Up",
+            "album": "LOVE.JONES",
+            "duration": 195.146
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 646,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 163,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "THEY.",
+            "track": "Straight Up",
+            "album": "Choosin'",
+            "duration": 195.146667
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 87,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 25,
+      "artist": "JayDon & Paradise",
+      "track": "Lullaby",
+      "duration": 217.694,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1795030966",
+      "appleMusicURL": "https://music.apple.com/us/album/lullaby/1795030965?i=1795030966",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 734,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Jaydon, Paradise",
+            "track": "Lullaby",
+            "album": "Lullaby",
+            "duration": 217.694
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 1062,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 395,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Jaydon & Paradise",
+            "track": "Lullaby",
+            "album": "R&b Now",
+            "duration": 218
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 84,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 26,
+      "artist": "Ella Mai",
+      "track": "Tell Her",
+      "duration": 199.044,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "1836267067",
+      "appleMusicURL": "https://music.apple.com/us/album/tell-her/1836267045?i=1836267067",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 881,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Ella Mai",
+            "track": "Tell Her",
+            "album": "Do You Still Love Me?",
+            "duration": 197.464
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 754,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 656,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Ella Mai",
+            "track": "Tell Her",
+            "album": "R",
+            "duration": 199
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 94,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 27,
+      "artist": "Joey Bada$$ & Ty Dolla $ign",
+      "track": "READY TO LOVE",
+      "duration": 180,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "1835726986",
+      "appleMusicURL": "https://music.apple.com/us/album/ready-to-love/1835726721?i=1835726986",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 769,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Joey Bada$$, Ty Dolla $ign",
+            "track": "READY TO LOVE",
+            "album": "Lonely At The Top",
+            "duration": 180.035
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 722,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 325,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Joey Bada$$ & Ty Dolla $ign",
+            "track": "READY TO LOVE",
+            "album": "Lonely At The Top",
+            "duration": 180
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 267,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 28,
+      "artist": "Drake & Loe Shimmy",
+      "track": "I’m Spent",
+      "duration": 144.902,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6769551476",
+      "appleMusicURL": "https://music.apple.com/us/album/im-spent/6769551464?i=6769551476",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 783,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Drake, Loe Shimmy",
+            "track": "I’m Spent",
+            "album": "HABIBTI",
+            "duration": 144.901
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 663,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 166,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Drake Loe Shimmy",
+            "track": "Im Spent",
+            "album": "HABIBTI",
+            "duration": 154
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 111,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 29,
+      "artist": "Qiuntellii",
+      "track": "Crash",
+      "duration": 152.66,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6802351805",
+      "appleMusicURL": "https://music.apple.com/us/album/crash/6802351801?i=6802351805",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 839,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Qiuntellii",
+            "track": "Crash",
+            "album": "Crash",
+            "duration": 152.66
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 880,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 430,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 108,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 30,
+      "artist": "Teddy Swims & GIVĒON",
+      "track": "Are You Even Real",
+      "duration": 147.702,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1771020952",
+      "appleMusicURL": "https://music.apple.com/us/album/are-you-even-real/1771020838?i=1771020952",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 812,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Teddy Swims, GIVĒON",
+            "track": "Are You Even Real",
+            "album": "Are You Even Real",
+            "duration": 147.702
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 594,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 482,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Teddy Swims, GIVĒON",
+            "track": "Are You Even Real",
+            "album": "Unknown",
+            "duration": 149
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 102,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 31,
+      "artist": "Mariah the Scientist & Kali Uchis",
+      "track": "Is It a Crime",
+      "duration": 181.334,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "1824543092",
+      "appleMusicURL": "https://music.apple.com/us/album/is-it-a-crime/1824543088?i=1824543092",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 808,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Mariah the Scientist, Kali Uchis",
+            "track": "Is It a Crime",
+            "album": "Is It a Crime",
+            "duration": 181.368
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 257,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 159,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Mariah the Scientist, Kali Uchis",
+            "track": "Is It a Crime",
+            "album": "null",
+            "duration": 202
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 77,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 32,
+      "artist": "Wale & Elmiene",
+      "track": "Overthink",
+      "duration": 207.083,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6793423551",
+      "appleMusicURL": "https://music.apple.com/us/album/overthink/6793423262?i=6793423551",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 803,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Wale, Elmiene",
+            "track": "Overthink",
+            "album": "Overthink",
+            "duration": 207.082
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 797,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 796,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Wale & Elmiene",
+            "track": "Overthink",
+            "album": "Overthink - Single",
+            "duration": 207
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 78,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 33,
+      "artist": "Girlfriend",
+      "track": "All Of The Above",
+      "duration": 210.115,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6800457297",
+      "appleMusicURL": "https://music.apple.com/us/album/all-of-the-above/6800457293?i=6800457297",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 1047,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Girlfriend",
+            "track": "All Of The Above",
+            "album": "All Of The Above",
+            "duration": 210.115
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 185,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 161,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Girlfriend",
+            "track": "All Of The Above",
+            "album": "3:31",
+            "duration": 210
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 78,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 34,
+      "artist": "GIVĒON",
+      "track": "SAVE SOME FOR ME (feat. Kehlani)",
+      "duration": 183.99,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1891467238",
+      "appleMusicURL": "https://music.apple.com/us/album/save-some-for-me-feat-kehlani/1891467233?i=1891467238",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 883,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "GIVĒON, Kehlani",
+            "track": "SAVE SOME FOR ME",
+            "album": "BELOVED: ACT II",
+            "duration": 184.032
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 216,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 165,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "GIVĒON",
+            "track": "SAVE SOME FOR ME",
+            "album": "BELOVED: ACT II",
+            "duration": 183
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 90,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 35,
+      "artist": "Lucky Daye & Leon Thomas",
+      "track": "Fly U Out",
+      "duration": 194.526,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6800127968",
+      "appleMusicURL": "https://music.apple.com/us/album/fly-u-out/6800127959?i=6800127968",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 760,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Lucky Daye, Leon Thomas",
+            "track": "Fly U Out",
+            "album": "Fly U Out",
+            "duration": 194.526
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 873,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 388,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 82,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 36,
+      "artist": "Dave & Tems",
+      "track": "Raindance",
+      "duration": 219.744,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1847992612",
+      "appleMusicURL": "https://music.apple.com/us/album/raindance/1847992481?i=1847992612",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 1568,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Dave, Tems",
+            "track": "Raindance",
+            "album": "The Boy Who Played the Harp",
+            "duration": 219.744
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 732,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 1498,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Dave, Tems",
+            "track": "Raindance",
+            "album": "Unknown",
+            "duration": 221
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 140,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 37,
+      "artist": "Tyla",
+      "track": "RIGHT NOW",
+      "duration": 185.874,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1894331079",
+      "appleMusicURL": "https://music.apple.com/us/album/right-now/1894330586?i=1894331079",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 768,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Tyla",
+            "track": "RIGHT NOW",
+            "album": "A*POP",
+            "duration": 185.913
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 176,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 488,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Tyla",
+            "track": "RIGHT NOW",
+            "album": "A*POP",
+            "duration": 186
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 428,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 38,
+      "artist": "Beyoncé",
+      "track": "MORNING DEW (DONK)",
+      "duration": 243.896,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6787303156",
+      "appleMusicURL": "https://music.apple.com/us/album/morning-dew-donk/6787303151?i=6787303156",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 736,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Beyoncé",
+            "track": "MORNING DEW (DONK)",
+            "album": "MORNING DEW (DONK)",
+            "duration": 243.931
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 180,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 458,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Beyoncé",
+            "track": "MORNING DEW (DONK)",
+            "album": "Música",
+            "duration": 243
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 93,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 39,
+      "artist": "Ty Dolla $ign",
+      "track": "miss u 2 (with Leon Thomas)",
+      "duration": 148.405,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "1878417355",
+      "appleMusicURL": "https://music.apple.com/us/album/miss-u-2-with-leon-thomas/1878416755?i=1878417355",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 788,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Ty Dolla $ign, Leon Thomas",
+            "track": "miss u 2 (with Leon Thomas)",
+            "album": "miss u 2 (with Leon Thomas)",
+            "duration": 148.404
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 823,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 243,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Ty Dolla $ign, Leon Thomas",
+            "track": "miss u 2 (with Leon Thomas)",
+            "album": "Unknown",
+            "duration": 153
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 86,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 40,
+      "artist": "Lekan",
+      "track": "Come Thru",
+      "duration": 159.13,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1857499830",
+      "appleMusicURL": "https://music.apple.com/us/album/come-thru/1857499818?i=1857499830",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 744,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Lekan",
+            "track": "Come Thru",
+            "album": "Come Thru",
+            "duration": 159.13
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 425,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 906,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Lekan",
+            "track": "Come Thru",
+            "album": "Come Thru",
+            "duration": null
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 103,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 41,
+      "artist": "4batz",
+      "track": "act x: n da mornin",
+      "duration": 131.833,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "1806056713",
+      "appleMusicURL": "https://music.apple.com/us/album/act-x-n-da-mornin/1806056712?i=1806056713",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 931,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "4batz",
+            "track": "act x: n da mornin",
+            "album": "Still Shinin",
+            "duration": 131.833
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 677,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 215,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "4batz",
+            "track": "act x: n da mornin",
+            "album": "act x: n da mornin",
+            "duration": null
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 110,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 42,
+      "artist": "Summer Walker & Mariah the Scientist",
+      "track": "Robbed You",
+      "duration": 198.43,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "1845569489",
+      "appleMusicURL": "https://music.apple.com/us/album/robbed-you/1845569485?i=1845569489",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 769,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Summer Walker, Mariah the Scientist",
+            "track": "Robbed You",
+            "album": "Finally Over It",
+            "duration": 198.429
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 718,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 306,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Summer Walker  Mariah the scientist",
+            "track": "Robbed You",
+            "album": "collab",
+            "duration": 199
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 93,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 43,
+      "artist": "Joji & GIVĒON",
+      "track": "Piece of You",
+      "duration": 135.133,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1849707034",
+      "appleMusicURL": "https://music.apple.com/us/album/piece-of-you/1849706656?i=1849707034",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 782,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Joji, GIVĒON",
+            "track": "Piece of You",
+            "album": "Piss In The Wind",
+            "duration": 135.133
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 281,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 161,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Joji & GIVĒON",
+            "track": "Piece of You",
+            "album": "Piece of You",
+            "duration": 135
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 85,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 44,
+      "artist": "Coco Jones",
+      "track": "Love Me Through",
+      "duration": 203.221,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6798416708",
+      "appleMusicURL": "https://music.apple.com/us/album/love-me-through/6798416378?i=6798416708",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 816,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Coco Jones",
+            "track": "Love Me Through",
+            "album": "Love Me Through",
+            "duration": 203.221
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 953,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 166,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Coco Jones",
+            "track": "Love Me Through",
+            "album": "Love Me Through",
+            "duration": 204
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 92,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 45,
+      "artist": "VEDO",
+      "track": "Wassup (Ouu Girl)",
+      "duration": 147.586,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6805191965",
+      "appleMusicURL": "https://music.apple.com/us/album/wassup-ouu-girl/6805191964?i=6805191965",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 725,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Vedo",
+            "track": "Wassup (Ouu Girl)",
+            "album": "Wassup (Ouu Girl)",
+            "duration": 147.586
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 1254,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 283,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 151,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 46,
+      "artist": "Joyce Wrice & SALIMATA",
+      "track": "Fly (Someone You Love)",
+      "duration": 214.088,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6804892829",
+      "appleMusicURL": "https://music.apple.com/us/album/fly-someone-you-love/6804892827?i=6804892829",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 844,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Joyce Wrice, SALIMATA",
+            "track": "Fly (Someone To Love)",
+            "album": "Fly (Someone To Love)",
+            "duration": 214.088
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 522,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 1335,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Joyce Wrice & SALIMATA",
+            "track": "Fly (Someone You Love)",
+            "album": "Machiko",
+            "duration": 214
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 88,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 47,
+      "artist": "Loe Shimmy & Summer Walker",
+      "track": "Just Saying",
+      "duration": 147.402,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6790948463",
+      "appleMusicURL": "https://music.apple.com/us/album/just-saying/6790948448?i=6790948463",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 789,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Loe Shimmy, Summer Walker",
+            "track": "Just Saying",
+            "album": "Just Saying",
+            "duration": 147.401
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 434,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 160,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Loe Shimmy & Summer Walker",
+            "track": "Just Saying",
+            "album": "Pretty Girlz Run The World",
+            "duration": 147
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 90,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 48,
+      "artist": "Karri",
+      "track": "Summer In Manila (Oakland Pt.3)",
+      "duration": 171.5,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6799331840",
+      "appleMusicURL": "https://music.apple.com/us/album/summer-in-manila-oakland-pt-3/6799331597?i=6799331840",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 743,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Karri",
+            "track": "Summer In Manila (Oakland Pt.3)",
+            "album": "Summer In Manila (Oakland Pt.3)",
+            "duration": 171.5
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 913,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 164,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 82,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 49,
+      "artist": "Fridayy",
+      "track": "Haiku",
+      "duration": 217.04,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6791394860",
+      "appleMusicURL": "https://music.apple.com/us/album/haiku/6791394852?i=6791394860",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 1557,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Fridayy",
+            "track": "Haiku",
+            "album": "Haiku",
+            "duration": 217.04
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 212,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 678,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Fridayy",
+            "track": "Haiku",
+            "album": "Tension",
+            "duration": 217
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 272,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 50,
+      "artist": "Kehlani",
+      "track": "Oooh",
+      "duration": 248.428,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1885055414",
+      "appleMusicURL": "https://music.apple.com/us/album/oooh/1885055310?i=1885055414",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 783,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Kehlani",
+            "track": "Oooh",
+            "album": "Kehlani",
+            "duration": 248.428
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 1106,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 707,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Kehlani",
+            "track": "Oooh",
+            "album": "Kehlani - Kehlani (2026 R&B) [Flac 24-44] - 06. Kehlani - Oooh",
+            "duration": 248
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 131,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 51,
+      "artist": "FLO & kwn",
+      "track": "Sex In Peace",
+      "duration": 205,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6764050369",
+      "appleMusicURL": "https://music.apple.com/us/album/sex-in-peace/1895613904?i=6764050369",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 1565,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "FLO, kwn",
+            "track": "Sex In Peace",
+            "album": "THERAPY AT THE CLUB",
+            "duration": 205
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 792,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 646,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "FLO & kwn",
+            "track": "Sex In Peace",
+            "album": "THERAPY AT THE CLUB",
+            "duration": 205
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 84,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 52,
+      "artist": "Jaymin",
+      "track": "Rollin",
+      "duration": 127.202,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6795414105",
+      "appleMusicURL": "https://music.apple.com/us/album/rollin/6795414097?i=6795414105",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 948,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Jaymin",
+            "track": "Rollin",
+            "album": "Rollin",
+            "duration": 127.202
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 375,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 163,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "jaymin",
+            "track": "rollin",
+            "album": "static",
+            "duration": 127
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 89,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 53,
+      "artist": "REMI",
+      "track": "Let's Talk",
+      "duration": 166.826,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1888290119",
+      "appleMusicURL": "https://music.apple.com/us/album/lets-talk/1888290117?i=1888290119",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 875,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "REMI",
+            "track": "Let's Talk",
+            "album": "Let's Talk",
+            "duration": 166.825
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 796,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 188,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "REMI",
+            "track": "Let's Talk",
+            "album": "Left on RED",
+            "duration": 167
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 85,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 54,
+      "artist": "Alex Isley",
+      "track": "Westside",
+      "duration": 178.779,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1875112317",
+      "appleMusicURL": "https://music.apple.com/us/album/westside/1875112024?i=1875112317",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 808,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Alex Isley",
+            "track": "Westside",
+            "album": "Westside",
+            "duration": 178.779
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 267,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 187,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Alex Isley",
+            "track": "Westside",
+            "album": "Westside",
+            "duration": 179
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 216,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 55,
+      "artist": "Odeal",
+      "track": "After The Club",
+      "duration": 228.348,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6792506857",
+      "appleMusicURL": "https://music.apple.com/us/album/after-the-club/6792506836?i=6792506857",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 805,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Odeal",
+            "track": "After The Club",
+            "album": "For A Good Time...",
+            "duration": 228.348
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 824,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 158,
+          "result": "unavailable",
+          "returnedRecording": {
+            "artist": "Odeal",
+            "track": "After The Club",
+            "album": "Odeal Videos",
+            "duration": 243
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 96,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 56,
+      "artist": "Sy'Rai",
+      "track": "Stimulation",
+      "duration": 170.725,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6798173135",
+      "appleMusicURL": "https://music.apple.com/us/album/stimulation/6798173129?i=6798173135",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 922,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Sy'Rai",
+            "track": "Stimulation",
+            "album": "Cold War",
+            "duration": 170.725
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 591,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 154,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 169,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 57,
+      "artist": "Eric Bellinger",
+      "track": "Closure",
+      "duration": 183.158,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6776701090",
+      "appleMusicURL": "https://music.apple.com/us/album/closure/6776700986?i=6776701090",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 835,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Eric Bellinger",
+            "track": "Closure",
+            "album": "Eric Bellinger",
+            "duration": 183.157
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 411,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 155,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Eric Bellinger",
+            "track": "Closure",
+            "album": "Eric Bellinger",
+            "duration": 184
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 93,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 58,
+      "artist": "Blxst & Sasha Keable",
+      "track": "Ruin",
+      "duration": 199.2,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6763176090",
+      "appleMusicURL": "https://music.apple.com/us/album/ruin/1895199881?i=6763176090",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 1541,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Blxst, Sasha Keable",
+            "track": "Ruin",
+            "album": "Ruin",
+            "duration": 199.2
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 802,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 253,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 127,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 59,
+      "artist": "Miles Caton",
+      "track": "Lean On",
+      "duration": 205,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6800920720",
+      "appleMusicURL": "https://music.apple.com/us/album/lean-on/6800920711?i=6800920720",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 877,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Miles Caton",
+            "track": "Lean On",
+            "album": "Lean On",
+            "duration": 205.035
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 260,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 177,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Miles Caton",
+            "track": "Lean On",
+            "album": "Lean On",
+            "duration": 205
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 85,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 60,
+      "artist": "Chlöe & Timbaland",
+      "track": "Talking Dirty",
+      "duration": 132.048,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6780734940",
+      "appleMusicURL": "https://music.apple.com/us/album/talking-dirty/6780734939?i=6780734940",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 796,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Chlöe, Timbaland",
+            "track": "Talking Dirty",
+            "album": "Resurrection",
+            "duration": 132.075
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 630,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 3054,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Chlöe, Timbaland",
+            "track": "Talking Dirty",
+            "album": "Resurrection",
+            "duration": 132
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 90,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 61,
+      "artist": "BJRNCK & G Herbo",
+      "track": "Coming Home",
+      "duration": 212.222,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6781070927",
+      "appleMusicURL": "https://music.apple.com/us/album/coming-home/6781070924?i=6781070927",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 1584,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "BJRNCK, G Herbo",
+            "track": "Coming Home",
+            "album": "Coming Home",
+            "duration": 212.221
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 1011,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 679,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "BJRNCK, G Herbo",
+            "track": "Coming Home",
+            "album": "Coming Home",
+            "duration": 212
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 158,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 62,
+      "artist": "Bryson Tiller",
+      "track": "Drop The Lo",
+      "duration": 161.47,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6775562558",
+      "appleMusicURL": "https://music.apple.com/us/album/drop-the-lo/6775562557?i=6775562558",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 833,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Bryson Tiller",
+            "track": "Drop The Lo",
+            "album": "Drop The Lo",
+            "duration": 161.515
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 473,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 481,
+          "result": "unavailable",
+          "returnedRecording": {
+            "artist": "Bryson Tiller",
+            "track": "Drop The Lo",
+            "album": "205 rb x ditonton",
+            "duration": 163
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 89,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 63,
+      "artist": "Tink",
+      "track": "Strangers",
+      "duration": 164.574,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "1883252372",
+      "appleMusicURL": "https://music.apple.com/us/album/strangers/1883252371?i=1883252372",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 822,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Tink",
+            "track": "Strangers",
+            "album": "Fuck, Marry, Kill",
+            "duration": 164.574
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 658,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 307,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 104,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 64,
+      "artist": "Mannywellz",
+      "track": "Cry On You",
+      "duration": 104.071,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1887617833",
+      "appleMusicURL": "https://music.apple.com/us/album/cry-on-you/1887617828?i=1887617833",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 795,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Mannywellz",
+            "track": "Cry On You",
+            "album": "Small Chops",
+            "duration": 104.07
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 698,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 342,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Mannywellz",
+            "track": "Cry On You",
+            "album": "Small Chops",
+            "duration": 104
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 99,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 65,
+      "artist": "Larry June & Jhené Aiko",
+      "track": "California Dream",
+      "duration": 184.55,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6786105232",
+      "appleMusicURL": "https://music.apple.com/us/album/california-dream/6786105209?i=6786105232",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 888,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Larry June, Jhené Aiko",
+            "track": "California Dream",
+            "album": "Who Coppin",
+            "duration": 184.55
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 856,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 175,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Larry June, Jhené Aiko",
+            "track": "California Dream",
+            "album": "California Dream (feat. Jhené Aiko)",
+            "duration": 184
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 84,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 66,
+      "artist": "Jacquees",
+      "track": "Accuse Me",
+      "duration": 216.971,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6779424949",
+      "appleMusicURL": "https://music.apple.com/us/album/accuse-me/6779424635?i=6779424949",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 760,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Jacquees",
+            "track": "Accuse Me",
+            "album": "Mood 2",
+            "duration": 216.971
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 833,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 283,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Jacquees",
+            "track": "Accuse Me",
+            "album": "Mood 2",
+            "duration": 216
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 793,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 67,
+      "artist": "Trippie Redd & PARTYNEXTDOOR",
+      "track": "Say What",
+      "duration": 256.18,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6796878899",
+      "appleMusicURL": "https://music.apple.com/us/album/say-what/6796878855?i=6796878899",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 797,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Trippie Redd, PARTYNEXTDOOR",
+            "track": "Say What (feat. PARTYNEXTDOOR)",
+            "album": "NDA",
+            "duration": 256.179
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 266,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 430,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Trippie Redd & PARTYNEXTDOOR",
+            "track": "Say What",
+            "album": "",
+            "duration": 256
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 159,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 68,
+      "artist": "kwn",
+      "track": "risk it all",
+      "duration": 182.257,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6769881069",
+      "appleMusicURL": "https://music.apple.com/us/album/risk-it-all/6769880663?i=6769881069",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 764,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "kwn",
+            "track": "risk it all",
+            "album": "and all pride aside",
+            "duration": 182.308
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 501,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 171,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "KwN",
+            "track": "risk it all",
+            "album": "risk it all - Single",
+            "duration": 182
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 99,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 69,
+      "artist": "Kenny Iko",
+      "track": "Pretty Words",
+      "duration": 211.749,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6784789380",
+      "appleMusicURL": "https://music.apple.com/us/album/pretty-words/6784789375?i=6784789380",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 863,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Kenny Iko",
+            "track": "Pretty Words",
+            "album": "Pretty Words",
+            "duration": 211.748
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 559,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 162,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 106,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 70,
+      "artist": "Baby Rose & Leon Thomas",
+      "track": "Friends Again",
+      "duration": 218.123,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1871211171",
+      "appleMusicURL": "https://music.apple.com/us/album/friends-again/1871211170?i=1871211171",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 1586,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Baby Rose, Leon Thomas",
+            "track": "Friends Again",
+            "album": "YEARNALISM",
+            "duration": 218.122
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 548,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 715,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Baby Rose & Leon Thomas",
+            "track": "Friends Again",
+            "album": "Friends Again - Single",
+            "duration": 218
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 102,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 71,
+      "artist": "Kehlani",
+      "track": "Folded",
+      "duration": 237.928,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6762886004",
+      "appleMusicURL": "https://music.apple.com/us/album/folded/1895059387?i=6762886004",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 804,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Kehlani",
+            "track": "Folded",
+            "album": "Folded",
+            "duration": 238.12
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 428,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 166,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Kehlani",
+            "track": "Folded",
+            "album": "Folded (Remix) [feat. JoJo]",
+            "duration": 235
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 78,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 72,
+      "artist": "Johnny Venus",
+      "track": "PORSCHE 911",
+      "duration": 183.613,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6794054876",
+      "appleMusicURL": "https://music.apple.com/us/album/porsche-911/6794054874?i=6794054876",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 899,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Johnny Venus",
+            "track": "Porsche 911",
+            "album": "Porsche 911",
+            "duration": 183.64
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 1021,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 163,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 86,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 73,
+      "artist": "Skilla Baby & Chris Brown",
+      "track": "Face Card (feat. Bryson Tiller)",
+      "duration": 158.976,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6777280609",
+      "appleMusicURL": "https://music.apple.com/us/album/face-card-feat-bryson-tiller/6777280138?i=6777280609",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 756,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Skilla Baby, Chris Brown, Bryson Tiller",
+            "track": "Face Card",
+            "album": "The Price Of Fame",
+            "duration": 158.973
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 356,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 196,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Skilla Baby & Chris Brown",
+            "track": "Face Card",
+            "album": "Face Card (feat. Bryson Tiller) - Single",
+            "duration": 158
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 324,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 74,
+      "artist": "6LACK & Odeal",
+      "track": "On Me",
+      "duration": 182.173,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1884792304",
+      "appleMusicURL": "https://music.apple.com/us/album/on-me/1884792154?i=1884792304",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 764,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "6LACK, Odeal",
+            "track": "On Me",
+            "album": "Love is the New Gangsta",
+            "duration": 182.173
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 166,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 214,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "6lack  odeal",
+            "track": "on me",
+            "album": "love is the new gangsta",
+            "duration": 183
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 89,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 75,
+      "artist": "Imani Imani",
+      "track": "Bet On Me",
+      "duration": 176.423,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6774761871",
+      "appleMusicURL": "https://music.apple.com/us/album/bet-on-me/6774761870?i=6774761871",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 817,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Imani Imani",
+            "track": "Bet On Me",
+            "album": "Papercut",
+            "duration": 176.423
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 403,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 175,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Imani Imani",
+            "track": "Bet On Me",
+            "album": "Papercut",
+            "duration": 176
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 76,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 76,
+      "artist": "Steve Lacy",
+      "track": "is it cool? (feat. SZA)",
+      "duration": 174.23,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6773775294",
+      "appleMusicURL": "https://music.apple.com/us/album/is-it-cool-feat-sza/6773775032?i=6773775294",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 777,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Steve Lacy, SZA",
+            "track": "is it cool?",
+            "album": "is it cool?",
+            "duration": 174.262
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 588,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 464,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Steve Lacy",
+            "track": "is it cool?",
+            "album": "Oh yeah?",
+            "duration": 174
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 103,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 77,
+      "artist": "Erykah Badu & The Alchemist",
+      "track": "Witch Doctor",
+      "duration": 386.02,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6797942040",
+      "appleMusicURL": "https://music.apple.com/us/album/witch-doctor/6797941897?i=6797942040",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 787,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Erykah Badu, The Alchemist",
+            "track": "Witch Doctor",
+            "album": "Before The World Blows",
+            "duration": 386.019
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 763,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 161,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Erykah Badu, The Alchemist",
+            "track": "Witch Doctor",
+            "album": "Before The World Blows",
+            "duration": 387
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 82,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 78,
+      "artist": "Kanye West & Lauryn Hill",
+      "track": "I CAN’T WAIT",
+      "duration": 137.143,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6782267813",
+      "appleMusicURL": "https://music.apple.com/us/album/i-cant-wait/6782267796?i=6782267813",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 744,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Kanye West, Ye, Lauryn Hill",
+            "track": "I CAN’T WAIT (feat. Ms. Lauryn Hill)",
+            "album": "BULLY - DELUXE",
+            "duration": 137.142
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 603,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 162,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 130,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 79,
+      "artist": "Syd",
+      "track": "Callin (feat. Blu june)",
+      "duration": 154.582,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6770776354",
+      "appleMusicURL": "https://music.apple.com/us/album/callin-feat-blu-june/6770776328?i=6770776354",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 1657,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Syd, Blu June",
+            "track": "Callin (feat. Blu june)",
+            "album": "Callin (feat. Blu june)",
+            "duration": 154.581
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 903,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 297,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Syd",
+            "track": "Callin",
+            "album": "Beard",
+            "duration": 154
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 87,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 80,
+      "artist": "Cleo Sol",
+      "track": "Sweet Thing",
+      "duration": 377.88,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6799814010",
+      "appleMusicURL": "https://music.apple.com/us/album/sweet-thing/6799813734?i=6799814010",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 783,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Cleo Sol",
+            "track": "Sweet Thing",
+            "album": "Gentlewoman",
+            "duration": 377.88
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 277,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 1635,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Cleo Sol",
+            "track": "Sweet Thing",
+            "album": "Gentlewoman",
+            "duration": 377
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 122,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 81,
+      "artist": "Jordan Adetunji",
+      "track": "Distraction",
+      "duration": 150.133,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6806361192",
+      "appleMusicURL": "https://music.apple.com/us/album/distraction/6806361191?i=6806361192",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 765,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Jordan Adetunji",
+            "track": "Distraction",
+            "album": "Distraction",
+            "duration": 150.133
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 921,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 163,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 94,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 82,
+      "artist": "Josh Levi",
+      "track": "SWERVE",
+      "duration": 171.784,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6793771980",
+      "appleMusicURL": "https://music.apple.com/us/album/swerve/6793771979?i=6793771980",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 793,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Josh Levi",
+            "track": "Swerve",
+            "album": "Swerve",
+            "duration": 171.783
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 573,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 159,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Josh Levi",
+            "track": "SWERVE",
+            "album": "SWERVE - Single",
+            "duration": 171
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 186,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 83,
+      "artist": "Masego",
+      "track": "Heaven",
+      "duration": 174.283,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6788496608",
+      "appleMusicURL": "https://music.apple.com/us/album/heaven/6788496604?i=6788496608",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 1582,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Masego",
+            "track": "Heaven",
+            "album": "Fix Your Face",
+            "duration": 174.282
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 791,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 316,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Masego",
+            "track": "Heaven",
+            "album": "Fix Your Face",
+            "duration": 174
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 88,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 84,
+      "artist": "October London",
+      "track": "Body Talk",
+      "duration": 211.963,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6795268559",
+      "appleMusicURL": "https://music.apple.com/us/album/body-talk/6795268554?i=6795268559",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 813,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "October London",
+            "track": "Body Talk",
+            "album": "Love Me For Me",
+            "duration": 211.962
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 492,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 191,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "October London",
+            "track": "Body Talk",
+            "album": "Love Me For Me",
+            "duration": 212
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 95,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 85,
+      "artist": "Ayra Starr",
+      "track": "Amazing (feat. kwn)",
+      "duration": 164.719,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6796539190",
+      "appleMusicURL": "https://music.apple.com/us/album/amazing-feat-kwn/6796539188?i=6796539190",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 801,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Ayra Starr, kwn",
+            "track": "Amazing",
+            "album": "Starrgirl",
+            "duration": 164.718
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 1041,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 669,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Ayra Starr",
+            "track": "Amazing (feat. kwn)",
+            "album": "",
+            "duration": 165
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 90,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 86,
+      "artist": "Victony",
+      "track": "SLICK",
+      "duration": 106.909,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6786449714",
+      "appleMusicURL": "https://music.apple.com/us/album/slick/6786449711?i=6786449714",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 744,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Victony",
+            "track": "SLICK",
+            "album": "SLICK",
+            "duration": 106.909
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 683,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 190,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Victony",
+            "track": "SLICK",
+            "album": "Victony",
+            "duration": 107
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 145,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 87,
+      "artist": "Victoria Monét",
+      "track": "Reach Out",
+      "duration": 159.494,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6791645438",
+      "appleMusicURL": "https://music.apple.com/us/album/reach-out/6791645195?i=6791645438",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 877,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Victoria Monét",
+            "track": "Reach Out",
+            "album": "Reach Out",
+            "duration": 159.529
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 673,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 332,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 123,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 88,
+      "artist": "nomi.",
+      "track": "what u want",
+      "duration": 165.652,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6786905548",
+      "appleMusicURL": "https://music.apple.com/us/album/what-u-want/6786905547?i=6786905548",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 799,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "nomi.",
+            "track": "what u want",
+            "album": "what u want",
+            "duration": 165.652
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 461,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 1940,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "nomi.",
+            "track": "what u want",
+            "album": "what u want - Single",
+            "duration": 165
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 82,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 89,
+      "artist": "Chxrry & Mariah the Scientist",
+      "track": "Bottles & Lights",
+      "duration": 205.714,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6763041153",
+      "appleMusicURL": "https://music.apple.com/us/album/bottles-lights/1895133498?i=6763041153",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 1592,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Chxrry, Mariah the Scientist",
+            "track": "Bottles & Lights",
+            "album": "U, Me & My Ego",
+            "duration": 205.714
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 456,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 207,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Chxrry & Mariah the Scientist",
+            "track": "Bottles & Lights",
+            "album": "Bottles & Lights - Single",
+            "duration": 206
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 182,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 90,
+      "artist": "Tank",
+      "track": "YES",
+      "duration": 223.404,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6781005070",
+      "appleMusicURL": "https://music.apple.com/us/album/yes/6781004788?i=6781005070",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 871,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Tank",
+            "track": "Yes",
+            "album": "YES",
+            "duration": 223.403
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 809,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 162,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Tank",
+            "track": "YES",
+            "album": "HIGHLIGHT (feat. Charlie Wilson & MK)",
+            "duration": 223
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 107,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 91,
+      "artist": "Fana Hues",
+      "track": "Sweet n’ Sour",
+      "duration": 157.684,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6776752010",
+      "appleMusicURL": "https://music.apple.com/us/album/sweet-n-sour/6776752007?i=6776752010",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 754,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Fana Hues",
+            "track": "Sweet N’ Sour",
+            "album": "Sweet N’ Sour",
+            "duration": 157.683
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 485,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 185,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Fana Hues",
+            "track": "Sweet n’ Sour",
+            "album": "Sweet n’ Sour",
+            "duration": 158
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 110,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 92,
+      "artist": "Pimmie",
+      "track": "Call Me When You Can",
+      "duration": 131.19,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1879554859",
+      "appleMusicURL": "https://music.apple.com/us/album/call-me-when-you-can/1879554858?i=1879554859",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 846,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Pimmie",
+            "track": "Call Me When You Can",
+            "album": "Don’t Come Home",
+            "duration": 131.189
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 754,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 338,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Pimmie",
+            "track": "Call Me When You Can",
+            "album": "Call Me When You Can (Live Sessions)",
+            "duration": 132
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 85,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 93,
+      "artist": "rjtheweirdo & Ty Dolla $ign",
+      "track": "The Perfect One",
+      "duration": 176,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "1889992071",
+      "appleMusicURL": "https://music.apple.com/us/album/the-perfect-one/1889992065?i=1889992071",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 902,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Rjtheweirdo, Ty Dolla $ign",
+            "track": "The Perfect One",
+            "album": "The Perfect One",
+            "duration": 176
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 1097,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 189,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "rjtheweirdo, Ty Dolla $ign",
+            "track": "The Perfect One",
+            "album": "The Perfect One",
+            "duration": 176
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 88,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 94,
+      "artist": "Kelela",
+      "track": "goin down",
+      "duration": 200.36,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "1888561543",
+      "appleMusicURL": "https://music.apple.com/us/album/goin-down/1888561538?i=1888561543",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 758,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Kelela",
+            "track": "goin down",
+            "album": "new avatar",
+            "duration": 200.36
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 334,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 346,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Kelela",
+            "track": "goin down",
+            "album": "new avatar",
+            "duration": 200
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 213,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 95,
+      "artist": "Durand Bernarr",
+      "track": "My Life",
+      "duration": 211.994,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1893157347",
+      "appleMusicURL": "https://music.apple.com/us/album/my-life/1893156957?i=1893157347",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 759,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Durand Bernarr",
+            "track": "My Life",
+            "album": "BERNARR.",
+            "duration": 211.993
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 822,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 267,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Durand Bernarr",
+            "track": "My Life",
+            "album": "BERNARR.",
+            "duration": 227
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 95,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 96,
+      "artist": "DESTIN CONRAD & kwn",
+      "track": "DADAMAN",
+      "duration": 161.087,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6800143047",
+      "appleMusicURL": "https://music.apple.com/us/album/dadaman/6800143024?i=6800143047",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 789,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "DESTIN CONRAD, kwn",
+            "track": "DADAMAN",
+            "album": "ROADRUNNER",
+            "duration": 161.086
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 954,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 573,
+          "result": "unavailable",
+          "returnedRecording": {
+            "artist": "DESTIN CONRAD & kwn",
+            "track": "DADAMAN",
+            "album": "ROADRUNNER",
+            "duration": 162
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 80,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 97,
+      "artist": "N3WYRKLA",
+      "track": "CRIME",
+      "duration": 178.467,
+      "durationPrecision": "apple_music_millis",
+      "explicit": true,
+      "appleMusicID": "6794121781",
+      "appleMusicURL": "https://music.apple.com/us/album/crime/6794121778?i=6794121781",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 1553,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "N3WYRKLA",
+            "track": "IS IT A CRIME?",
+            "album": "IS IT A CRIME?",
+            "duration": 178.494
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 822,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 994,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 89,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 98,
+      "artist": "Magnus Ferrell",
+      "track": "Asleep Talking",
+      "duration": 156.33,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1892157901",
+      "appleMusicURL": "https://music.apple.com/us/album/asleep-talking/1892157897?i=1892157901",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 813,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Magnus Ferrell",
+            "track": "Asleep Talking",
+            "album": "Asleep Talking",
+            "duration": 156.329
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 440,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 166,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Magnus Ferrell",
+            "track": "Asleep Talking",
+            "album": "Asleep Talking",
+            "duration": 157
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 99,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 99,
+      "artist": "Isaia Huron",
+      "track": "fade",
+      "duration": 262.969,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6800026092",
+      "appleMusicURL": "https://music.apple.com/us/album/fade/6800025737?i=6800026092",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 823,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Isaia Huron",
+            "track": "fade",
+            "album": "Mr. Lovebomb (Deluxe)",
+            "duration": 263
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 928,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 2637,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Isaia Huron",
+            "track": "fade",
+            "album": "Mr. Lovebomb (Deluxe)",
+            "duration": 263
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 89,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 100,
+      "artist": "Ari Lennox",
+      "track": "Hookah Baby",
+      "duration": 176.363,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "6792948591",
+      "appleMusicURL": "https://music.apple.com/us/album/hookah-baby/6792948589?i=6792948591",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 742,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Ari Lennox",
+            "track": "Hookah Baby",
+            "album": "Hookah Baby",
+            "duration": 176.363
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 340,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 429,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Ari Lennox",
+            "track": "Hookah Baby",
+            "album": "Hookah Baby",
+            "duration": 176
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 95,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    },
+    {
+      "position": 101,
+      "artist": "Sasha Keable",
+      "track": "heal something",
+      "duration": 181.707,
+      "durationPrecision": "apple_music_millis",
+      "explicit": false,
+      "appleMusicID": "1871463897",
+      "appleMusicURL": "https://music.apple.com/us/album/heal-something/1871463550?i=1871463897",
+      "group": "apple-music-rnb-now",
+      "recordingDurationKnown": true,
+      "result": "estimated_words_only",
+      "providers": [
+        {
+          "provider": "netease",
+          "status": 200,
+          "ms": 1557,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Sasha Keable",
+            "track": "heal something",
+            "album": "ACT II",
+            "duration": 181.765
+          },
+          "error": null
+        },
+        {
+          "provider": "richsync",
+          "status": 200,
+          "ms": 827,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        },
+        {
+          "provider": "lrclib",
+          "status": 200,
+          "ms": 207,
+          "result": "line_timestamps",
+          "returnedRecording": {
+            "artist": "Sasha Keable",
+            "track": "heal something",
+            "album": "ACT II",
+            "duration": 181
+          },
+          "error": null
+        },
+        {
+          "provider": "prepared",
+          "status": 200,
+          "ms": 79,
+          "result": "unavailable",
+          "returnedRecording": null,
+          "error": null
+        }
+      ]
+    }
+  ]
+}

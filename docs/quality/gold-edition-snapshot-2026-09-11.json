@@ -1,0 +1,34 @@
+{
+  "playlistId": "37i9dQZF1DWXnexX7CktaI",
+  "playlistName": "Gold Edition",
+  "sourceURL": "https://open.spotify.com/playlist/37i9dQZF1DWXnexX7CktaI",
+  "snapshotDate": "2026-09-11",
+  "source": "Spotify public web player visible playlist rows",
+  "expectedTrackCount": 150,
+  "capturedTrackCount": 150,
+  "missingPositions": [],
+  "inventoryFile": "gold-edition-tracks-2026-09-11.json",
+  "identity": "Exact Spotify track IDs and linked album names captured; lyric-provider recording correspondence requires verification.",
+  "durationPrecision": "Spotify displayed mm:ss, not millisecond track duration.",
+  "isrcStatus": "not_retrieved",
+  "explicitField": "Whether the playlist displayed an Explicit badge; absence is not an independent lyric-content check.",
+  "transferCheck": {
+    "algorithm": "FNV-1a over UTF-16 code units",
+    "fields": [
+      "position",
+      "spotifyId",
+      "artist",
+      "track",
+      "duration",
+      "album",
+      "explicit (0/1)"
+    ],
+    "format": "tab-separated fields, newline-separated rows, no trailing newline",
+    "browserChecksum": "01e0d51f",
+    "savedFileChecksum": "01e0d51f"
+  },
+  "baselineNativeReport": "gold-edition-native-2026-09-11.json",
+  "finalNativeReport": "gold-edition-native-after-search-fix-2026-09-11.json",
+  "accuracyStatus": "not_measured",
+  "devicePlaybackStatus": "not_exercised_in_this_audit"
+}

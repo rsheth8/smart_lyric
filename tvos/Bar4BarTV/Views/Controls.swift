@@ -22,6 +22,7 @@ struct TVPillStyle: ButtonStyle {
     let configuration: Configuration
     let tint: Color
     @Environment(\.isFocused) private var focused
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
       configuration.label
@@ -29,18 +30,18 @@ struct TVPillStyle: ButtonStyle {
         .foregroundStyle(focused ? Tokens.accentInk : tint)
         .padding(.horizontal, Tokens.Space.s4)
         .padding(.vertical, Tokens.Space.s3)
-        .background(focused ? Tokens.accentStatic : Tokens.surface2, in: Capsule())
+        .background(focused ? Tokens.accentStatic : Tokens.surface2, in: RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
         .overlay(
-          Capsule().stroke(focused ? Color.clear : Tokens.line1, lineWidth: 1)
+          RoundedRectangle(cornerRadius: Tokens.Radius.md).stroke(focused ? Color.clear : Tokens.line1, lineWidth: 1)
         )
         .shadow(
-          color: focused ? Tokens.accentStatic.opacity(0.35) : .clear,
+          color: focused ? .black.opacity(0.28) : .clear,
           radius: focused ? 22 : 0,
           y: focused ? 8 : 0
         )
-        .scaleEffect(configuration.isPressed ? 0.96 : (focused ? 1.06 : 1))
-        .animation(Tokens.Motion.easeOut, value: focused)
-        .animation(.easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
+        .scaleEffect(configuration.isPressed ? 0.96 : (focused && !reduceMotion ? 1.025 : 1))
+        .animation(reduceMotion ? nil : Tokens.Motion.easeOut, value: focused)
+        .animation(reduceMotion ? nil : .easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
     }
   }
 }
@@ -60,6 +61,7 @@ struct TVActionCardStyle: ButtonStyle {
     let configuration: Configuration
     let accent: Color
     @Environment(\.isFocused) private var focused
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
       configuration.label
@@ -71,17 +73,17 @@ struct TVActionCardStyle: ButtonStyle {
         )
         .overlay(
           RoundedRectangle(cornerRadius: Tokens.Radius.xxl, style: .continuous)
-            .stroke(focused ? accent : Tokens.line1, lineWidth: focused ? Tokens.ringWidth : 1)
+            .stroke(focused ? Tokens.accentStatic : Tokens.line1, lineWidth: focused ? Tokens.ringWidth : 1)
         )
         .shadow(
-          color: focused ? accent.opacity(0.28) : .black.opacity(0.35),
+          color: focused ? .black.opacity(0.28) : .black.opacity(0.35),
           radius: focused ? 34 : 14,
           y: focused ? 14 : 6
         )
-        .scaleEffect(configuration.isPressed ? 0.985 : (focused ? 1.03 : 1))
-        .offset(y: focused ? Tokens.ringLift : 0)
-        .animation(Tokens.Motion.easeOut, value: focused)
-        .animation(.easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
+        .scaleEffect(configuration.isPressed ? 0.985 : (focused && !reduceMotion ? 1.015 : 1))
+        .offset(y: focused && !reduceMotion ? Tokens.ringLift : 0)
+        .animation(reduceMotion ? nil : Tokens.Motion.easeOut, value: focused)
+        .animation(reduceMotion ? nil : .easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
     }
   }
 }
@@ -102,6 +104,7 @@ struct TVPosterStyle: ButtonStyle {
   private struct PosterBody: View {
     let configuration: Configuration
     @Environment(\.isFocused) private var focused
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
       configuration.label
@@ -111,19 +114,87 @@ struct TVPosterStyle: ButtonStyle {
             .frame(width: Tokens.cardW, height: Tokens.cardW)
         }
         .shadow(
-          color: focused ? Tokens.accentStatic.opacity(0.30) : .black.opacity(0.4),
+          color: focused ? .black.opacity(0.28) : .black.opacity(0.4),
           radius: focused ? 30 : 10,
           y: focused ? 14 : 5
         )
-        .scaleEffect(configuration.isPressed ? 0.97 : (focused ? 1.06 : 1))
-        .offset(y: focused ? Tokens.ringLift : 0)
-        .animation(Tokens.Motion.easeOut, value: focused)
-        .animation(.easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
+        .scaleEffect(configuration.isPressed ? 0.97 : (focused && !reduceMotion ? 1.025 : 1))
+        .offset(y: focused && !reduceMotion ? Tokens.ringLift : 0)
+        .animation(reduceMotion ? nil : Tokens.Motion.easeOut, value: focused)
+        .animation(reduceMotion ? nil : .easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
     }
   }
 }
 
-// MARK: - Icon pill
+// MARK: - Transport
+
+/// Now Playing transport. Unfocused controls are glyphs; focus paints a gold
+/// disc. Play is the only plate that stays visible at rest.
+struct TVTransportStyle: ButtonStyle {
+  var diameter: CGFloat = 64
+  var prominent: Bool = false
+  var quiet: Bool = false
+  var selected: Bool = false
+
+  func makeBody(configuration: Configuration) -> some View {
+    TransportBody(
+      configuration: configuration,
+      diameter: diameter,
+      prominent: prominent,
+      quiet: quiet,
+      selected: selected
+    )
+  }
+
+  private struct TransportBody: View {
+    let configuration: ButtonStyleConfiguration
+    let diameter: CGFloat
+    let prominent: Bool
+    let quiet: Bool
+    let selected: Bool
+    @Environment(\.isFocused) private var focused
+    @Environment(\.isEnabled) private var enabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+      configuration.label
+        .font(.system(size: symbolSize, weight: prominent ? .bold : .semibold))
+        .foregroundStyle(symbolColor)
+        .frame(width: diameter, height: diameter)
+        .background(Circle().fill(fill))
+        .shadow(
+          color: focused ? Tokens.accentStatic.opacity(0.38) : .clear,
+          radius: focused ? 20 : 0,
+          y: focused ? 6 : 0
+        )
+        .scaleEffect(configuration.isPressed ? 0.94 : (focused && !reduceMotion ? 1.05 : 1))
+        .opacity(enabled ? 1 : 0.32)
+        .animation(reduceMotion ? nil : Tokens.Motion.easeOut, value: focused)
+        .animation(reduceMotion ? nil : .easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
+    }
+
+    private var symbolSize: CGFloat {
+      if prominent { return 34 }
+      if quiet { return 22 }
+      return 24
+    }
+
+    private var symbolColor: Color {
+      if focused { return Tokens.accentInk }
+      if selected { return Tokens.accentStatic }
+      if prominent { return Tokens.text1 }
+      if quiet { return Tokens.text3 }
+      return Tokens.text2
+    }
+
+    private var fill: Color {
+      if focused { return Tokens.accentStatic }
+      if prominent { return Color.white.opacity(0.12) }
+      if selected { return Tokens.accentStatic.opacity(0.16) }
+      return .clear
+    }
+  }
+}
 
 /// A circular icon button — used for steppers, where a `−` / `+` label in a
 /// full-width pill would be mostly empty space.
@@ -135,6 +206,7 @@ struct TVIconButtonStyle: ButtonStyle {
   private struct IconBody: View {
     let configuration: Configuration
     @Environment(\.isFocused) private var focused
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
       configuration.label
@@ -144,13 +216,13 @@ struct TVIconButtonStyle: ButtonStyle {
         .background(focused ? Tokens.accentStatic : Tokens.surface2, in: Circle())
         .overlay(Circle().stroke(focused ? Color.clear : Tokens.line1, lineWidth: 1))
         .shadow(
-          color: focused ? Tokens.accentStatic.opacity(0.35) : .clear,
+          color: focused ? .black.opacity(0.28) : .clear,
           radius: focused ? 20 : 0,
           y: focused ? 6 : 0
         )
-        .scaleEffect(configuration.isPressed ? 0.94 : (focused ? 1.08 : 1))
-        .animation(Tokens.Motion.easeOut, value: focused)
-        .animation(.easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
+        .scaleEffect(configuration.isPressed ? 0.94 : (focused && !reduceMotion ? 1.025 : 1))
+        .animation(reduceMotion ? nil : Tokens.Motion.easeOut, value: focused)
+        .animation(reduceMotion ? nil : .easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
     }
   }
 }
@@ -303,6 +375,7 @@ struct TVRowStyle: ButtonStyle {
     let configuration: Configuration
     let tint: Color
     @Environment(\.isFocused) private var focused
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
       configuration.label
@@ -320,59 +393,35 @@ struct TVRowStyle: ButtonStyle {
         // is inset inside a `TVGroup`, and scaling it pushes the gold fill out
         // past the group's own rounded border.
         .scaleEffect(configuration.isPressed ? 0.99 : 1)
-        .animation(Tokens.Motion.easeOut, value: focused)
-        .animation(.easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
+        .animation(reduceMotion ? nil : Tokens.Motion.easeOut, value: focused)
+        .animation(reduceMotion ? nil : .easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
     }
   }
 }
 
 // MARK: - Brand lockup
 
-/// "Bar4Bar" with the ember "4" — the one place the ember brand color is used,
-/// exactly as in the web app.
+/// A quiet wordmark, with the numeral as its single accent.
 struct BrandLockup: View {
   var size: CGFloat = Tokens.FontSize.xxl
-
   var body: some View {
-    HStack(spacing: 0) {
-      Text("Bar").foregroundStyle(Tokens.accentStatic)
-      Text("4").foregroundStyle(Tokens.ember)
-      Text("Bar").foregroundStyle(Tokens.accentStatic)
-    }
-    .font(Tokens.display(size, .bold))
-    .shadow(color: Tokens.accentStatic.opacity(0.25), radius: 30, y: 6)
+    (Text("Bar").foregroundColor(Tokens.text1)
+     + Text("4").foregroundColor(Tokens.accentStatic)
+     + Text("Bar").foregroundColor(Tokens.text1))
+      .font(Tokens.editorial(size))
+      .tracking(-size * 0.045)
   }
 }
 
-/// The B4B badge — the app icon's mark, rendered in type.
-///
-/// The web hub carries it beside the wordmark and the TV app did not, which is
-/// most of why the tvOS header read as a title rather than a brand. It is a
-/// glowing plate, not a flat square: the inner shadow is what keeps it from
-/// looking like an empty input field.
 struct BrandMark: View {
   var side: CGFloat = 84
-
   var body: some View {
-    // Three runs in an HStack, not one string with a colored overlay: an
-    // overlaid "4" centres on the *whole* string's box rather than on the
-    // glyph, which renders as a smear.
-    HStack(spacing: 0) {
-      Text("B").foregroundStyle(Tokens.accentSoft)
-      Text("4").foregroundStyle(Tokens.ember)
-      Text("B").foregroundStyle(Tokens.accentSoft)
-    }
-    .font(Tokens.display(side * 0.30, .heavy))
-    .frame(width: side, height: side)
-      .background(
-        RoundedRectangle(cornerRadius: Tokens.Radius.md + 1, style: .continuous)
-          .fill(Tokens.surface0)
-      )
-      .overlay(
-        RoundedRectangle(cornerRadius: Tokens.Radius.md + 1, style: .continuous)
-          .stroke(Tokens.accentStatic.opacity(0.46), lineWidth: 1)
-      )
-      .shadow(color: Tokens.accentStatic.opacity(0.20), radius: 24)
+    Text("b4b")
+      .font(Tokens.display(side * 0.32, .semibold))
+      .tracking(-2)
+      .foregroundStyle(Tokens.accentStatic)
+      .frame(width: side, height: side)
+      .background(Tokens.surface2, in: RoundedRectangle(cornerRadius: Tokens.Radius.md))
   }
 }
 
@@ -411,7 +460,8 @@ extension ShelfHeader where Trailing == EmptyView {
   }
 }
 
-/// A poster card: cover, title, artist.
+/// A poster card: cover, title, artist, and recording context. Album and
+/// duration keep visually identical editions from becoming a guessing game.
 struct PosterCard: View {
   let item: CatalogItem
   var onPlay: () -> Void
@@ -430,9 +480,28 @@ struct PosterCard: View {
           .foregroundStyle(Tokens.text2)
           .lineLimit(1)
           .frame(width: Tokens.cardW, alignment: .leading)
+        if let detail = recordingDetail {
+          Text(detail)
+            .font(Tokens.display(Tokens.FontSize.xs, .regular))
+            .foregroundStyle(Tokens.text3)
+            .lineLimit(1)
+            .frame(width: Tokens.cardW, alignment: .leading)
+        }
       }
     }
     .buttonStyle(TVPosterStyle())
+  }
+
+  private var recordingDetail: String? {
+    let album = item.album?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let duration = item.duration.map(Self.durationLabel)
+    let parts = [album.flatMap { $0.isEmpty ? nil : $0 }, duration].compactMap { $0 }
+    return parts.isEmpty ? nil : parts.joined(separator: " · ")
+  }
+
+  private static func durationLabel(_ duration: Double) -> String {
+    let total = max(0, Int(duration.rounded()))
+    return String(format: "%d:%02d", total / 60, total % 60)
   }
 }
 
@@ -514,6 +583,7 @@ struct CoverArt: View {
 /// whole page jump; reserving the space keeps the layout still.
 struct SkeletonCard: View {
   @State private var shimmer = false
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
     VStack(alignment: .leading, spacing: Tokens.Space.s2) {
@@ -526,7 +596,7 @@ struct SkeletonCard: View {
         .frame(width: Tokens.cardW * 0.5, height: Tokens.FontSize.sm * 0.7)
     }
     .opacity(shimmer ? 0.75 : 0.4)
-    .animation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true), value: shimmer)
+    .animation(reduceMotion ? nil : .easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: shimmer)
     .onAppear { shimmer = true }
   }
 }
@@ -551,9 +621,9 @@ struct SourceTile: View {
       HStack(spacing: Tokens.Space.s3) {
         Image(systemName: icon)
           .font(.system(size: Tokens.FontSize.md, weight: .semibold))
-          .foregroundStyle(tint)
-          .frame(width: 62, height: 62)
-          .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
+          .foregroundStyle(Tokens.accentStatic)
+          .frame(width: 52, height: 52)
+          .background(Tokens.surface2, in: RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
 
         VStack(alignment: .leading, spacing: 2) {
           HStack(spacing: Tokens.Space.s2) {
@@ -588,6 +658,7 @@ struct TVTileStyle: ButtonStyle {
     let configuration: Configuration
     let tint: Color
     @Environment(\.isFocused) private var focused
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
       configuration.label
@@ -599,17 +670,17 @@ struct TVTileStyle: ButtonStyle {
         )
         .overlay(
           RoundedRectangle(cornerRadius: Tokens.Radius.xl, style: .continuous)
-            .stroke(focused ? tint : Tokens.line1, lineWidth: focused ? Tokens.ringWidth : 1)
+            .stroke(focused ? Tokens.accentStatic : Tokens.line1, lineWidth: focused ? Tokens.ringWidth : 1)
         )
         .shadow(
-          color: focused ? tint.opacity(0.26) : .black.opacity(0.3),
+          color: focused ? .black.opacity(0.28) : .black.opacity(0.3),
           radius: focused ? 28 : 10,
           y: focused ? 12 : 4
         )
-        .scaleEffect(configuration.isPressed ? 0.98 : (focused ? 1.04 : 1))
-        .offset(y: focused ? Tokens.ringLift : 0)
-        .animation(Tokens.Motion.easeOut, value: focused)
-        .animation(.easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
+        .scaleEffect(configuration.isPressed ? 0.98 : (focused && !reduceMotion ? 1.015 : 1))
+        .offset(y: focused && !reduceMotion ? Tokens.ringLift : 0)
+        .animation(reduceMotion ? nil : Tokens.Motion.easeOut, value: focused)
+        .animation(reduceMotion ? nil : .easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
     }
   }
 }
@@ -693,34 +764,31 @@ struct HintBar: View {
 
 // MARK: - Ambient background
 
-/// The shared room: espresso ground, a slow accent glow, and a vignette.
+/// Browsing uses the same palette as playback at a lower light level.
 struct AmbientBackdrop: View {
   var accent: Color = Tokens.accentStatic
   var intensity: Double = 1
-
   var body: some View {
-    ZStack {
-      Tokens.surface0
+    ListeningRoomBackdrop(accent: accent, intensity: intensity)
+  }
+}
 
-      RadialGradient(
-        colors: [
-          accent.opacity(0.20 * intensity),
-          accent.opacity(0.05 * intensity),
-          .clear,
-        ],
-        center: .init(x: 0.18, y: 0.12),
-        startRadius: 0,
-        endRadius: 1100
-      )
-      .blendMode(.screen)
-
-      RadialGradient(
-        colors: [.clear, .black.opacity(0.5)],
-        center: .center,
-        startRadius: 500,
-        endRadius: 1300
-      )
+struct TVPageHeading: View {
+  let title: String
+  let subtitle: String
+  var body: some View {
+    HStack(alignment: .top) {
+      VStack(alignment: .leading, spacing: Tokens.Space.s2) {
+        Text(title)
+          .font(Tokens.editorial(54))
+          .tracking(-1.5)
+          .foregroundStyle(Tokens.text1)
+        Text(subtitle)
+          .font(Tokens.display(24, .regular))
+          .foregroundStyle(Tokens.text2)
+      }
+      Spacer(minLength: Tokens.Space.s5)
+      BrandLockup(size: 30).padding(.top, 12)
     }
-    .ignoresSafeArea()
   }
 }

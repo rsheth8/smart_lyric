@@ -166,6 +166,11 @@ Projector-ready lyric-follow / karaoke display. Clock-driven highlighting (displ
 > realistic route is SwiftUI + the same LRCLIB/NetEase/Musixmatch fetchers (they're
 > plain HTTPS) with lyrics rendering ported. Until then: AirPlay/HDMI the Mac app.
 
+> **Native tvOS app scaffold (2026-07-28):** `tvos/` — SwiftUI Bar4BarTV + Bar4BarCore
+> (clock, LRC/yrc/richsync/TTML, match, display math, lyrics client). MusicKit
+> playback + karaoke wipe UI. See `docs/tvos-migration.md`. Vinyl/align/separate
+> remain Mac Electron only.
+
 > **Duration-aware lyric matching (2026-07-16):** the single biggest match-accuracy
 > lever. Every medium supplies a target track **duration** (Spotify `duration_ms`,
 > iTunes `trackTimeMillis`, decoded audio length, ACRCloud) — the strongest signal

@@ -12,11 +12,12 @@ const { createHash, randomBytes } = require('node:crypto');
 const http = require('node:http');
 const { identifyWav } = require('./fingerprint.cjs');
 const { identifyAcr, acrConfigured } = require('./acrcloud.cjs');
-const { alignSong, alignAvailable, alignModelLoaded, alignWarm } = require('./align.cjs');
+const { alignSong, alignAvailable, alignModelLoaded, alignWarm, setAlignModel, alignModelStatus } = require('./align.cjs');
 const { separateVocals, separateAvailable, separateWarm } = require('./separate.cjs');
 const { readAlignment, writeAlignment } = require('./sidecar.cjs');
 const { transcribeAudio, transcribeAvailable } = require('./transcribe.cjs');
 const { cleanLyricLines, guessSongLanguage, anthropicConfigured } = require('./anthropic.cjs');
+const { configured: youtubeConfigured, lookupVideo: youtubeLookupVideo } = require('./youtube.cjs');
 const { buildMenu } = require('./menu.cjs');
 const { restoreState, trackState } = require('./window-state.cjs');
 
@@ -56,6 +57,7 @@ function loadEnvConfig() {
     appleMusicDeveloperToken: process.env.APPLE_MUSIC_DEVELOPER_TOKEN || '',
     spotifyRedirectUri: process.env.SPOTIFY_REDIRECT_URI || '',
     acrCloud: acrConfigured(),
+    youtubeConfigured: youtubeConfigured(),
   };
 }
 
@@ -369,6 +371,7 @@ function createWindow() {
   });
 
   ipcMain.handle('get-config', () => loadEnvConfig());
+  ipcMain.handle('youtube-lookup', async (_e, videoId) => youtubeLookupVideo(videoId));
   ipcMain.handle('spotify-login', () => spotifyLogin());
   ipcMain.handle('word-lyrics', async (_e, query) => {
     // Renderer loads via file:// with no proxy, so fetch NetEase here in main.
@@ -431,6 +434,8 @@ function createWindow() {
 
   ipcMain.handle('align-available', () => alignAvailable());
   ipcMain.handle('align-model-loaded', () => alignModelLoaded());
+  ipcMain.handle('align-model-status', () => alignModelStatus());
+  ipcMain.handle('align-set-model', (_e, presetOrId) => setAlignModel(presetOrId));
   ipcMain.handle('align-warm', async () => {
     try {
       return await alignWarm();

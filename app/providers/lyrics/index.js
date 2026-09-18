@@ -63,24 +63,64 @@ export async function fetchCatalogLyrics(
   if (sources.includes('musixmatch')) jobs.musixmatch = fetchFromMusixmatch(cleaned);
   if (sources.includes('lrclib')) jobs.lrclib = fetchFromLRCLIB(cleaned);
 
-  // One provider being down must not discard the others' results (or a local
-  // fallback we're holding) — settle each independently.
-  const [netease, musixmatch, lrclib] = await Promise.all([
-    settle(jobs.netease),
-    settle(jobs.musixmatch),
-    settle(jobs.lrclib),
-  ]);
+  // Staged settle: if a line-level hit arrives first, keep waiting briefly for
+  // word-sync (yrc / richsync) so we don't paint syllable estimates that jump
+  // when richer timing lands a second later. User preference: wait for quality.
+  const WORD_SYNC_GRACE_MS = 2800;
+  const state = { netease: undefined, musixmatch: undefined, lrclib: undefined };
+  const pN = settle(jobs.netease).then((v) => {
+    state.netease = v;
+    return v;
+  });
+  const pM = settle(jobs.musixmatch).then((v) => {
+    state.musixmatch = v;
+    return v;
+  });
+  const pL = settle(jobs.lrclib).then((v) => {
+    state.lrclib = v;
+    return v;
+  });
+  const allDone = Promise.all([pN, pM, pL]);
 
-  // Preference order = richest timing first (word-level visibly tracks the
-  // singer's phrasing): NetEase yrc → Musixmatch richsync → NetEase line+roman →
-  // LRCLIB line. But "prefer word-level" must not hand back the *wrong take*: a
-  // provider can return a same-titled cover / live / remix whose length is way
-  // off. `preferResult` keeps this order yet skips any candidate whose duration
-  // grossly mismatches the target, so a bad word-level hit yields to a correct
-  // line-level one. With no target duration, order is preserved (old behavior).
-  const yrc = netease?.format === 'yrc' ? netease : null;
-  const neteaseLine = netease && netease.format !== 'yrc' ? netease : null;
-  let best = preferResult([yrc, musixmatch, neteaseLine, lrclib], query.duration);
+  const preferFromState = () => {
+    const netease = state.netease;
+    const musixmatch = state.musixmatch === undefined ? null : state.musixmatch;
+    const lrclib = state.lrclib === undefined ? null : state.lrclib;
+    if (netease === undefined && state.musixmatch === undefined && state.lrclib === undefined) {
+      return null;
+    }
+    const yrc = netease?.format === 'yrc' ? netease : null;
+    const neteaseLine = netease && netease.format !== 'yrc' ? netease : null;
+    const neteaseLineRoman = neteaseLine?.roman ? neteaseLine : null;
+    const neteaseLineBare = neteaseLine && !neteaseLine.roman ? neteaseLine : null;
+    // Still-in-flight providers contribute nothing yet (null), so a fast LRCLIB
+    // hit doesn't get locked in while NetEase yrc is 1s away.
+    return preferResult(
+      [
+        netease === undefined ? null : yrc,
+        musixmatch,
+        netease === undefined ? null : neteaseLineRoman,
+        lrclib,
+        netease === undefined ? null : neteaseLineBare,
+      ],
+      query.duration
+    );
+  };
+
+  const started = Date.now();
+  let best = null;
+  while (Date.now() - started < WORD_SYNC_GRACE_MS) {
+    best = preferFromState();
+    if (best && isWordSyncFormat(best.format)) break;
+    const pending =
+      state.netease === undefined ||
+      state.musixmatch === undefined ||
+      state.lrclib === undefined;
+    if (!pending) break;
+    await Promise.race([allDone, new Promise((r) => setTimeout(r, 120))]);
+  }
+  await allDone;
+  best = preferFromState();
 
   // Streaming metadata often credits a playback-singer the lyric catalogs don't
   // know (common for Bollywood/regional tracks). Title-only retries against the

@@ -12,19 +12,33 @@
 // memory/compute stay bounded — a whole-song pass would blow up wav2vec2's full
 // self-attention (O(n²)) on multi-minute audio.
 //
-// Model constraints: wav2vec2-base-960h is an English/Latin acoustic model, so
+// Model constraints: the 960h English/Latin acoustic models share one vocab, so
 // non-Latin lyrics should be aligned via their romanization upstream. Everything
 // soft-fails to null → the caller keeps the existing line-level/syllable timing.
 
 const os = require('node:os');
 const path = require('node:path');
 
-// Default acoustic model (quantized ONNX, ~90 MB, downloaded + cached on first
-// use). Override with ALIGN_MODEL, but the built-in vocab below matches this one.
-const ALIGN_MODEL = process.env.ALIGN_MODEL || 'Xenova/wav2vec2-base-960h';
 const SAMPLE_RATE = 16000;
 const WINDOW_PAD_SEC = 0.25; // widen each line window so onsets/tails aren't clipped
 const MIN_WINDOW_SAMPLES = 800; // ~50 ms; below this the model has nothing to chew
+
+// Presets share wav2vec2 CTC character vocabs (pad=0, '|'=4). "high" uses the
+// publicly available Xenova ONNX build of a large English XLSR model — there is
+// no Xenova export of facebook/wav2vec2-large-960h-lv60 (that id 401s).
+const ALIGN_MODEL_PRESETS = {
+  default: 'Xenova/wav2vec2-base-960h',
+  high: 'Xenova/wav2vec2-large-xlsr-53-english',
+};
+
+function resolveInitialModel() {
+  if (process.env.ALIGN_MODEL && process.env.ALIGN_MODEL.trim()) {
+    return process.env.ALIGN_MODEL.trim();
+  }
+  return ALIGN_MODEL_PRESETS.default;
+}
+
+let ALIGN_MODEL = resolveInitialModel();
 
 // Canonical facebook/wav2vec2-base-960h vocab (its HF repo ships no
 // tokenizer_config.json, so AutoTokenizer can't build it). The ONNX classifier
@@ -34,6 +48,21 @@ const WAV2VEC2_960H_VOCAB = {
   N: 9, I: 10, H: 11, S: 12, R: 13, D: 14, L: 15, U: 16, M: 17, W: 18, C: 19,
   F: 20, G: 21, Y: 22, P: 23, B: 24, V: 25, K: 26, "'": 27, X: 28, J: 29, Q: 30, Z: 31,
 };
+
+// jonatasgrosman / Xenova wav2vec2-large-xlsr-53-english — lowercase + hyphen.
+const WAV2VEC2_XLSR_EN_VOCAB = {
+  '<pad>': 0, '<s>': 1, '</s>': 2, '<unk>': 3, '|': 4, "'": 5, '-': 6,
+  a: 7, b: 8, c: 9, d: 10, e: 11, f: 12, g: 13, h: 14, i: 15, j: 16, k: 17,
+  l: 18, m: 19, n: 20, o: 21, p: 22, q: 23, r: 24, s: 25, t: 26, u: 27, v: 28,
+  w: 29, x: 30, y: 31, z: 32,
+};
+
+/** Pick the CTC char map for a model id. `buildTranscript` already case-folds. */
+function vocabForModel(modelId) {
+  const id = String(modelId || '');
+  if (id.includes('xlsr') || id === ALIGN_MODEL_PRESETS.high) return WAV2VEC2_XLSR_EN_VOCAB;
+  return WAV2VEC2_960H_VOCAB;
+}
 
 let _tf = null;
 let _modelP = null;
@@ -76,7 +105,13 @@ async function getModel() {
     } catch {
       processor = null;
     }
-    return { model, processor, vocab: WAV2VEC2_960H_VOCAB, blankId: 0, separatorId: 4 };
+    return {
+      model,
+      processor,
+      vocab: vocabForModel(ALIGN_MODEL),
+      blankId: 0,
+      separatorId: 4,
+    };
   })().catch((e) => {
     _modelP = null;
     _modelFailed = true;
@@ -89,6 +124,37 @@ async function getModel() {
 /** True when the acoustic model finished loading (not merely that the dep exists). */
 function alignModelLoaded() {
   return !!_modelP && !_modelFailed;
+}
+
+/** Current model id + which preset it matches (if any). */
+function alignModelStatus() {
+  const preset =
+    Object.keys(ALIGN_MODEL_PRESETS).find((k) => ALIGN_MODEL_PRESETS[k] === ALIGN_MODEL) || null;
+  return {
+    model: ALIGN_MODEL,
+    preset,
+    loaded: alignModelLoaded(),
+    failed: _modelFailed,
+    reason: _modelFailedReason,
+    presets: { ...ALIGN_MODEL_PRESETS },
+  };
+}
+
+/**
+ * Switch acoustic model. `presetOrId` is `"default"` / `"high"` or a full HF id.
+ * Clears the loaded model so the next warm/align downloads the new one.
+ * Env `ALIGN_MODEL` still wins on process start; this is the in-app override.
+ */
+function setAlignModel(presetOrId) {
+  const raw = String(presetOrId || '').trim();
+  if (!raw) return alignModelStatus();
+  const next = ALIGN_MODEL_PRESETS[raw] || raw;
+  if (next === ALIGN_MODEL && !_modelFailed) return alignModelStatus();
+  ALIGN_MODEL = next;
+  _modelP = null;
+  _modelFailed = false;
+  _modelFailedReason = null;
+  return alignModelStatus();
 }
 
 /** Start downloading/loading the model in the background. Returns true on success. */
@@ -253,4 +319,15 @@ function alignAvailable() {
   }
 }
 
-module.exports = { alignSong, alignAvailable, alignModelLoaded, alignWarm, WAV2VEC2_960H_VOCAB };
+module.exports = {
+  alignSong,
+  alignAvailable,
+  alignModelLoaded,
+  alignModelStatus,
+  setAlignModel,
+  alignWarm,
+  ALIGN_MODEL_PRESETS,
+  WAV2VEC2_960H_VOCAB,
+  WAV2VEC2_XLSR_EN_VOCAB,
+  vocabForModel,
+};

@@ -1,0 +1,10 @@
+import { readFile, writeFile } from 'node:fs/promises';
+import { measureTiming } from '../lib/timing-accuracy.mjs';
+const [predictionPath, referencePath, outputPath] = process.argv.slice(2);
+if (!outputPath) throw new Error('Usage: node scripts/check-timing-accuracy.mjs prepared.json checked-reference.json report.json');
+const prediction = JSON.parse(await readFile(predictionPath, 'utf8'));
+const reference = JSON.parse(await readFile(referencePath, 'utf8'));
+const words = value => value.words ?? (value.timeline ?? value).lines.flatMap(line => line.words);
+const report = { measuredAt: new Date().toISOString(), ...measureTiming(words(prediction), words(reference)) };
+await writeFile(outputPath, JSON.stringify(report, null, 2));
+console.log(JSON.stringify(report));

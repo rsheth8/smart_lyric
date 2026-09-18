@@ -90,3 +90,85 @@ test('an auto-paired sidecar that is ALREADY word-level short-circuits', async (
   assert.equal(res.source, 'local', 'nothing to upgrade to — skip the lookup');
   assert.equal(calls.netease, 0);
 });
+
+const NETEASE_LINE = {
+  format: 'lrc',
+  text: '[00:12.00] कुछ तो है',
+  meta: { duration: 240 },
+};
+
+test('bare NetEase LRC (no roman) is kept when other catalogs miss — Hindi etc.', async () => {
+  mockFetch({ netease: NETEASE_LINE });
+  const res = await fetchCatalogLyrics({
+    track: 'Kuch Toh Hai', artist: 'Someone', duration: 240,
+  });
+  assert.equal(res.source, 'netease');
+  assert.equal(res.format, 'lrc');
+  assert.ok(res.lrc.includes('कुछ'));
+});
+
+test('LRCLIB still beats bare NetEase LRC when both exist', async () => {
+  // Matching trackName so pickBestMatch accepts the LRCLIB hit.
+  mockFetch({
+    netease: { ...NETEASE_LINE, meta: { duration: 285 } },
+    lrclib: {
+      format: 'lrc',
+      text: '[00:14.70] I heard that youre settled down',
+      meta: { duration: 285, trackName: 'Someone Like You', artistName: 'Adele' },
+    },
+  });
+  // Patch lrclib reply to include names the matcher needs (mock only used text/duration).
+  const prev = global.fetch;
+  global.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes('lrclib')) {
+      return new Response(
+        JSON.stringify([{
+          syncedLyrics: '[00:14.70] I heard that youre settled down',
+          duration: 285,
+          trackName: 'Someone Like You',
+          artistName: 'Adele',
+        }]),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    return prev(url);
+  };
+  const res = await fetchCatalogLyrics({
+    track: 'Someone Like You', artist: 'Adele', duration: 285,
+  });
+  assert.equal(res.source, 'lrclib', 'defer bare NetEase line lyrics to LRCLIB');
+});
+
+test('NetEase LRC+roman still beats LRCLIB so the overlay is not lost', async () => {
+  global.fetch = async (url) => {
+    const u = String(url);
+    const reply = (body) => new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (u.includes('/api/lyrics')) {
+      return reply({
+        yrc: '',
+        lrc: '[00:12.00] 夜に駆ける',
+        rlrc: '[00:12.00] yoru ni kakeru',
+        meta: { duration: 261 },
+      });
+    }
+    if (u.includes('lrclib')) {
+      return reply([{
+        syncedLyrics: '[00:12.00] line',
+        duration: 261,
+        trackName: 'Yoru ni Kakeru',
+        artistName: 'YOASOBI',
+      }]);
+    }
+    if (u.includes('/api/richsync')) return reply({ richsync: '', meta: null });
+    return reply({});
+  };
+  const res = await fetchCatalogLyrics({
+    track: 'Yoru ni Kakeru', artist: 'YOASOBI', duration: 261,
+  });
+  assert.equal(res.source, 'netease');
+  assert.ok(res.roman, 'roman overlay preserved');
+});

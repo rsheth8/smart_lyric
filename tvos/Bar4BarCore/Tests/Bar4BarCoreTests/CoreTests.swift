@@ -2,6 +2,13 @@ import XCTest
 @testable import Bar4BarCore
 
 final class MatchTests: XCTestCase {
+  func testWordTimingWinsOverEarlierLineOnlyProvider() {
+    let line = LyricsResult(timeline: Timeline(lines: [], source: "lrc"), richness: 1)
+    let word = LyricsResult(timeline: Timeline(lines: [], source: "richsync"), richness: 0)
+    XCTAssertEqual(Match.preferResult([line, word], targetDuration: nil)?.timeline.source, "richsync")
+    XCTAssertEqual(Match.preferResult([line, word], targetDuration: 200)?.timeline.source, "richsync")
+  }
+
   func testDurationScoreNear() {
     XCTAssertEqual(Match.durationScore(targetSec: 200, candidateSec: 201), 1)
     XCTAssertEqual(Match.durationScore(targetSec: 200, candidateSec: 202.5), 1)
@@ -29,6 +36,13 @@ final class MatchTests: XCTestCase {
 
 final class DisplayMathTests: XCTestCase {
   func testWipeProgress() {
+    XCTAssertEqual(DisplayMath.singerLeadListen, 0)
+    XCTAssertEqual(DisplayMath.singerLead, 0.12)
+    XCTAssertEqual(PerformanceMode.from(lead: 0), .listen)
+    XCTAssertEqual(PerformanceMode.from(lead: 0.12), .sing)
+    XCTAssertEqual(PerformanceMode.sing.toggled, .listen)
+    XCTAssertEqual(DisplayMath.wordPhase(t: 0.8, start: 1, end: 2, leadin: 0.32), .leadin)
+    XCTAssertEqual(DisplayMath.wordPhase(t: 0.8, start: 1, end: 2, leadin: 0), .upcoming)
     XCTAssertEqual(DisplayMath.wipeProgress(t: 0.5, start: 1, end: 2), 0)
     XCTAssertEqual(DisplayMath.wipeProgress(t: 1, start: 1, end: 2), 0)
     XCTAssertEqual(DisplayMath.wipeProgress(t: 1.5, start: 1, end: 2), 0.5)
@@ -44,6 +58,33 @@ final class DisplayMathTests: XCTestCase {
     XCTAssertEqual(DisplayMath.resolveActiveLine(lines, t: 3.5), 1)
     XCTAssertEqual(DisplayMath.resolveActiveLine(lines, t: 2.5, prevLi: 0, vocalActive: false), 0)
   }
+
+  func testIntroRunwayStartsEmptyAndFillsTheRealWait() {
+    let lines = [
+      LyricLine(start: 0.8, end: 4, words: [LyricWord(text: "x", start: 0.8, end: 4)]),
+    ]
+    XCTAssertEqual(DisplayMath.runwayProgress(lines: lines, t: 0, activeLi: -1, instrumental: false, countIn: nil)!, 0, accuracy: 0.001)
+    XCTAssertEqual(DisplayMath.runwayProgress(lines: lines, t: 0.4, activeLi: -1, instrumental: false, countIn: nil)!, 0.5, accuracy: 0.001)
+    XCTAssertNil(DisplayMath.runwayProgress(lines: lines, t: 0.8, activeLi: -1, instrumental: false, countIn: nil))
+  }
+
+  func testInstrumentalRunwayFillsTheWholeGap() {
+    let lines = [
+      LyricLine(start: 0, end: 4, words: [LyricWord(text: "a", start: 0, end: 4)]),
+      LyricLine(start: 12, end: 16, words: [LyricWord(text: "b", start: 12, end: 16)]),
+    ]
+    XCTAssertNil(DisplayMath.runwayProgress(lines: lines, t: 2, activeLi: 0, instrumental: false, countIn: nil))
+    XCTAssertEqual(DisplayMath.runwayProgress(lines: lines, t: 8, activeLi: 0, instrumental: true, countIn: nil)!, 0.5, accuracy: 0.001)
+    XCTAssertNil(DisplayMath.runwayProgress(lines: lines, t: 12, activeLi: 0, instrumental: true, countIn: nil))
+  }
+
+  func testRunwayDoesNotAppearOnAShortBreath() {
+    let lines = [
+      LyricLine(start: 0, end: 4, words: [LyricWord(text: "a", start: 0, end: 4)]),
+      LyricLine(start: 4.4, end: 6, words: [LyricWord(text: "b", start: 4.4, end: 6)]),
+    ]
+    XCTAssertNil(DisplayMath.runwayProgress(lines: lines, t: 4.2, activeLi: 0, instrumental: false, countIn: nil))
+  }
 }
 
 final class FormatTests: XCTestCase {
@@ -58,6 +99,20 @@ final class FormatTests: XCTestCase {
     XCTAssertEqual(tl.lines[0].start, 12, accuracy: 0.001)
   }
 
+  func testLineEstimatesAndEnhancedLRCAreDistinguished() {
+    XCTAssertFalse(LRC.parse("[00:01.00]Hello world").hasWordTiming)
+    let enhanced = LRC.parse("[00:01.00]<00:01.00>Hello <00:02.00>world")
+    XCTAssertTrue(enhanced.hasWordTiming)
+    XCTAssertEqual(enhanced.lines[0].words[1].start, 2)
+  }
+
+  func testYRCPreservesSilenceBetweenWordsAndAtTheEnd() {
+    let timeline = YRC.parse("[1000,4000](1000,500,0)Hello (3000,500,0)world")
+    XCTAssertEqual(timeline.lines[0].words[0].end, 1.5)
+    XCTAssertEqual(timeline.lines[0].words[1].end, 3.5)
+    XCTAssertTrue(timeline.hasWordTiming)
+  }
+
   func testParseYRCFixture() throws {
     let url = try XCTUnwrap(Bundle.module.url(forResource: "adele-someone", withExtension: "yrc", subdirectory: "Fixtures"))
     let raw = try String(contentsOf: url, encoding: .utf8)
@@ -65,6 +120,16 @@ final class FormatTests: XCTestCase {
     XCTAssertGreaterThan(tl.lines.count, 10)
     XCTAssertEqual(tl.lines[0].words.first?.text, "I")
     XCTAssertEqual(tl.source, "yrc")
+  }
+
+  func testRichsyncDoesNotRedistributeRealOffsets() {
+    let body = #"[{"ts":1,"te":4,"l":[{"c":"hi","o":0},{"c":"there","o":0.2}]},{"ts":10,"te":12,"l":[{"c":"next","o":0}]}]"#
+    let timeline = Richsync.parse(body)
+    XCTAssertEqual(timeline.lines[0].words[1].start, 1.2, accuracy: 0.001)
+    XCTAssertEqual(timeline.lines[0].words[1].end, 4)
+    XCTAssertEqual(timeline.lines[0].end, 4)
+    XCTAssertTrue(timeline.hasWordTiming)
+    XCTAssertFalse(Richsync.parse(#"[{"ts":1,"te":4,"x":"Only a line"}]"#).hasWordTiming)
   }
 
   func testParseRichsync() {

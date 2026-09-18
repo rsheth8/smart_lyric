@@ -1,0 +1,942 @@
+[
+  {
+    "position": 3,
+    "artist": "Miguel",
+    "track": "Sure Thing",
+    "duration": 195.373,
+    "source": "yrc",
+    "wordCount": 485,
+    "spotifyId": "0JXXNGljqupsJaZsgSbMZV",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 8,
+    "artist": "SZA",
+    "track": "Snooze",
+    "duration": 201.851,
+    "source": "yrc",
+    "wordCount": 519,
+    "spotifyId": "4iZ4pt7kvcaH6Yo8UoZ4s2",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 9,
+    "artist": "Steve Lacy",
+    "track": "Bad Habit",
+    "duration": 232.315,
+    "source": "yrc",
+    "wordCount": 480,
+    "spotifyId": "4k6Uh1HXdhtusDW5y8Gbvy",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 11,
+    "artist": "Frank Ocean",
+    "track": "Thinkin Bout You",
+    "duration": 200.75,
+    "source": "yrc",
+    "wordCount": 383,
+    "spotifyId": "7DfFc7a6Rwfi3YQMRbDMau",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 15,
+    "artist": "Steve Lacy",
+    "track": "Dark Red",
+    "duration": 173.104,
+    "source": "yrc",
+    "wordCount": 300,
+    "spotifyId": "3EaJDYHA0KnX88JvDhL9oa",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 20,
+    "artist": "Snoh Aalegra",
+    "track": "DO 4 LOVE",
+    "duration": 189.462,
+    "source": "yrc",
+    "wordCount": 213,
+    "spotifyId": "3FImu2LpSuH6gDHBuFgIbS",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 21,
+    "artist": "Sade",
+    "track": "Smooth Operator - Single Version",
+    "duration": 258.763,
+    "source": "yrc",
+    "wordCount": 194,
+    "spotifyId": "1Hv1VTm8zeOeybub15mA2R",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 22,
+    "artist": "Rihanna",
+    "track": "Breakin' Dishes",
+    "duration": 200.573,
+    "source": "yrc",
+    "wordCount": 565,
+    "spotifyId": "46aZJc0z1HHHSFxaIRxYSP",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 23,
+    "artist": "Bruno Mars, Anderson .Paak, Silk Sonic",
+    "track": "Leave The Door Open",
+    "duration": 242.096,
+    "source": "yrc",
+    "wordCount": 681,
+    "spotifyId": "02VBYrHfVwfEWXk5DXyf0T",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 24,
+    "artist": "Frank Ocean",
+    "track": "Lost",
+    "duration": 228,
+    "source": "yrc",
+    "wordCount": 300,
+    "spotifyId": "3GZD6HmiNUhxXYf8Gch723",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 25,
+    "artist": "Bryson Tiller",
+    "track": "Don't",
+    "duration": 198.344,
+    "source": "yrc",
+    "wordCount": 401,
+    "spotifyId": "3pXF1nA74528Edde4of9CC",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 27,
+    "artist": "Steve Lacy",
+    "track": "Infrunami",
+    "duration": 178.328,
+    "source": "yrc",
+    "wordCount": 264,
+    "spotifyId": "0f8eRy9A0n6zXpKSHSCAEp",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 28,
+    "artist": "Chris Brown",
+    "track": "Under The Influence",
+    "duration": 184.659,
+    "source": "yrc",
+    "wordCount": 252,
+    "spotifyId": "5IgjP7X4th6nMNDh4akUHb",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 29,
+    "artist": "Sade",
+    "track": "Like a Tattoo",
+    "duration": 218.476,
+    "source": "yrc",
+    "wordCount": 135,
+    "spotifyId": "4PEGwWH4tL6H7dGl4uVSPg",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 31,
+    "artist": "USHER, Alicia Keys",
+    "track": "My Boo",
+    "duration": 225,
+    "source": "yrc",
+    "wordCount": 544,
+    "spotifyId": "68vgtRHr7iZHpzGpon6Jlo",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 32,
+    "artist": "Frank Ocean",
+    "track": "Pyramids",
+    "duration": 592.92,
+    "source": "yrc",
+    "wordCount": 577,
+    "spotifyId": "4QhWbupniDd44EDtnh2bFJ",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 36,
+    "artist": "The Weeknd",
+    "track": "Die For You",
+    "duration": 260.253,
+    "source": "yrc",
+    "wordCount": 469,
+    "spotifyId": "2Ch7LmS7r2Gy2kc64wv3Bz",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 38,
+    "artist": "Miguel, Travis Scott",
+    "track": "Sky Walker (feat. Travis Scott)",
+    "duration": 260.133,
+    "source": "yrc",
+    "wordCount": 720,
+    "spotifyId": "5WoaF1B5XIEnWfmb5NZikf",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 39,
+    "artist": "Sonder",
+    "track": "What You Heard",
+    "duration": 238.242,
+    "source": "yrc",
+    "wordCount": 425,
+    "spotifyId": "3a3dQOO19moXPeTt2PomoT",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 41,
+    "artist": "SZA",
+    "track": "Broken Clocks",
+    "duration": 231.317,
+    "source": "yrc",
+    "wordCount": 453,
+    "spotifyId": "2fXwCWkh6YG5zU1IyvQrbs",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 42,
+    "artist": "Chris Brown, Drake",
+    "track": "No Guidance (feat. Drake)",
+    "duration": 260.645,
+    "source": "yrc",
+    "wordCount": 688,
+    "spotifyId": "6XHVuErjQ4XNm6nDPVCxVX",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 43,
+    "artist": "Miguel",
+    "track": "Girl With The Tattoo Enter.lewd",
+    "duration": 102.87,
+    "source": "yrc",
+    "wordCount": 108,
+    "spotifyId": "1eUGmzzvahJjOSWgDHuRlv",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 45,
+    "artist": "GIVĒON",
+    "track": "Heartbreak Anniversary",
+    "duration": 196.858,
+    "source": "yrc",
+    "wordCount": 279,
+    "spotifyId": "3FAJ6O0NOHQV8Mc5Ri6ENp",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 46,
+    "artist": "Bryson Tiller",
+    "track": "Exchange",
+    "duration": 194.567,
+    "source": "yrc",
+    "wordCount": 496,
+    "spotifyId": "43PuMrRfbyyuz4QpZ3oAwN",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 47,
+    "artist": "Jeremih",
+    "track": "oui",
+    "duration": 238.32,
+    "source": "yrc",
+    "wordCount": 480,
+    "spotifyId": "0PJIbOdMs3bd5AT8liULMQ",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 48,
+    "artist": "Brent Faiyaz",
+    "track": "ALL MINE",
+    "duration": 216.062,
+    "source": "yrc",
+    "wordCount": 583,
+    "spotifyId": "3XgGQ1wjo5khvq2UImjyNF",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 49,
+    "artist": "Daniel Caesar",
+    "track": "Blessed",
+    "duration": 241.37,
+    "source": "yrc",
+    "wordCount": 353,
+    "spotifyId": "2XjoHA58XD0t3qye8bYGU8",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 50,
+    "artist": "SZA",
+    "track": "The Weekend",
+    "duration": 272.253,
+    "source": "yrc",
+    "wordCount": 349,
+    "spotifyId": "6gU9OKjOE7ghfEd55oRO57",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 52,
+    "artist": "GIVĒON",
+    "track": "Like I Want You",
+    "duration": 260.521,
+    "source": "yrc",
+    "wordCount": 408,
+    "spotifyId": "6qBFSepqLCuh5tehehc1bd",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 54,
+    "artist": "Wizkid, Tems",
+    "track": "Essence (feat. Tems)",
+    "duration": 249.103,
+    "source": "yrc",
+    "wordCount": 445,
+    "spotifyId": "5FG7Tl93LdH117jEKYl3Cm",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 55,
+    "artist": "Chris Brown, Young Thug",
+    "track": "Go Crazy",
+    "duration": 177.005,
+    "source": "yrc",
+    "wordCount": 613,
+    "spotifyId": "1IIKrJVP1C9N7iPtG6eOsK",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 56,
+    "artist": "Tems",
+    "track": "Free Mind",
+    "duration": 247.578,
+    "source": "yrc",
+    "wordCount": 486,
+    "spotifyId": "2mzM4Y0Rnx2BDZqRnhQ5Q6",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 57,
+    "artist": "Kehlani, Ty Dolla $ign",
+    "track": "Nights Like This (feat. Ty Dolla $ign)",
+    "duration": 201.787,
+    "source": "yrc",
+    "wordCount": 603,
+    "spotifyId": "6ZRuF2n1CQxyxxAAWsKJOy",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 58,
+    "artist": "Brent Faiyaz",
+    "track": "Been Away",
+    "duration": 223.629,
+    "source": "yrc",
+    "wordCount": 421,
+    "spotifyId": "5PvVkf1Yuq3XyMqqjPiKPd",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 60,
+    "artist": "Ella Mai",
+    "track": "Trip",
+    "duration": 213.993,
+    "source": "yrc",
+    "wordCount": 516,
+    "spotifyId": "6CTWathupIiDs7U4InHnDA",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 61,
+    "artist": "Tems",
+    "track": "Higher",
+    "duration": 196.204,
+    "source": "yrc",
+    "wordCount": 350,
+    "spotifyId": "2QdSb68BzZGMgCbsrFmSLc",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 63,
+    "artist": "Doechii",
+    "track": "What It Is (Solo Version)",
+    "duration": 189.824,
+    "source": "yrc",
+    "wordCount": 559,
+    "spotifyId": "73RbfOTJIjHzi2pcVHjeHM",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 64,
+    "artist": "Beyoncé",
+    "track": "CUFF IT",
+    "duration": 225.442,
+    "source": "yrc",
+    "wordCount": 826,
+    "spotifyId": "1xzi1Jcr7mEi9K2RfzLOqS",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 65,
+    "artist": "H.E.R., Bryson Tiller",
+    "track": "Could've Been (feat. Bryson Tiller)",
+    "duration": 252.75,
+    "source": "yrc",
+    "wordCount": 465,
+    "spotifyId": "6oEVnWKgPqIEPc53OYDNqG",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 66,
+    "artist": "Brent Faiyaz",
+    "track": "Trust",
+    "duration": 158.42,
+    "source": "yrc",
+    "wordCount": 431,
+    "spotifyId": "0oufSLnKQDoBFX5mgkDCgR",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 67,
+    "artist": "Santana, The Product G&B",
+    "track": "Maria Maria (feat. The Product G&B)",
+    "duration": 261.99,
+    "source": "yrc",
+    "wordCount": 345,
+    "spotifyId": "3XKIUb7HzIF1Vu9usunMzc",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 68,
+    "artist": "Jhené Aiko",
+    "track": "The Worst",
+    "duration": 254.493,
+    "source": "yrc",
+    "wordCount": 507,
+    "spotifyId": "2wBCrtJS3E3TimRZ5MElTI",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 69,
+    "artist": "Summer Walker, Bryson Tiller",
+    "track": "Playing Games (with Bryson Tiller) - Extended Version",
+    "duration": 143.226,
+    "source": "yrc",
+    "wordCount": 414,
+    "spotifyId": "2xyx0o4xNOLLjBSbOOdcbA",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 70,
+    "artist": "Ella Mai",
+    "track": "Boo'd Up",
+    "duration": 239.341,
+    "source": "yrc",
+    "wordCount": 480,
+    "spotifyId": "4squZv12LD9M8ooJfoVgZS",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 72,
+    "artist": "Oxlade",
+    "track": "KU LO SA - A COLORS SHOW",
+    "duration": 147.644,
+    "source": "yrc",
+    "wordCount": 476,
+    "spotifyId": "2WigMwGJysIh9fRnSJvpjn",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 73,
+    "artist": "Jhené Aiko",
+    "track": "While We're Young",
+    "duration": 236.156,
+    "source": "yrc",
+    "wordCount": 402,
+    "spotifyId": "4mL59LVbKgOpEACxraGYdr",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 74,
+    "artist": "Mariah the Scientist",
+    "track": "Spread Thin",
+    "duration": 202.57,
+    "source": "yrc",
+    "wordCount": 328,
+    "spotifyId": "4MbzauKV2ydtZZjLsPcuTF",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 75,
+    "artist": "Fantasia",
+    "track": "When I See U",
+    "duration": 219.133,
+    "source": "yrc",
+    "wordCount": 381,
+    "spotifyId": "4iuNZTcvT9diFySSzVsnVS",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 77,
+    "artist": "Justine Skye, Tyga",
+    "track": "Collide (feat. Tyga)",
+    "duration": 260.169,
+    "source": "yrc",
+    "wordCount": 571,
+    "spotifyId": "22I3h5AOENlH4CqXJsEbFR",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 78,
+    "artist": "Summer Walker, SZA",
+    "track": "No Love (with SZA)",
+    "duration": 231.497,
+    "source": "yrc",
+    "wordCount": 636,
+    "spotifyId": "08SB2OtZkaliju77WYEKxk",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 79,
+    "artist": "SZA",
+    "track": "Good Days",
+    "duration": 278.546,
+    "source": "yrc",
+    "wordCount": 435,
+    "spotifyId": "3YJJjQPAbDT7mGpX3WtQ9A",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 80,
+    "artist": "Jhené Aiko",
+    "track": "my mine",
+    "duration": 241.773,
+    "source": "yrc",
+    "wordCount": 432,
+    "spotifyId": "2B8Y5LaNSEkuB3LA9okArd",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 81,
+    "artist": "Miguel",
+    "track": "Adorn",
+    "duration": 194.093,
+    "source": "yrc",
+    "wordCount": 282,
+    "spotifyId": "25cUhiAod71TIQSNicOaW3",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 83,
+    "artist": "Summer Walker",
+    "track": "Body",
+    "duration": 193.84,
+    "source": "yrc",
+    "wordCount": 312,
+    "spotifyId": "7vxLj7MREliG5i5vSnqSVr",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 85,
+    "artist": "Teyana Taylor",
+    "track": "Gonna Love Me",
+    "duration": 166.997,
+    "source": "yrc",
+    "wordCount": 330,
+    "spotifyId": "3nXrCAE44KlevAkQB2XWcN",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 86,
+    "artist": "6LACK, J. Cole",
+    "track": "Pretty Little Fears (feat. J. Cole)",
+    "duration": 240.396,
+    "source": "yrc",
+    "wordCount": 648,
+    "spotifyId": "4at3d5QWnlibMVN75ECDrp",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 87,
+    "artist": "Leon Thomas",
+    "track": "Treasure In The Hills",
+    "duration": 189.202,
+    "source": "yrc",
+    "wordCount": 180,
+    "spotifyId": "64TJKMfx0QxpuR7rTXL05c",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 89,
+    "artist": "Summer Walker",
+    "track": "Karma",
+    "duration": 188.906,
+    "source": "yrc",
+    "wordCount": 287,
+    "spotifyId": "2Fyjjpg03fn7n5cj0Qm380",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 90,
+    "artist": "DaniLeigh, Chris Brown",
+    "track": "Easy - Remix",
+    "duration": 186.586,
+    "source": "yrc",
+    "wordCount": 394,
+    "spotifyId": "4CMrdHWqic0usIZfTrKoI3",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 91,
+    "artist": "Jhené Aiko",
+    "track": "living room flow - Bonus",
+    "duration": 262.48,
+    "source": "yrc",
+    "wordCount": 380,
+    "spotifyId": "4Li8dc3ucCesQJMKErU5zM",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 92,
+    "artist": "PARTYNEXTDOOR",
+    "track": "PERSIAN RUGS",
+    "duration": 174.306,
+    "source": "yrc",
+    "wordCount": 182,
+    "spotifyId": "2SWbnWSe1onmbllRAU46uo",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 94,
+    "artist": "GIVĒON",
+    "track": "The Beach",
+    "duration": 205.728,
+    "source": "yrc",
+    "wordCount": 463,
+    "spotifyId": "2Hd7uGbl8PX0IxyX59VFOg",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 96,
+    "artist": "Ella Mai, Ty Dolla $ign",
+    "track": "She Don't (feat. Ty Dolla $Ign)",
+    "duration": 264.15,
+    "source": "yrc",
+    "wordCount": 653,
+    "spotifyId": "01JPQ87UHeGysPVwTqMJHK",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 97,
+    "artist": "Kehlani",
+    "track": "Toxic",
+    "duration": 168.182,
+    "source": "yrc",
+    "wordCount": 359,
+    "spotifyId": "5nexAvWNhwg51EavnDgViy",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 98,
+    "artist": "Mariah the Scientist, Lil Baby",
+    "track": "Always n Forever (feat. Lil Baby)",
+    "duration": 197.093,
+    "source": "yrc",
+    "wordCount": 450,
+    "spotifyId": "6dbENHQHHtWRai4snSvy2w",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 99,
+    "artist": "GIVĒON",
+    "track": "Garden Kisses",
+    "duration": 195.405,
+    "source": "yrc",
+    "wordCount": 190,
+    "spotifyId": "62d6YXEYxmMWAuLpw1EysL",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 100,
+    "artist": "USHER",
+    "track": "Caught Up",
+    "duration": 224.699,
+    "source": "yrc",
+    "wordCount": 463,
+    "spotifyId": "5zdUc1JRCImBYcDWgvFNpE",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 101,
+    "artist": "6LACK",
+    "track": "PRBLMS",
+    "duration": 246.773,
+    "source": "yrc",
+    "wordCount": 789,
+    "spotifyId": "4AtZRwSR8BOTTQg5ihSggt",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 108,
+    "artist": "H.E.R.",
+    "track": "Focus",
+    "duration": 200.202,
+    "source": "yrc",
+    "wordCount": 213,
+    "spotifyId": "3tZs3nVjySLbL320lP4mvs",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 109,
+    "artist": "Queen Naija",
+    "track": "Medicine",
+    "duration": 219.135,
+    "source": "yrc",
+    "wordCount": 521,
+    "spotifyId": "4lFfMRH0YH4pW5gczTDbNC",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 110,
+    "artist": "Daniel Caesar, H.E.R.",
+    "track": "Best Part (feat. H.E.R.)",
+    "duration": 210.053,
+    "source": "yrc",
+    "wordCount": 308,
+    "spotifyId": "4OBZT9EnhYIV17t4pGw7ig",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 111,
+    "artist": "Solange",
+    "track": "Cranes in the Sky",
+    "duration": 251.03,
+    "source": "yrc",
+    "wordCount": 290,
+    "spotifyId": "48EjSdYh8wz2gBxxqzrsLe",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 114,
+    "artist": "H.E.R.",
+    "track": "Every Kind Of Way",
+    "duration": 160.24,
+    "source": "yrc",
+    "wordCount": 224,
+    "spotifyId": "0Aa3g9EQoPNt6PiKjaUeb7",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 115,
+    "artist": "Beyoncé",
+    "track": "HEATED",
+    "duration": 260.829,
+    "source": "yrc",
+    "wordCount": 1022,
+    "spotifyId": "1w7cgGZR86yWz1pA2puVJD",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 117,
+    "artist": "Snoh Aalegra",
+    "track": "IN YOUR EYES",
+    "duration": 214.453,
+    "source": "yrc",
+    "wordCount": 489,
+    "spotifyId": "1wjDFBUOMuZKm1eJ8GzRBX",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 118,
+    "artist": "Bruno Mars, Anderson .Paak, Silk Sonic, Thundercat, Bootsy Collins",
+    "track": "After Last Night (with Thundercat & Bootsy Collins)",
+    "duration": 249.444,
+    "source": "yrc",
+    "wordCount": 630,
+    "spotifyId": "6jGAh1bFnXt1Muj9zeHveZ",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 119,
+    "artist": "Victoria Monét",
+    "track": "On My Mama",
+    "duration": 184.32,
+    "source": "yrc",
+    "wordCount": 523,
+    "spotifyId": "7DswEZZthZ6piQpL25qGAM",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 121,
+    "artist": "Kehlani",
+    "track": "Gangsta",
+    "duration": 177.32,
+    "source": "yrc",
+    "wordCount": 211,
+    "spotifyId": "5cw9s2zGrbny2M2p3WRmGm",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 122,
+    "artist": "Floetry",
+    "track": "Say Yes",
+    "duration": 268.373,
+    "source": "yrc",
+    "wordCount": 335,
+    "spotifyId": "2fE4MbwX3QGMzNaMjGVhtw",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 124,
+    "artist": "Snoh Aalegra",
+    "track": "I Want You Around",
+    "duration": 212.787,
+    "source": "yrc",
+    "wordCount": 382,
+    "spotifyId": "2gjidmxtA1pyj2HYrdOTG1",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 125,
+    "artist": "Ari Lennox, J. Cole",
+    "track": "Shea Butter Baby (with J. Cole)",
+    "duration": 211.61,
+    "source": "yrc",
+    "wordCount": 496,
+    "spotifyId": "5BOBHIBuzvQuIYL1E1nDzl",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 127,
+    "artist": "USHER",
+    "track": "Superstar",
+    "duration": 191.634,
+    "source": "yrc",
+    "wordCount": 421,
+    "spotifyId": "18JosZY3HzD3lMy6iOOSAY",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 128,
+    "artist": "Ella Mai",
+    "track": "DFMU",
+    "duration": 197.52,
+    "source": "yrc",
+    "wordCount": 509,
+    "spotifyId": "1bdm32mVmoGcek5bVKxQKd",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 129,
+    "artist": "Mahalia, Ella Mai",
+    "track": "What You Did (feat. Ella Mai)",
+    "duration": 206.946,
+    "source": "yrc",
+    "wordCount": 481,
+    "spotifyId": "2B7UWqNqKgPVGQQ6FXn2PP",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 134,
+    "artist": "Kiana Ledé",
+    "track": "EX",
+    "duration": 222.386,
+    "source": "yrc",
+    "wordCount": 507,
+    "spotifyId": "47cQCF21TczFSmGfpd7c07",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 135,
+    "artist": "Wizkid, Tay Iwar, Projexx",
+    "track": "True Love (feat. Tay Iwar & Projexx)",
+    "duration": 247.431,
+    "source": "yrc",
+    "wordCount": 609,
+    "spotifyId": "4204hwPYuToiuSunPFUoML",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 138,
+    "artist": "Teyana Taylor",
+    "track": "Issues/Hold On",
+    "duration": 185.979,
+    "source": "yrc",
+    "wordCount": 303,
+    "spotifyId": "0bxmVPKnEopTyuMMkaTvUb",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 139,
+    "artist": "Jessie Reyez, 6LACK",
+    "track": "FOREVER (with 6LACK)",
+    "duration": 223.157,
+    "source": "yrc",
+    "wordCount": 443,
+    "spotifyId": "2lVYLiHGIX6GajMqYXF1Un",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 140,
+    "artist": "Ravyn Lenae, Steve Lacy",
+    "track": "Skin Tight (feat. Steve Lacy)",
+    "duration": 227,
+    "source": "yrc",
+    "wordCount": 301,
+    "spotifyId": "4KVSdwwJ67JHu5s9vIA0zi",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 142,
+    "artist": "Normani, Cardi B",
+    "track": "Wild Side (feat. Cardi B)",
+    "duration": 209.536,
+    "source": "yrc",
+    "wordCount": 677,
+    "spotifyId": "2vXgyN14LX2zl7JEASw242",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 145,
+    "artist": "H.E.R., Chris Brown",
+    "track": "Come Through (feat. Chris Brown)",
+    "duration": 214.691,
+    "source": "yrc",
+    "wordCount": 577,
+    "spotifyId": "3krZxyBsWEHfEfJegYaWTd",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 146,
+    "artist": "Beyoncé",
+    "track": "PLASTIC OFF THE SOFA",
+    "duration": 254.374,
+    "source": "yrc",
+    "wordCount": 467,
+    "spotifyId": "6ufcuVInt0ocHrUimDjGlb",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 147,
+    "artist": "Solange",
+    "track": "Binz",
+    "duration": 111.293,
+    "source": "yrc",
+    "wordCount": 236,
+    "spotifyId": "7yvdp8dqmxExSJwT2fn6Xq",
+    "group": "gold-edition-word-timed"
+  },
+  {
+    "position": 149,
+    "artist": "Lucky Daye, Masego, Alex Isley, Jack Dine",
+    "track": "Good & Plenty - Remix",
+    "duration": 204.705,
+    "source": "yrc",
+    "wordCount": 404,
+    "spotifyId": "6T3Ebo7EOh8cUOyE4OhFpp",
+    "group": "gold-edition-word-timed"
+  }
+]

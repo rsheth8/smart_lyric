@@ -1,0 +1,8 @@
+[
+  {"artist":"Brent Faiyaz","track":"other side.","duration":195.015,"group":"user-reported"},
+  {"artist":"Drake","track":"Too Spent","duration":null,"group":"user-reported-title-unresolved"},
+  {"artist":"Adele","track":"Someone Like You","duration":285.24,"group":"sparse-vocals"},
+  {"artist":"The Weeknd","track":"Blinding Lights","duration":200.045,"group":"dense-pop"},
+  {"artist":"Taylor Swift","track":"Cruel Summer","duration":178.491,"group":"pop"},
+  {"artist":"Billie Eilish","track":"BIRDS OF A FEATHER","duration":210.373,"group":"sustained-vocals"}
+]

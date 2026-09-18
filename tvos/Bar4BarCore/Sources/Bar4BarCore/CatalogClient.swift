@@ -49,16 +49,23 @@ public struct CatalogClient: Sendable {
   /// Song search. Empty array for a blank or one-character term — the iTunes
   /// endpoint will happily answer those with noise.
   public func search(_ term: String, limit: Int = 24) async -> [CatalogItem] {
+    (try? await searchResults(term, limit: limit)) ?? []
+  }
+
+  public func searchResults(_ term: String, limit: Int = 24) async throws -> [CatalogItem] {
     let q = term.trimmingCharacters(in: .whitespacesAndNewlines)
     guard q.count >= 2 else { return [] }
     var comps = URLComponents(string: "https://itunes.apple.com/search")
     comps?.queryItems = [
       URLQueryItem(name: "term", value: q),
+      URLQueryItem(name: "country", value: storefront),
       URLQueryItem(name: "media", value: "music"),
       URLQueryItem(name: "entity", value: "song"),
       URLQueryItem(name: "limit", value: String(limit)),
     ]
-    guard let url = comps?.url, let data = try? await get(url) else { return [] }
+    guard let url = comps?.url else { throw URLError(.badURL) }
+    let data = try await get(url)
+    _ = try JSONDecoder().decode(SearchPayload.self, from: data)
     return Self.parseSearch(data)
   }
 
@@ -170,6 +177,7 @@ public struct CatalogItem: Identifiable, Equatable, Hashable, Sendable, Codable 
   public let album: String?
   public let artworkURL: URL?
   public let duration: Double?
+  public let recording: RecordingIdentity?
 
   public init(
     id: String,
@@ -177,7 +185,8 @@ public struct CatalogItem: Identifiable, Equatable, Hashable, Sendable, Codable 
     artist: String,
     album: String? = nil,
     artworkURL: URL? = nil,
-    duration: Double? = nil
+    duration: Double? = nil,
+    recording: RecordingIdentity? = nil
   ) {
     self.id = id
     self.title = title
@@ -185,6 +194,7 @@ public struct CatalogItem: Identifiable, Equatable, Hashable, Sendable, Codable 
     self.album = album
     self.artworkURL = artworkURL
     self.duration = duration
+    self.recording = recording
   }
 }
 

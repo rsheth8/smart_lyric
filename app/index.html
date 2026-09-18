@@ -40,6 +40,12 @@
 
   <div id="stage" data-mode="setup" data-screen="home" data-nav="push">
     <canvas class="bg" id="bg"></canvas>
+    <!-- Music video bed: local <video> or official YouTube IFrame under lyrics. -->
+    <div id="media-bed" aria-hidden="true">
+      <video id="video" playsinline></video>
+      <div id="yt-host"></div>
+      <div class="media-scrim"></div>
+    </div>
     <div class="vignette"></div>
     <!-- Ambient scene: a slow album-art glow that breathes behind the lyrics
          during the "between" moments (paused; the pause cue fades in only once
@@ -113,6 +119,13 @@
                 <span class="tile-copy">
                   <b>Audio file</b>
                   <small>Sync to a local track</small>
+                </span>
+              </button>
+              <button class="tile video" type="button" data-source="video">
+                <span class="tile-icon" aria-hidden="true">▶</span>
+                <span class="tile-copy">
+                  <b>Music video</b>
+                  <small>Local file or YouTube embed</small>
                 </span>
               </button>
             </div>
@@ -226,6 +239,13 @@
                 <small>Sync to a local track</small>
               </span>
             </button>
+            <button id="btn-video" class="tile video" type="button">
+              <span class="tile-icon" aria-hidden="true">▶</span>
+              <span class="tile-copy">
+                <b>Music video file</b>
+                <small>Sync lyrics over a local MP4</small>
+              </span>
+            </button>
             <button id="btn-lyrics" class="tile lyrics" type="button">
               <span class="tile-icon" aria-hidden="true">¶</span>
               <span class="tile-copy">
@@ -241,6 +261,23 @@
               </span>
             </button>
           </div>
+
+          <section class="row" id="youtube-panel">
+            <div class="row-head">
+              <h2>YouTube</h2>
+              <span class="row-sub">Official embed when the video allows it</span>
+            </div>
+            <form id="youtube-form" class="hub-search" autocomplete="off">
+              <div class="field" data-icon="search">
+                <input id="in-youtube" type="url" placeholder="Paste a YouTube music-video URL…"
+                  aria-label="YouTube URL" spellcheck="false" />
+              </div>
+              <button id="btn-youtube" class="btn-primary" type="submit">Embed</button>
+            </form>
+            <p class="set-note" id="youtube-hint">
+              Uses YouTube’s official player. Videos that disable embedding need a local file instead.
+            </p>
+          </section>
         </div>
       </section>
 
@@ -262,7 +299,7 @@
                 <div class="set-row static">
                   <span class="set-copy">
                     <b>Follow audio</b>
-                    <small>Where the vocal aligner listens. A digital tap (system audio / BlackHole) is cleanest — no room noise.</small>
+                    <small>Where the vocal aligner listens. Internal system tap is default — hears Spotify digitally so your speaker volume stays independent.</small>
                   </span>
                   <select id="sync-source" aria-label="Vocal align audio source"></select>
                 </div>
@@ -273,7 +310,7 @@
                 <label class="set-row">
                   <span class="set-copy">
                     <b>Prefer a digital tap</b>
-                    <small>Cleanest signal. Off = always use the microphone.</small>
+                    <small>On = internal system tap (then BlackHole). Off = microphone only.</small>
                   </span>
                   <span class="switch"><input type="checkbox" id="prefer-tap" /><span class="track"></span></span>
                 </label>
@@ -283,6 +320,13 @@
                     <small id="vocal-isolation-state"></small>
                   </span>
                   <span class="switch"><input type="checkbox" id="vocal-isolation" /><span class="track"></span></span>
+                </label>
+                <label class="set-row" id="align-accuracy-row" hidden>
+                  <span class="set-copy">
+                    <b>High-accuracy aligner</b>
+                    <small id="align-accuracy-state">Larger English XLSR model. Slower; sharper word timing. Downloads on next align.</small>
+                  </span>
+                  <span class="switch"><input type="checkbox" id="align-accuracy" /><span class="track"></span></span>
                 </label>
                 <label class="set-row">
                   <span class="set-copy">
@@ -298,6 +342,7 @@
               <div id="tap-help" class="tap-help" hidden>
                 <b id="tap-help-title">Let the tap hear the music too</b>
                 <p id="tap-help-lead"></p>
+                <p class="tap-note">Prefer the built-in <b>System audio</b> source when you can — it taps the mix internally and leaves your normal volume keys alone. BlackHole is only needed when the internal tap isn’t available:</p>
                 <ol>
                   <li>Open <b>Audio MIDI Setup</b> (Applications → Utilities)</li>
                   <li>Click <b>+</b> → <b>Create Multi-Output Device</b></li>
@@ -305,7 +350,7 @@
                   <li>Tick <b>Drift Correction</b> on BlackHole only</li>
                   <li>System Settings → Sound → Output → pick the new device</li>
                 </ol>
-                <p class="tap-note">macOS disables the volume keys on a Multi-Output Device — use Spotify's own volume.</p>
+                <p class="tap-note">macOS disables the volume keys on a Multi-Output Device — use Spotify's own volume, or switch Follow audio to System audio instead.</p>
                 <button type="button" id="btn-retry-tap" class="tap-retry">Use the digital tap now</button>
               </div>
             </section>
@@ -359,7 +404,7 @@
                 <label class="set-row practice-row" id="practice-row" hidden>
                   <span class="set-copy">
                     <b>Practice slowdown (0.8×)</b>
-                    <small>Local audio files only.</small>
+                    <small>Local audio / video files only.</small>
                   </span>
                   <span class="switch"><input type="checkbox" id="practice-slow" /><span class="track"></span></span>
                 </label>
@@ -449,6 +494,16 @@
       </dl>
     </aside>
 
+    <!-- Return to a song left running while browsing the hub. -->
+    <button id="parked-bar" type="button" hidden>
+      <span id="parked-art" aria-hidden="true"></span>
+      <span class="parked-meta">
+        <b id="parked-title">—</b>
+        <span id="parked-artist"></span>
+      </span>
+      <span class="parked-action">Back to lyrics</span>
+    </button>
+
     <!-- Slim now-playing bar: identity, transport, sync health, overflow. -->
     <div id="nowbar">
       <div id="cover" aria-hidden="true"></div>
@@ -472,11 +527,16 @@
 
         <div class="insp-section">
           <b>Timing</b>
-          <p class="insp-hint">Nudge the words against the singer. Saved for this song.</p>
+          <p class="insp-hint" id="insp-timing-hint">Nudge against the singer. Song = speaker lag; Word/Line rewrite the karaoke timing and save for this track.</p>
+          <div class="segmented insp-scope" id="timing-scope" role="group" aria-label="What to nudge">
+            <button type="button" data-timing-scope="song" aria-pressed="true">Song</button>
+            <button type="button" data-timing-scope="word" aria-pressed="false">Word</button>
+            <button type="button" data-timing-scope="line" aria-pressed="false">Line</button>
+          </div>
           <div class="timing-dial" role="group" aria-label="Lyric timing offset">
-            <button type="button" id="btn-timing-late" title="Lyrics later (−25ms) · [">−25</button>
+            <button type="button" id="btn-timing-late" title="Later (−25ms) · [">−25</button>
             <span id="insp-timing-readout">0 ms</span>
-            <button type="button" id="btn-timing-early" title="Lyrics earlier (+25ms) · ]">+25</button>
+            <button type="button" id="btn-timing-early" title="Earlier (+25ms) · ]">+25</button>
           </div>
           <div class="insp-actions">
             <button id="btn-recal-early" class="insp-btn" type="button" title="Lyrics feel early — nudge later and learn (E)">Feel early</button>
@@ -507,6 +567,7 @@
 
     <audio id="audio" preload="auto"></audio>
     <input id="file" type="file" accept="audio/*" hidden />
+    <input id="video-file" type="file" accept="video/mp4,video/webm,video/quicktime,video/*" hidden />
     <input id="lyrics-file" type="file" accept=".lrc,.srt,.ass,.ssa,.ttml,.yrc,.xml,text/plain" hidden multiple />
   </div>
 

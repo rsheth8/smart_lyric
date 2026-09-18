@@ -390,7 +390,7 @@ export class Display {
     this.lyricsEl.innerHTML = '';
     const sides = agentSides(this.lines);
     this.lyricsEl.classList.toggle('duet', !!sides);
-    this.lineEls = this.lines.map((line) => {
+    this.lineEls = this.lines.map((line, li) => {
       const el = document.createElement('div');
       el.className = 'line';
       if (sides && line.agent) el.dataset.singer = sides.get(line.agent) || 'c';
@@ -403,6 +403,8 @@ export class Display {
       line.words.forEach((word, wi) => {
         const s = document.createElement('span');
         s.className = 'word';
+        s.dataset.li = String(li);
+        s.dataset.wi = String(wi);
         // Phrase coaching: entrances + endings matter most for first-time singers.
         if (wi === 0) s.classList.add('phrase-head');
         if (wi === n - 1) s.classList.add('phrase-tail');
@@ -463,7 +465,41 @@ export class Display {
     );
     this.activeLine = -1;
     this._instrState = { on: false, quietSince: null };
+    this.clearWordSelection();
     this._resize();
+  }
+
+  /** Highlight a word for human timing nudge (click-to-select). */
+  selectWord(lineIndex, wordIndex) {
+    this.clearWordSelection();
+    const line = this.lines[lineIndex];
+    const word = line?.words?.[wordIndex];
+    if (!word?.el) return null;
+    word.el.classList.add('selected');
+    line.el?.classList.add('has-selection');
+    this._sel = { lineIndex, wordIndex };
+    return this._sel;
+  }
+
+  clearWordSelection() {
+    if (this._sel) {
+      const prev = this.lines[this._sel.lineIndex];
+      prev?.words?.[this._sel.wordIndex]?.el?.classList.remove('selected');
+      prev?.el?.classList.remove('has-selection');
+    }
+    this._sel = null;
+  }
+
+  /** Current selection, or the active sung word when nothing is pinned. */
+  nudgeTarget() {
+    if (this._sel) return { ...this._sel };
+    const li = this.activeLine;
+    if (li < 0) return null;
+    const line = this.lines[li];
+    if (!line?.words?.length) return null;
+    let wi = line.words.findIndex((w) => w.el?.classList.contains('current'));
+    if (wi < 0) wi = 0;
+    return { lineIndex: li, wordIndex: wi };
   }
 
   /**

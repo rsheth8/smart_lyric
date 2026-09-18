@@ -3,4 +3,5 @@ window.__SL_CONFIG__ = window.__SL_CONFIG__ || {
   spotifyClientId: '',
   appleMusicDeveloperToken: '',
   spotifyRedirectUri: '',
+  youtubeConfigured: false,
 };

@@ -1,0 +1,9 @@
+// Shared build values. Keep URL schemes split because xcconfig treats "//"
+// as a comment delimiter.
+LYRICS_API_HOST = smartlyric.vercel.app
+SLASHES = /
+LYRICS_API_BASE = https:$(SLASHES)$(SLASHES)$(LYRICS_API_HOST)
+
+// Needed for physical-device signing. project.yml is authoritative, so keep
+// the team here rather than editing the generated Xcode project.
+DEVELOPMENT_TEAM = P28MCS4P38

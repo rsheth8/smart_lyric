@@ -34,22 +34,6 @@ public enum YRC {
 
     guard !lines.isEmpty else { return Timeline(lines: [], duration: 0) }
 
-    for i in 0..<lines.count {
-      var w = lines[i].words
-      for j in 0..<(w.count - 1) {
-        if w[j].end < w[j + 1].start {
-          w[j].end = w[j + 1].start
-        }
-      }
-      let lastIdx = w.count - 1
-      let nextLine = i + 1 < lines.count ? lines[i + 1] : nil
-      let lineEnd = nextLine.map { min(lines[i].end, $0.start) }
-        ?? (w[lastIdx].end + trailingLineSeconds)
-      if w[lastIdx].end < lineEnd {
-        w[lastIdx].end = lineEnd
-      }
-      lines[i] = LyricLine(start: lines[i].start, end: lineEnd, words: w)
-    }
 
     return Timeline(lines: lines, duration: lines.last?.end ?? 0, source: "yrc")
   }

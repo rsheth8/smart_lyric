@@ -11,6 +11,26 @@ import Bar4BarCore
 /// that would otherwise need a real subscription and a lucky song choice to see.
 enum DemoSong {
 
+  static let stageRecording = RecordingIdentity(appleMusicID: "bar4bar-demo-v1")
+
+  static func automaticTimeline() -> Timeline {
+    let original = timeline()
+    return Timeline(lines: original.lines.map { line in
+      LyricLine(start: line.start, end: line.end,
+        words: Estimate.wordsAcrossSpan(tokens: line.words.map(\.text), start: line.start, end: line.end))
+    }, duration: duration, estimated: true, source: "lrc")
+  }
+
+  /// Original text for visual QA of long phrases and two-line language aids.
+  static func layoutFixture() -> Timeline {
+    let text = "Cantamos juntos hasta que amanezca, compartimos cada verso y encontramos nuestro ritmo, una palabra tras otra, mientras todas las voces de esta sala se convierten en una sola canción"
+    var first = LyricLine(start: 1, end: 32,
+      words: Estimate.wordsAcrossSpan(tokens: Estimate.tokenizeLine(text), start: 1, end: 32))
+    first.english = "We sing together until dawn, share every verse and find our rhythm, one word after another, as every voice in this room becomes one song."
+    let next = LyricLine(start: 33, end: 49, words: Estimate.wordsAcrossSpan(tokens: ["Una", "voz", "más", "y", "cantamos", "todos"], start: 33, end: 49))
+    return Timeline(lines: [first, next], duration: duration, estimated: true, source: "lrc")
+  }
+
   static let title = "Bar for Bar"
   static let artist = "Bar4Bar"
   static let album = "Demo Reel"
@@ -28,7 +48,7 @@ enum DemoSong {
   /// Feature map, line by line:
   ///
   /// - 0–1   ordinary phrasing, a gold wipe at a natural pace
-  /// - gap   4.6 s instrumental → ♪ indicator, then the count-in runway
+  /// - gap   4.6 s instrumental → filling runway until the next vocal
   /// - 2     dense multi-syllable words → per-word lead-in scaling
   /// - 3     ordinary phrasing again, settling after the dense line
   /// - 4     a 5.2 s held note → the hold treatment, and proof the highlight
@@ -38,7 +58,7 @@ enum DemoSong {
   /// - 7     the hook returns — lines 0–1 repeated verbatim, which is what
   ///         makes the song derive as Chorus / Verse / Chorus and gives the
   ///         structure rail something true to draw
-  /// - gap   4.0 s → a second instrumental beat mid-hook
+  /// - gap   4.0 s → a second runway mid-hook
   /// - 8     the hook's second line, ending on a long tail
   static func timeline() -> Timeline {
     Timeline(
