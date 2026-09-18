@@ -1201,7 +1201,7 @@ function renderSuggestions(items) {
       (s, i) => `
     <button type="button" class="result-row" role="option" data-i="${i}" aria-selected="false">
       ${s.artwork
-        ? `<img src="${s.artwork}" alt="" loading="lazy" />`
+        ? `<img src="${s.artwork}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'art',textContent:'♪'}))" />`
         : '<span class="art">♪</span>'}
       <span class="t"><b>${escapeHtml(s.track)}</b><span>${escapeHtml(s.artist)}</span></span>
       <span class="dur">${formatDuration(s.duration)}</span>
@@ -1297,7 +1297,7 @@ function renderRecGrid(el, items, emptyMsg) {
     .map(
       (s, i) => `
     <button type="button" class="rec" data-i="${i}">
-      ${s.artwork ? `<img src="${s.artwork}" alt="" loading="lazy" />` : '<span class="art">♪</span>'}
+      ${s.artwork ? `<img src="${s.artwork}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'art',textContent:'♪'}))" />` : '<span class="art">♪</span>'}
       <span class="meta"><b>${escapeHtml(s.track)}</b>${
         getCachedTimeline(s)
           ? '<span class="ready">Aligned · instant</span>'
@@ -1339,7 +1339,7 @@ function renderLibrary() {
     .map(
       (e, i) => `
     <button type="button" class="lib-row" data-i="${i}">
-      ${e.art ? `<img src="${e.art}" alt="" loading="lazy" />` : '<span class="art"></span>'}
+      ${e.art ? `<img src="${e.art}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'art',textContent:'♪'}))" />` : '<span class="art"></span>'}
       <span class="t"><b>${escapeHtml(e.track)}</b><span>${escapeHtml(e.artist)}</span></span>
       ${getCachedTimeline(e) ? '<span class="badge-ready">aligned</span>' : ''}
       <span class="when">${relativeWhen(e.lastPlayedAt)}</span>
@@ -1368,7 +1368,7 @@ function renderContinueShelf() {
     .map(
       (e, i) => `
     <button type="button" class="rec" data-i="${i}">
-      ${e.art ? `<img src="${e.art}" alt="" loading="lazy" />` : '<span class="art">♪</span>'}
+      ${e.art ? `<img src="${e.art}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'art',textContent:'♪'}))" />` : '<span class="art">♪</span>'}
       <span class="meta">
         <b>${escapeHtml(e.track)}</b>
         <span class="${getCachedTimeline(e) ? 'ready' : ''}">${
