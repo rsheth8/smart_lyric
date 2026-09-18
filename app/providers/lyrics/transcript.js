@@ -2,7 +2,7 @@
 // Sources: local audio file, or live capture PCM (Spotify loopback / mic).
 
 import { decodeMono16k, resampleTo16k } from '../../align.js';
-import { transcriptToPlainLyrics } from '../../../lib/transcript-text.mjs';
+import { transcriptToPlainLyrics } from '../../lib/transcript-text.mjs';
 import { chunksToTimeline, applyCleanedLineTexts } from '../formats/asr-timeline.js';
 import { estimateTimeline } from '../formats/estimate.js';
 
