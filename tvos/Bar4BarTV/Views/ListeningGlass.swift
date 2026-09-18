@@ -27,69 +27,67 @@ struct ListeningGlass: View {
       let fieldColor = Color(red: fieldRGB.r, green: fieldRGB.g, blue: fieldRGB.b)
 
       ZStack {
-        // 1. Envelope background — warm black, brightness follows playing state
+        // 1. Envelope — near-pure black, cool violet undertone
         let envBrightness = 0.5 + 0.5 * field.envelope
-        Color(red: 0x0C / 255.0 * envBrightness,
-              green: 0x0A / 255.0 * envBrightness,
+        Color(red: 0x03 / 255.0 * envBrightness,
+              green: 0x01 / 255.0 * envBrightness,
               blue:  0x08 / 255.0 * envBrightness)
 
-        // 2. Field ambient — larger, brighter radial glow; soft falloff past screen edge
+        // 2. Field ambient — hot radial bloom driven by artwork color; concert-bright
         RadialGradient(
-          colors: [fieldColor.opacity(0.55 * field.iris + 0.32 * field.cheer), .clear],
+          colors: [fieldColor.opacity(0.82 * field.iris + 0.50 * field.cheer), .clear],
           center: .center,
           startRadius: 0,
-          endRadius: max(geo.size.width, geo.size.height) * 0.78
+          endRadius: max(geo.size.width, geo.size.height) * 1.05
         )
 
-        // 3. Edge vignette — darkens corners, frames the center as a lit stage
+        // 3. Stage-light cone from top — a violet wash like a follow spot
+        LinearGradient(
+          colors: [Tokens.Glass.spotlight.opacity(0.10 + 0.08 * field.iris), .clear],
+          startPoint: .top,
+          endPoint: UnitPoint(x: 0.5, y: 0.42)
+        )
+
+        // 4. Edge vignette — strong, frames center like a darkened venue
         RadialGradient(
-          colors: [.clear, .black.opacity(0.50)],
+          colors: [.clear, .black.opacity(0.72)],
           center: .center,
-          startRadius: min(geo.size.width, geo.size.height) * 0.32,
-          endRadius: max(geo.size.width, geo.size.height) * 0.80
+          startRadius: min(geo.size.width, geo.size.height) * 0.28,
+          endRadius: max(geo.size.width, geo.size.height) * 0.82
         )
 
-        // 4. Sleeve + entrance plate
+        // 5. Sleeve + entrance plate
         entrancePlateView(field: field)
         sleeveView(field: field)
 
-        // 5. VU meters with peak hold — Canvas is lightweight, no SwiftUI layout overhead
+        // 6. VU meters — thin neon slivers with glow bloom
         Canvas { ctx, size in
           let f = field
-          let meterW = size.width * 0.035
-          let meterX = size.width * 0.025
+          // Thin sliver: 0.6% of width (~11 px on 1920)
+          let meterW: CGFloat = size.width * 0.006
+          let meterX: CGFloat = size.width * 0.022
 
-          // Left bar
-          let meterH_L = size.height * f.leftMeter
-          if meterH_L > 1 {
-            ctx.fill(Path(roundedRect: CGRect(x: meterX, y: size.height - meterH_L,
-                                              width: meterW, height: meterH_L), cornerRadius: 3),
-                     with: .color(Tokens.Glass.meter.opacity(0.55)))
-          }
-          // Left peak hold dot
-          let peakH_L = size.height * smoother.peakL
-          if peakH_L > 6 {
-            ctx.fill(Path(roundedRect: CGRect(x: meterX, y: size.height - peakH_L - 4,
-                                              width: meterW, height: 3), cornerRadius: 1.5),
-                     with: .color(Tokens.Glass.meter.opacity(0.90)))
+          func drawMeter(x: CGFloat, h: CGFloat, peakH: CGFloat) {
+            guard h > 1 else { return }
+            let rect = CGRect(x: x, y: size.height - h, width: meterW, height: h)
+            // Bloom layer — wider, low alpha
+            ctx.fill(Path(roundedRect: rect.insetBy(dx: -meterW * 1.5, dy: 0), cornerRadius: 4),
+                     with: .color(Tokens.Glass.meter.opacity(0.18)))
+            // Core sliver — bright neon
+            ctx.fill(Path(roundedRect: rect, cornerRadius: meterW / 2),
+                     with: .color(Tokens.Glass.meter.opacity(0.80)))
+            // Peak hold tick
+            if peakH > 6 {
+              let tickY = size.height - peakH - 3
+              let tick = CGRect(x: x - meterW * 0.5, y: tickY, width: meterW * 2, height: 2)
+              ctx.fill(Path(roundedRect: tick, cornerRadius: 1),
+                       with: .color(Tokens.Glass.holdHorizon))
+            }
           }
 
-          // Right bar
-          let meterH_R = size.height * f.rightMeter
-          if meterH_R > 1 {
-            ctx.fill(Path(roundedRect: CGRect(x: size.width - meterX - meterW,
-                                              y: size.height - meterH_R,
-                                              width: meterW, height: meterH_R), cornerRadius: 3),
-                     with: .color(Tokens.Glass.meter.opacity(0.55)))
-          }
-          // Right peak hold dot
-          let peakH_R = size.height * smoother.peakR
-          if peakH_R > 6 {
-            ctx.fill(Path(roundedRect: CGRect(x: size.width - meterX - meterW,
-                                              y: size.height - peakH_R - 4,
-                                              width: meterW, height: 3), cornerRadius: 1.5),
-                     with: .color(Tokens.Glass.meter.opacity(0.90)))
-          }
+          drawMeter(x: meterX, h: size.height * f.leftMeter, peakH: size.height * smoother.peakL)
+          drawMeter(x: size.width - meterX - meterW,
+                    h: size.height * f.rightMeter, peakH: size.height * smoother.peakR)
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
@@ -180,8 +178,8 @@ struct ListeningGlass: View {
   // MARK: - Helpers
 
   private var fieldFallbackRGB: (r: Double, g: Double, b: Double) {
-    // Warm amber — bright enough to be perceptible even without artwork
-    (r: 0xBE / 255.0, g: 0x72 / 255.0, b: 0x30 / 255.0)
+    // Deep concert violet — the default stage color when no artwork is present
+    (r: 0x4A / 255.0, g: 0x10 / 255.0, b: 0x8A / 255.0)
   }
 }
 

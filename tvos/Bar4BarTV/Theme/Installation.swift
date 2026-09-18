@@ -100,7 +100,7 @@ struct PosterEnvironment: View {
           color: Tokens.lilac, alpha: browsing ? 0.06 : 0.032 + strength * 0.014, rotation: -12)
       }
       letter(forms, x: x - expansion, y: y + drift, width: width,
-        color: accent, alpha: browsing ? 0.26 : (state.dense ? 0.055 : 0.15 + hookAmount * 0.09) + cheer * 0.12, rotation: -12)
+        color: accent, alpha: browsing ? 0.38 : (state.dense ? 0.055 : 0.15 + hookAmount * 0.09) + cheer * 0.12, rotation: -12)
       letter(forms, x: -size.width * 0.25 - expansion, y: size.height * 0.71 - drift,
         width: size.width * 0.78, color: Tokens.lilac,
         alpha: state.dense ? 0.025 : 0.075 + strength * 0.025, rotation: 9)
@@ -118,7 +118,7 @@ struct PosterEnvironment: View {
       }
       var texture = context
       texture.scaleBy(x: size.width / 1920, y: size.height / 1080)
-      texture.fill(InstallationForms.stipple, with: .color(Tokens.text1.opacity(0.075)))
+      texture.fill(InstallationForms.stipple, with: .color(Tokens.text1.opacity(0.13)))
     }
     .accessibilityHidden(true).allowsHitTesting(false).ignoresSafeArea()
   }

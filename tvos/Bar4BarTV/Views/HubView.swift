@@ -68,7 +68,7 @@ struct HubView: View {
     HStack(spacing: 36) {
       BrandLockup(size: 38)
       Rectangle().fill(Tokens.line2).frame(width: 1, height: 28)
-      Text("EVERYONE HAS A WAY IN")
+      Text("THE STAGE IS DARK. YOU'RE ON.")
         .font(Tokens.display(17, .semibold)).tracking(3.5).foregroundStyle(Tokens.text2)
       Spacer()
       Button { path.append(Route.search) } label: { Label("Search", systemImage: "magnifyingglass") }
@@ -84,13 +84,13 @@ struct HubView: View {
         .foregroundStyle(Tokens.ember.opacity(0.32)).rotationEffect(.degrees(-9))
         .offset(x: 175, y: -65).accessibilityHidden(true)
       VStack(alignment: .leading, spacing: 24) {
-        Text("AN AFTER-DARK SINGING ROOM / 01")
+        Text("LIVE · WORD FOR WORD · EVERY NIGHT")
           .font(Tokens.caption(18)).tracking(3).foregroundStyle(Tokens.lilac)
         Text("Your voice,\nin good company.")
           .font(Tokens.editorial(86, italic: true)).tracking(-2)
           .foregroundStyle(Tokens.text1).fixedSize(horizontal: false, vertical: true)
         Text(music.nowPlaying == nil
-          ? "Take a verse. Share a hook. Make the room yours."
+          ? "Every bar. Every word. In the dark where it hits different."
           : "Return to \(music.nowPlaying?.title ?? "your music").")
           .font(Tokens.control(25)).foregroundStyle(Tokens.text2)
         HStack(spacing: 22) {

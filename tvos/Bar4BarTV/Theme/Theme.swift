@@ -18,14 +18,14 @@ enum Tokens {
 
   // MARK: - Surfaces (elevation: 0 = the room, 3 = closest to you)
 
-  static let surface0 = Color(hex: 0x19121F)
-  static let surface1 = Color.white.opacity(0.035)
-  static let surface2 = Color.white.opacity(0.065)
-  static let surface3 = Color.white.opacity(0.10)
+  static let surface0 = Color(hex: 0x07040E)   // concert black — near pure, violet undertone
+  static let surface1 = Color.white.opacity(0.040)
+  static let surface2 = Color.white.opacity(0.075)
+  static let surface3 = Color.white.opacity(0.12)
   /// Opaque variants — for anything sitting over a blur/material.
-  static let surfaceSolid1 = Color(hex: 0x100F15)
-  static let surfaceSolid2 = Color(hex: 0x241B2D)
-  static let scrim = Color(hex: 0x19121F).opacity(0.76)
+  static let surfaceSolid1 = Color(hex: 0x07040E)
+  static let surfaceSolid2 = Color(hex: 0x16092B)
+  static let scrim = Color(hex: 0x07040E).opacity(0.82)
 
   // MARK: - Hairlines
 
@@ -55,14 +55,15 @@ enum Tokens {
 
   // MARK: - Glass (performance stage)
   enum Glass {
-    static let envelope      = Color(hex: 0x0C0A08)
-    static let fieldFallback = Color(hex: 0x3A2418)
-    static let filament      = Color(hex: 0xF4E6D0)
-    static let filamentDim   = Color(hex: 0xF4E6D0).opacity(0.28)
-    static let filamentSung  = Color(hex: 0xF4E6D0).opacity(0.62)
-    static let meter         = Color(hex: 0x3D6CFF)
-    static let legend        = Color(hex: 0xF4E6D0).opacity(0.45)
-    static let holdHorizon   = Color(hex: 0x3D6CFF).opacity(0.85)
+    static let envelope      = Color(hex: 0x030108)   // near-pure black, cool violet
+    static let fieldFallback = Color(hex: 0x1E0838)   // deep concert violet fallback
+    static let filament      = Color(hex: 0xF6F0FF)   // near-white, barely violet — cooler than before
+    static let filamentDim   = Color(hex: 0xF6F0FF).opacity(0.28)
+    static let filamentSung  = Color(hex: 0xF6F0FF).opacity(0.65)
+    static let meter         = Color(hex: 0x00EDFF)   // neon cyan (was flat blue)
+    static let legend        = Color(hex: 0xF6F0FF).opacity(0.40)
+    static let holdHorizon   = Color(hex: 0x00EDFF).opacity(0.95)
+    static let spotlight     = Color(hex: 0x8B5CF6)   // concert violet, used for stage-light cone
   }
 
   // MARK: - Type (TV density)
@@ -143,7 +144,7 @@ enum Tokens {
 
   // MARK: - Type helpers
 
-  static let lilac = Color(hex: 0xB9A1DC)
+  static let lilac = Color(hex: 0xC77DFF)       // hotter concert purple (was muted lilac)
   static let chartreuse = Color(hex: 0xD8E77B)
 
   private static let fontCache = NSCache<NSString, FontBox>()
