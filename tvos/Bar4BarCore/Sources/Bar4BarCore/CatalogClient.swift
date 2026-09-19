@@ -52,6 +52,21 @@ public struct CatalogClient: Sendable {
     (try? await searchResults(term, limit: limit)) ?? []
   }
 
+  public func searchAlbums(_ term: String, limit: Int = 24) async -> [CatalogItem] {
+    let q = term.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard q.count >= 2 else { return [] }
+    var comps = URLComponents(string: "https://itunes.apple.com/search")
+    comps?.queryItems = [
+      URLQueryItem(name: "term", value: q),
+      URLQueryItem(name: "country", value: storefront),
+      URLQueryItem(name: "media", value: "music"),
+      URLQueryItem(name: "entity", value: "album"),
+      URLQueryItem(name: "limit", value: String(limit)),
+    ]
+    guard let url = comps?.url, let data = try? await get(url) else { return [] }
+    return Self.parseAlbumSearch(data)
+  }
+
   public func searchResults(_ term: String, limit: Int = 24) async throws -> [CatalogItem] {
     let q = term.trimmingCharacters(in: .whitespacesAndNewlines)
     guard q.count >= 2 else { return [] }
@@ -86,6 +101,28 @@ public struct CatalogClient: Sendable {
         album: entry.collection?.name.label,
         artworkURL: Artwork.upgrade(entry.images.last?.label),
         duration: nil
+      )
+    }
+  }
+
+  public static func parseAlbumSearch(_ data: Data) -> [CatalogItem] {
+    struct AlbumPayload: Decodable {
+      let results: [Hit]
+      struct Hit: Decodable {
+        let collectionId: Int?
+        let collectionName: String?
+        let artistName: String?
+        let artworkUrl100: String?
+      }
+    }
+    guard let payload = try? JSONDecoder().decode(AlbumPayload.self, from: data) else { return [] }
+    return payload.results.compactMap { hit in
+      guard let name = hit.collectionName, !name.isEmpty else { return nil }
+      return CatalogItem(
+        id: hit.collectionId.map(String.init) ?? "",
+        title: name,
+        artist: hit.artistName ?? "",
+        artworkURL: Artwork.upgrade(hit.artworkUrl100)
       )
     }
   }

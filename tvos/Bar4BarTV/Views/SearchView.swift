@@ -2,34 +2,22 @@ import SwiftUI
 import MusicKit
 import Bar4BarCore
 
-/// Catalog search.
+/// Catalog search — songs or albums.
 ///
-/// Search runs against the public iTunes catalog, so this screen works with no
-/// account connected and inside the simulator. It used to sit behind an Apple
-/// Music gate, which meant the one screen whose entire job is *finding
-/// something* refused to do it until you had authorized — and then rendered
-/// nothing at all anywhere MusicKit will not run.
-///
-/// Four genuinely different states — never searched, searching, found nothing,
-/// failed — each with its own composition. A search that quietly fails is worse
-/// than one that says so, because the viewer retypes the same query from across
-/// the room.
+/// Four states per scope: never searched, searching, found nothing, failed.
+/// Album tap drills into a song search for that release rather than adding a
+/// new screen — the album is a filter, not a destination.
 struct SearchView: View {
   @EnvironmentObject private var music: MusicPlayerService
   @EnvironmentObject private var session: LyricsSession
   @Binding var path: NavigationPath
   @State private var query = ""
+  @State private var scope: MusicPlayerService.SearchScope = .songs
 
-  /// Same story as the hub: `prefersDefaultFocus` does not survive a
-  /// `ScrollView`, so focus is placed explicitly.
-  ///
-  /// The rule is about intent. Arriving with nothing typed, you came here to
-  /// type, so the field takes focus. Arriving to results — or coming back from
-  /// the keyboard — you came to pick, so the first card takes it. Leaving focus
-  /// on the field in that second case also parks tvOS's light focused-field
-  /// plate in the middle of a dark screen full of artwork.
   private enum SearchFocus: Hashable {
     case field
+    case scopeSongs
+    case scopeAlbums
     case card(String)
   }
   @FocusState private var focus: SearchFocus?
@@ -48,7 +36,13 @@ struct SearchView: View {
       .padding(.vertical, Tokens.safeY)
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
       .animation(Tokens.Motion.page, value: music.searchResults.count)
+      .animation(Tokens.Motion.page, value: music.albumResults.count)
       .animation(Tokens.Motion.page, value: music.isSearching)
+    }
+    .onChange(of: scope) { _, newScope in
+      music.searchResults = []
+      music.albumResults = []
+      if query.count >= 2 { music.searchDebounced(query, scope: newScope) }
     }
     .task {
       if DemoLaunch.browseFixture {
@@ -60,55 +54,74 @@ struct SearchView: View {
         await music.search(term)
       }
       try? await Task.sleep(for: .milliseconds(120))
-      focus = music.searchResults.first.map { .card($0.id) } ?? .field
+      focus = activeResults.first.map { .card($0.id) } ?? .field
     }
+  }
+
+  private var activeResults: [CatalogItem] {
+    scope == .albums ? music.albumResults : music.searchResults
   }
 
   private var focusedTitle: String {
     guard case let .card(id) = focus else { return "Find songs" }
-    return (music.searchResults + music.recentSongs + music.chartSongs).first(where: { $0.id == id })?.title ?? "Find songs"
+    let all = music.searchResults + music.albumResults + music.recentSongs + music.chartSongs
+    return all.first(where: { $0.id == id })?.title ?? "Find songs"
   }
 
   // MARK: - Header
 
   private var header: some View {
-    VStack(alignment: .leading, spacing: 10) {
-      Text("Find a song").font(Tokens.editorial(68))
-      Text(subtitle).font(Tokens.caption(22)).foregroundStyle(Tokens.text2)
+    HStack(alignment: .bottom, spacing: Tokens.Space.s5) {
+      VStack(alignment: .leading, spacing: 6) {
+        Text("Search").font(Tokens.editorial(68))
+        Text(subtitle).font(Tokens.caption(22)).foregroundStyle(Tokens.text2)
+      }
+      Spacer()
+      scopePicker
     }
   }
 
-
-  /// Say up front that playing needs a subscription, rather than letting someone
-  /// search, pick, and only then meet the wall.
   private var subtitle: String {
     music.authStatus == .authorized
       ? "Apple Music · press Menu to go back"
-      : "Browse freely — playing a result needs Apple Music"
+      : "Browse freely — playing needs Apple Music"
+  }
+
+  // MARK: - Scope picker
+
+  private var scopePicker: some View {
+    HStack(spacing: 4) {
+      scopeButton("Songs", value: .songs)
+      scopeButton("Albums", value: .albums)
+    }
+    .padding(4)
+    .background(Tokens.surface1, in: Capsule())
+    .overlay(Capsule().stroke(Tokens.line1, lineWidth: 1))
+  }
+
+  private func scopeButton(_ label: String, value: MusicPlayerService.SearchScope) -> some View {
+    Button(label) {
+      guard scope != value else { return }
+      scope = value
+    }
+    .focused($focus, equals: value == .songs ? .scopeSongs : .scopeAlbums)
+    .buttonStyle(ScopeTabStyle(selected: scope == value))
   }
 
   // MARK: - Search bar
 
   private var searchBar: some View {
     HStack(spacing: Tokens.Space.s3) {
-      // tvOS draws its own light plate on a focused text field, so an icon
-      // placed beside it floats outside the control and reads as a stray
-      // glyph. The magnifier belongs on the button, which we do draw.
-      TextField("Song or artist", text: $query)
+      TextField(scope == .albums ? "Album or artist" : "Song or artist", text: $query)
         .textFieldStyle(.plain)
         .font(Tokens.display(Tokens.FontSize.md, .medium))
         .focused($focus, equals: .field)
         .submitLabel(.search)
         .onSubmit { runSearch() }
-        // Results arrive while the on-screen keyboard is still up, so by the
-        // time it is dismissed the grid is already there. The debounce lives in
-        // the service — the remote keyboard emits one character at a time.
-        .onChange(of: query) { _, term in music.searchDebounced(term) }
+        .onChange(of: query) { _, term in music.searchDebounced(term, scope: scope) }
         .frame(maxWidth: 820)
 
-      Button {
-        runSearch()
-      } label: {
+      Button { runSearch() } label: {
         Label("Search", systemImage: "magnifyingglass")
       }
       .buttonStyle(TVPillStyle())
@@ -118,10 +131,12 @@ struct SearchView: View {
 
   private func runSearch() {
     Task {
-      await music.search(query)
-      // Hand focus to the answer. Leaving it on the field means the viewer has
-      // to swipe past the keyboard control to reach what they just asked for.
-      if let first = music.searchResults.first { focus = .card(first.id) }
+      if scope == .albums {
+        await music.searchAlbums(query)
+      } else {
+        await music.search(query)
+      }
+      if let first = activeResults.first { focus = .card(first.id) }
     }
   }
 
@@ -129,36 +144,36 @@ struct SearchView: View {
 
   @ViewBuilder
   private var results: some View {
-    if let err = music.searchError, music.searchResults.isEmpty {
+    if let err = music.searchError, activeResults.isEmpty {
       statusBlock(
         icon: "exclamationmark.triangle.fill",
         title: "That search didn't go through",
         detail: err,
         tint: Tokens.ember
       )
-    } else if music.isSearching && music.searchResults.isEmpty {
-      // A skeleton grid rather than a spinner: it holds the shape the results
-      // will take, so the screen does not reflow when they land.
+    } else if music.isSearching && activeResults.isEmpty {
       skeletonGrid
-    } else if !music.searchResults.isEmpty {
-      grid(music.searchResults)
+    } else if !activeResults.isEmpty {
+      grid(activeResults)
     } else if let term = music.lastSearchTerm {
       statusBlock(
         icon: "questionmark.circle",
-        title: "Nothing matched “\(term)”",
-        detail: "Try the artist's name, or fewer words."
+        title: "Nothing matched "\(term)"",
+        detail: scope == .albums
+          ? "Try an artist name or shorter album title."
+          : "Try the artist's name, or fewer words."
       )
     } else {
       startingPoint
     }
   }
 
-  private func grid(_ songs: [CatalogItem]) -> some View {
+  private func grid(_ items: [CatalogItem]) -> some View {
     ScrollView(.vertical) {
       LazyVStack(alignment: .leading, spacing: 14) {
-        ForEach(songs) { song in
-          EditorialSongEntry(item: song, selected: focus == .card(song.id)) { start(song) }
-            .focused($focus, equals: .card(song.id))
+        ForEach(items) { item in
+          EditorialSongEntry(item: item, selected: focus == .card(item.id)) { tap(item) }
+            .focused($focus, equals: .card(item.id))
         }
       }.padding(.vertical, 20).padding(.horizontal, 6)
     }
@@ -179,8 +194,6 @@ struct SearchView: View {
     }
   }
 
-  /// Nothing typed yet. Rather than an empty screen with a hint, show something
-  /// pressable: what they played before, then what everyone is playing now.
   private var startingPoint: some View {
     ScrollView(.vertical) {
       VStack(alignment: .leading, spacing: Tokens.Space.s4) {
@@ -199,16 +212,26 @@ struct SearchView: View {
     VStack(alignment: .leading, spacing: 18) {
       Text(title).font(Tokens.editorial(38))
       ForEach(items.prefix(8)) { item in
-        EditorialSongEntry(item: item, selected: focus == .card(item.id)) { start(item) }
+        EditorialSongEntry(item: item, selected: focus == .card(item.id)) { tap(item) }
           .focused($focus, equals: .card(item.id))
       }
     }
   }
 
-  /// Only navigate when playback actually started — `play` returns false both
-  /// when Apple Music is not connected (the root then shows the connect prompt)
-  /// and when the song will not resolve. Pushing karaoke over silence was the
-  /// original dead end here.
+  private func tap(_ item: CatalogItem) {
+    if scope == .albums {
+      scope = .songs
+      query = item.title
+      music.albumResults = []
+      Task {
+        await music.search("\(item.title) \(item.artist)")
+        if let first = music.searchResults.first { focus = .card(first.id) }
+      }
+    } else {
+      start(item)
+    }
+  }
+
   private func start(_ item: CatalogItem) {
     Task {
       if await music.play(item) {
@@ -255,5 +278,25 @@ struct SearchView: View {
       RoundedRectangle(cornerRadius: Tokens.Radius.xl, style: .continuous)
         .stroke(Tokens.line1, lineWidth: 1)
     )
+  }
+}
+
+// MARK: - Scope tab style
+
+private struct ScopeTabStyle: ButtonStyle {
+  var selected: Bool
+  @Environment(\.isFocused) private var focused
+
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .font(Tokens.display(Tokens.FontSize.base, .semibold))
+      .foregroundStyle(focused ? Tokens.accentInk : selected ? Tokens.text1 : Tokens.text3)
+      .padding(.horizontal, Tokens.Space.s4)
+      .padding(.vertical, Tokens.Space.s2)
+      .background(
+        focused ? Tokens.accentStatic : selected ? Tokens.surface3 : Color.clear,
+        in: Capsule()
+      )
+      .animation(Tokens.Motion.easeOut, value: focused)
   }
 }

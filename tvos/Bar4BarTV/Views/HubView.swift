@@ -32,14 +32,6 @@ struct HubView: View {
           hero
           sources
           messages
-
-          if !music.recentSongs.isEmpty {
-            shelf(
-              title: "Play it again",
-              items: music.recentSongs
-            )
-          }
-
           recommended
         }
         .padding(.horizontal, Tokens.safeX)
@@ -79,35 +71,22 @@ struct HubView: View {
   }
 
   private var hero: some View {
-    ZStack(alignment: .topTrailing) {
-      Text("Bar4Bar").font(Tokens.editorial(250)).tracking(-14)
-        .foregroundStyle(Tokens.ember.opacity(0.32)).rotationEffect(.degrees(-9))
-        .offset(x: 175, y: -65).accessibilityHidden(true)
-      VStack(alignment: .leading, spacing: 24) {
-        Text("LIVE · WORD FOR WORD · EVERY NIGHT")
-          .font(Tokens.caption(18)).tracking(3).foregroundStyle(Tokens.lilac)
-        Text("Your voice,\nin good company.")
-          .font(Tokens.editorial(86, italic: true)).tracking(-2)
-          .foregroundStyle(Tokens.text1).fixedSize(horizontal: false, vertical: true)
-        Text(music.nowPlaying == nil
-          ? "Every bar. Every word. In the dark where it hits different."
-          : "Return to \(music.nowPlaying?.title ?? "your music").")
-          .font(Tokens.control(25)).foregroundStyle(Tokens.text2)
-        HStack(spacing: 22) {
-          Button {
-            if music.nowPlaying == nil { music.startDemo() }
-            path.append(Route.karaoke)
-          } label: {
-            Label(music.nowPlaying == nil ? "Experience Bar4Bar" : "Back to the stage", systemImage: "play.fill")
-          }.buttonStyle(RoomButtonStyle(prominent: true)).focused($focus, equals: .demoTile)
-          Button("Find a song") { path.append(Route.search) }.buttonStyle(RoomButtonStyle())
-        }.padding(.top, 12)
-        if music.nowPlaying == nil {
-          Text("52-second visual study · No sign-in needed")
-            .font(Tokens.caption(18)).foregroundStyle(Tokens.text2)
-        }
-      }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 40)
-    }.frame(height: 500).clipped()
+    VStack(alignment: .leading, spacing: 24) {
+      Text("LIVE · WORD FOR WORD · EVERY NIGHT")
+        .font(Tokens.caption(18)).tracking(3).foregroundStyle(Tokens.lilac)
+      Text("Your voice,\nin good company.")
+        .font(Tokens.editorial(86, italic: true)).tracking(-2)
+        .foregroundStyle(Tokens.text1).fixedSize(horizontal: false, vertical: true)
+      HStack(spacing: 22) {
+        Button {
+          if music.nowPlaying == nil { music.startDemo() }
+          path.append(Route.karaoke)
+        } label: {
+          Label(music.nowPlaying == nil ? "Experience Bar4Bar" : "Back to the stage", systemImage: "play.fill")
+        }.buttonStyle(RoomButtonStyle(prominent: true)).focused($focus, equals: .demoTile)
+        Button("Find a song") { path.append(Route.search) }.buttonStyle(RoomButtonStyle())
+      }.padding(.top, 12)
+    }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 40)
   }
 
   // MARK: - Sources

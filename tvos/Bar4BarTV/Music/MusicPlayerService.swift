@@ -93,6 +93,11 @@ final class MusicPlayerService: ObservableObject {
   /// which is the dead end this replaces.
   @Published var connectPrompt: CatalogItem?
 
+  // MARK: - Search scope
+
+  enum SearchScope { case songs, albums }
+  @Published var albumResults: [CatalogItem] = []
+
   /// The Music app's player — not `ApplicationMusicPlayer`, which is a private
   /// queue that never sees Siri, Control Center, or Music itself.
   private let player = SystemMusicPlayer.shared
@@ -254,13 +259,14 @@ final class MusicPlayerService: ObservableObject {
   /// Debounced search. The Siri Remote keyboard emits a character at a time, so
   /// searching on every keystroke would fire a dozen requests for one word and
   /// let an early, shorter term's response land last.
-  func searchDebounced(_ term: String, delay: Duration = .milliseconds(350)) {
+  func searchDebounced(_ term: String, scope: SearchScope = .songs, delay: Duration = .milliseconds(350)) {
     searchTask?.cancel()
     searchID = UUID()
     searchError = nil
     let q = term.trimmingCharacters(in: .whitespacesAndNewlines)
     guard q.count >= 2 else {
       searchResults = []
+      albumResults = []
       lastSearchTerm = nil
       isSearching = false
       return
@@ -269,8 +275,31 @@ final class MusicPlayerService: ObservableObject {
     searchTask = Task { [weak self] in
       try? await Task.sleep(for: delay)
       guard !Task.isCancelled else { return }
-      await self?.search(q)
+      if scope == .albums {
+        await self?.searchAlbums(q)
+      } else {
+        await self?.search(q)
+      }
     }
+  }
+
+  func searchAlbums(_ term: String) async {
+    let id = UUID()
+    searchID = id
+    let q = term.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !q.isEmpty else {
+      albumResults = []
+      lastSearchTerm = nil
+      isSearching = false
+      return
+    }
+    isSearching = true
+    searchError = nil
+    let hits = await catalogClient.searchAlbums(q)
+    guard !Task.isCancelled, searchID == id else { return }
+    albumResults = hits
+    lastSearchTerm = q
+    isSearching = false
   }
 
   func search(_ term: String) async {
