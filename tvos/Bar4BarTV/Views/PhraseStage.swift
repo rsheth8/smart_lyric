@@ -8,6 +8,7 @@ struct PhraseStage: View {
   @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
   private var reduceMotion: Bool { systemReduceMotion || DemoLaunch.reduceMotion }
   @State private var runtime = PhraseRuntime()
+  @State private var lightClock = StageLightClock()
 
   var body: some View {
     GeometryReader { geometry in
@@ -17,16 +18,29 @@ struct PhraseStage: View {
         timingRevision: session.timingRevision, seekRevision: music.stageSeekRevision)
       let state = runtime.advance(timeline: session.timeline, sections: session.sections,
         choreography: session.choreography, sample: sample, preview: session.previewSeconds)
+      let lines = session.timeline.lines
+      let activeLi = DisplayMath.resolveActiveLine(lines, t: sample.cue)
+      let look = StageLookMath.resolve(lines: lines, t: sample.cue, sections: session.sections, reduceMotion: reduceMotion)
+      let light = lightClock.advance(look: look, nextVocalIn: DisplayMath.gapState(lines: lines, t: sample.cue, activeLi: activeLi).nextVocalIn, now: Date(), reduceMotion: reduceMotion)
       ZStack {
         ListeningGlass(state: state, intensity: session.intensity,
           partyMode: session.partyMode, sideA: state.line.isMultiple(of: 2),
           cheer: session.audienceAccent.amount(at: Date().timeIntervalSinceReferenceDate),
           playing: music.isPlaying, reduceMotion: reduceMotion,
           artworkURL: music.nowPlaying?.artworkURL,
-          lines: session.timeline.lines, cueTime: sample.cue,
+          lines: lines, cueTime: sample.cue,
           previewSeconds: session.previewSeconds,
           nowPlayingTitle: music.nowPlaying?.title ?? "BAR FOR BAR",
           nowPlayingArtist: music.nowPlaying?.artist ?? "BAR4BAR")
+        CinematicStageFX(
+          look: look, light: light, accent: session.accent,
+          t: state.motionTime,
+          wordImpact: StageDirection.wordImpact(lines: lines, t: sample.cue, activeLi: activeLi),
+          chorusDrop: StageDirection.chorusDrop(sections: session.sections, t: sample.cue),
+          finale: StageDirection.isFinale(sections: session.sections, t: sample.cue),
+          roomEnergy: session.audienceAccent.amount(at: Date().timeIntervalSinceReferenceDate),
+          reduceMotion: reduceMotion
+        )
         board(state: state, cueTime: sample.cue, width: max(1, geometry.size.width - 350))
         // Hidden accessibility element — VoiceOver announces singer role; UITests can assert it.
         Color.clear

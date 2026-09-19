@@ -681,7 +681,9 @@ struct WordWipeView: View {
       switch phase {
       case .leadin, .upcoming: return 0.38
       case .current: return held ? 1.0 : 0.55 + 0.45 * rawWipe
-      case .sung: return 0.72
+      case .sung:
+        let flash = max(0, 1.0 - (t - word.end) / 0.20)
+        return 0.72 + 0.28 * flash
       }
     }()
     let heat = estimated ? baseHeat * 0.75 : baseHeat
@@ -692,10 +694,11 @@ struct WordWipeView: View {
         .foregroundStyle(filamentColor)
         .shadow(color: Tokens.Glass.filament.opacity(glowOpacity), radius: 22)
       if held && !estimated {
-        Rectangle()
-          .fill(Tokens.Glass.holdHorizon)
-          .frame(height: 3)
-          .offset(y: 6)
+        Capsule()
+          .fill(Tokens.Glass.holdHorizon.opacity(0.55))
+          .frame(height: 2)
+          .scaleEffect(x: max(0.03, CGFloat(rawWipe)), anchor: .leading)
+          .offset(y: 5)
       }
     }
     .scaleEffect(phase == .current ? 1.0 + 0.04 * rawWipe : 1.0, anchor: .center)
@@ -737,7 +740,13 @@ struct WordWipeView: View {
         RoundedRectangle(cornerRadius: 5).fill(fill.opacity(emphasis * 0.2)).padding(.horizontal, -4)
       }
       .overlay(alignment: .bottom) {
-        if held { Rectangle().fill(fill.opacity(0.65)).frame(height: 3).offset(y: 6) }
+        if held {
+          Capsule()
+            .fill(fill.opacity(0.55))
+            .frame(height: 2)
+            .scaleEffect(x: max(0.03, CGFloat(rawWipe)), anchor: .leading)
+            .offset(y: 5)
+        }
       }
       .scaleEffect(reduceMotion || !expressiveScale ? 1 : 1 + emphasis * min(0.08, 12 / max(1, PhraseFitting.wordWidth(word.text, size: typeSize))))
       .transaction { $0.animation = nil }
