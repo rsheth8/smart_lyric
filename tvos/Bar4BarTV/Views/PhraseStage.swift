@@ -20,8 +20,9 @@ struct PhraseStage: View {
         choreography: session.choreography, sample: sample, preview: session.previewSeconds)
       let lines = session.timeline.lines
       let activeLi = DisplayMath.resolveActiveLine(lines, t: sample.cue)
+      let gap = DisplayMath.gapState(lines: lines, t: sample.cue, activeLi: activeLi)
       let look = StageLookMath.resolve(lines: lines, t: sample.cue, sections: session.sections, reduceMotion: reduceMotion)
-      let light = lightClock.advance(look: look, nextVocalIn: DisplayMath.gapState(lines: lines, t: sample.cue, activeLi: activeLi).nextVocalIn, now: Date(), reduceMotion: reduceMotion)
+      let light = lightClock.advance(look: look, nextVocalIn: gap.nextVocalIn, now: Date(), reduceMotion: reduceMotion)
       ZStack {
         ListeningGlass(state: state, intensity: session.intensity,
           partyMode: session.partyMode, sideA: state.line.isMultiple(of: 2),
@@ -41,6 +42,9 @@ struct PhraseStage: View {
           roomEnergy: session.audienceAccent.amount(at: Date().timeIntervalSinceReferenceDate),
           reduceMotion: reduceMotion
         )
+        if gap.instrumental, let eta = gap.nextVocalIn {
+          instrumentalCountdown(eta: eta, lines: lines, activeLi: activeLi)
+        }
         board(state: state, cueTime: sample.cue, width: max(1, geometry.size.width - 350))
         // Hidden accessibility element — VoiceOver announces singer role; UITests can assert it.
         Color.clear
@@ -58,6 +62,8 @@ struct PhraseStage: View {
     if session.timeline.lines.indices.contains(state.line) {
       let line = displayLine(at: state.line)
       let size = runtime.typeSize(for: line, width: width)
+      let sectionAlpha = runtime.sectionLabelAlpha(kind: state.kind, t: cueTime)
+      let dotProgress = min(1.0, state.entrance / 0.6)
       GeometryReader { geo in
         VStack(spacing: 0) {
           Spacer(minLength: 0)
@@ -86,19 +92,56 @@ struct PhraseStage: View {
           .accessibilityElement(children: .contain)
           .accessibilityIdentifier("currentPhrase")
 
-          // Ghost next line or language aid (48 pt below current)
+          // Line-start cue dot — shrinks in as the line settles
+          if state.entrance < 0.6 && !reduceMotion {
+            Circle()
+              .fill(Tokens.Glass.filament.opacity((1 - dotProgress) * 0.50))
+              .frame(width: max(4, CGFloat(12 - dotProgress * 8)), height: max(4, CGFloat(12 - dotProgress * 8)))
+              .padding(.top, 6)
+          }
+
+          // Party singer indicator
+          if session.partyMode == "Take turns" {
+            Text(state.line.isMultiple(of: 2) ? "— YOU —" : "— THEM —")
+              .font(Tokens.display(15, .semibold))
+              .tracking(3)
+              .foregroundStyle(Tokens.Glass.filament.opacity(0.40))
+              .padding(.top, 8)
+          }
+
+          // Upcoming lines runway + language aid
           ghostOrAid(state: state, cueTime: cueTime, currentSize: size)
-            .padding(.top, 48)
+            .padding(.top, session.partyMode == "Take turns" ? 20 : 48)
 
           Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity)
 
-        // Faceplate: ARTIST · TITLE · M:SS at bottom (88% of panel)
+        // Section label pill — fades in at section boundaries
+        if sectionAlpha > 0.01 {
+          VStack {
+            HStack {
+              Text(state.kind.sectionLabel)
+                .font(Tokens.display(15, .semibold))
+                .tracking(3.5)
+                .foregroundStyle(Tokens.Glass.legend)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Tokens.surface2.opacity(sectionAlpha), in: Capsule())
+              Spacer()
+            }
+            Spacer()
+          }
+          .opacity(sectionAlpha)
+          .padding(.top, 44)
+          .padding(.leading, 36)
+        }
+
+        // Faceplate: ARTIST · TITLE · M:SS at bottom
         VStack {
           Spacer()
           Text(faceplateText)
-            .font(.system(size: 24, weight: .regular, design: .default))
+            .font(Tokens.display(24))
             .tracking(2.5)
             .foregroundStyle(Tokens.Glass.legend)
             .frame(maxWidth: .infinity, alignment: .center)
@@ -121,16 +164,33 @@ struct PhraseStage: View {
         .opacity(0.5)
         .frame(maxWidth: .infinity)
     } else if let next = state.next, session.timeline.lines.indices.contains(next) {
-      let nextLine = session.timeline.lines[next]
       let pulse = 0.28 + 0.14 * sin(cueTime * 1.1)
-      Text(nextLine.text)
-        .font(Tokens.lyric(currentSize * 0.42))
-        .foregroundStyle(Tokens.Glass.filament.opacity(pulse))
-        .multilineTextAlignment(.center)
-        .lineLimit(2)
-        .minimumScaleFactor(0.65)
-        .frame(maxWidth: .infinity)
-        .offset(y: CGFloat(sin(cueTime * 0.38) * 6))
+      VStack(spacing: 16) {
+        Text(session.timeline.lines[next].text)
+          .font(Tokens.lyric(currentSize * 0.42))
+          .foregroundStyle(Tokens.Glass.filament.opacity(pulse))
+          .multilineTextAlignment(.center)
+          .lineLimit(2)
+          .minimumScaleFactor(0.65)
+          .offset(y: CGFloat(sin(cueTime * 0.38) * 6))
+        if session.timeline.lines.indices.contains(next + 1) {
+          Text(session.timeline.lines[next + 1].text)
+            .font(Tokens.lyric(currentSize * 0.30))
+            .foregroundStyle(Tokens.Glass.filament.opacity(0.16))
+            .multilineTextAlignment(.center)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+        }
+        if session.timeline.lines.indices.contains(next + 2) {
+          Text(session.timeline.lines[next + 2].text)
+            .font(Tokens.lyric(currentSize * 0.22))
+            .foregroundStyle(Tokens.Glass.filament.opacity(0.09))
+            .multilineTextAlignment(.center)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+        }
+      }
+      .frame(maxWidth: .infinity)
     }
   }
 
@@ -164,6 +224,39 @@ struct PhraseStage: View {
     }
     return session.partyMode == "Everyone" ? "Everyone" : "Your stage"
   }
+
+  @ViewBuilder private func instrumentalCountdown(eta: Double, lines: [LyricLine], activeLi: Int) -> some View {
+    let showCount = eta < 8 && eta > 0.2
+    let countAlpha = showCount ? min(1.0, (8.0 - eta) / 2.0) : 0.0
+    let countText = eta > 1.2 ? "BACK IN \(Int(ceil(eta)))s" : "GET READY"
+    let nextIdx = activeLi + 1
+    VStack(spacing: 20) {
+      Spacer()
+      if showCount {
+        HStack(spacing: 8) {
+          Image(systemName: "music.note")
+            .font(.system(size: 16, weight: .medium))
+          Text(countText)
+            .font(Tokens.display(22, .semibold))
+            .tracking(4)
+        }
+        .foregroundStyle(Tokens.Glass.legend.opacity(countAlpha))
+      }
+      if lines.indices.contains(nextIdx) {
+        Text(lines[nextIdx].text)
+          .font(Tokens.lyric(52))
+          .foregroundStyle(Tokens.Glass.filament.opacity(0.32))
+          .multilineTextAlignment(.center)
+          .lineLimit(2)
+          .minimumScaleFactor(0.6)
+          .padding(.horizontal, 200)
+      }
+      Spacer().frame(height: 100)
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .allowsHitTesting(false)
+    .accessibilityHidden(true)
+  }
 }
 
 /// Owned by the TimelineView. This non-observable cache advances only on display
@@ -186,6 +279,16 @@ private final class PhraseRuntime {
     fittedSize = 52
     return 52
   }
+  private var lastKind: Choreography.Kind = .verse
+  private var kindChangedAt: Double = -100.0
+
+  func sectionLabelAlpha(kind: Choreography.Kind, t: Double) -> Double {
+    if kind != lastKind { lastKind = kind; kindChangedAt = t }
+    let age = t - kindChangedAt
+    guard age < 3.0 else { return 0 }
+    return min(1.0, age / 0.25) * max(0.0, 1.0 - max(0, age - 1.5) / 1.5)
+  }
+
   func advance(timeline: Timeline, sections: [Sections.Section], choreography: Choreography?, sample: StageSample, preview: Double) -> StagePresentation {
     let state = director.advance(timeline: timeline, sections: sections, choreography: choreography, sample: sample, preview: preview)
     if state.line != displayedLine || frozenLine == nil {
@@ -194,5 +297,18 @@ private final class PhraseRuntime {
       displayedLine = state.line
     }
     return state
+  }
+}
+
+
+private extension Choreography.Kind {
+  var sectionLabel: String {
+    switch self {
+    case .verse: return "VERSE"
+    case .chorus: return "CHORUS"
+    case .build: return "BUILD"
+    case .instrumental: return "INSTRUMENTAL"
+    case .finale: return "FINALE"
+    }
   }
 }

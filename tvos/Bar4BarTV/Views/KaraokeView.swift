@@ -152,7 +152,13 @@ struct KaraokeView: View {
     .focusEffectDisabled()
     .prefersDefaultFocus(true, in: stageNamespace)
     .defaultFocus($focus, .stage, priority: .userInitiated)
-    .onMoveCommand { _ in showControls() }
+    .onMoveCommand { direction in
+      switch direction {
+      case .left: if music.canTransport { replayCurrentLine() }
+      case .right: if music.canTransport { skipToNextChorus() }
+      default: showControls()
+      }
+    }
     .accessibilityLabel("Show playback controls")
     .accessibilityIdentifier("showPlaybackControls")
   }
@@ -330,6 +336,22 @@ struct KaraokeView: View {
       try? await Task.sleep(for: .seconds(8))
       guard !Task.isCancelled, !timingPresented, !optionsPresented, !stagePresented else { return }
       hideControls()
+    }
+  }
+
+  private func replayCurrentLine() {
+    let lines = session.timeline.lines
+    let cue = music.liveTime + session.totalAlignment + session.singerLead
+    let activeLi = DisplayMath.resolveActiveLine(lines, t: cue)
+    if let start = StageDirection.currentLineStart(lines: lines, t: cue, activeLi: activeLi) {
+      music.seek(to: max(0, start - session.totalAlignment - session.singerLead))
+    }
+  }
+
+  private func skipToNextChorus() {
+    let cue = music.liveTime + session.totalAlignment + session.singerLead
+    if let start = StageDirection.nextChorusStart(sections: session.sections, t: cue) {
+      music.seek(to: max(0, start - session.totalAlignment - session.singerLead))
     }
   }
 
