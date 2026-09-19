@@ -48,19 +48,12 @@ final class AudioAnalyzer: ObservableObject {
   // MARK: - Setup
 
   private func startTap() {
-    let out    = engine.outputNode
-    let format = out.outputFormat(forBus: 0)
-    guard format.sampleRate > 0 else { return }
-
-    out.installTap(onBus: 0, bufferSize: UInt32(fftN), format: format) { [weak self] buf, _ in
-      self?.analyze(buf)
-    }
-    do {
-      try engine.start()
-      isActive = true
-    } catch {
-      out.removeTap(onBus: 0)
-    }
+    // Apple Music and other system audio use a separate hardware pipeline
+    // that AVAudioEngine output tap cannot access on tvOS. The engine
+    // would get only silence, and engine.start() can throw an uncatchable
+    // Objective-C exception when the audio HAL is held by the system
+    // player — crashing the app. The sine simulation in ListeningGlass
+    // runs whenever leftBands are near zero, which is the correct path.
   }
 
   // MARK: - Analysis (called on the audio thread)
