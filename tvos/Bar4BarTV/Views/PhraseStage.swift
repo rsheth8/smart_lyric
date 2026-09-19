@@ -46,6 +46,9 @@ struct PhraseStage: View {
           instrumentalCountdown(eta: eta, lines: lines, activeLi: activeLi)
         }
         board(state: state, cueTime: sample.cue, width: max(1, geometry.size.width - 350))
+        if state.ending {
+          songSummaryOverlay(sungCount: runtime.totalSung, totalLines: lines.count)
+        }
         // Hidden accessibility element — VoiceOver announces singer role; UITests can assert it.
         Color.clear
           .accessibilityElement(children: .ignore)
@@ -102,11 +105,21 @@ struct PhraseStage: View {
 
           // Party singer indicator
           if session.partyMode == "Take turns" {
-            Text(state.line.isMultiple(of: 2) ? "— YOU —" : "— THEM —")
-              .font(Tokens.display(15, .semibold))
-              .tracking(3)
-              .foregroundStyle(Tokens.Glass.filament.opacity(0.40))
-              .padding(.top, 8)
+            let flipAlpha = runtime.sideFlipAlpha(isEven: state.line.isMultiple(of: 2), t: cueTime)
+            ZStack {
+              Text(state.line.isMultiple(of: 2) ? "— YOU —" : "— THEM —")
+                .font(Tokens.display(15, .semibold))
+                .tracking(3)
+                .foregroundStyle(Tokens.Glass.filament.opacity(0.40))
+              if flipAlpha > 0.01 {
+                Text(state.line.isMultiple(of: 2) ? "YOUR TURN" : "THEIR TURN")
+                  .font(Tokens.display(22, .bold))
+                  .tracking(3)
+                  .foregroundStyle(Tokens.Glass.filament.opacity(flipAlpha))
+                  .scaleEffect(0.85 + 0.15 * flipAlpha)
+              }
+            }
+            .padding(.top, 8)
           }
 
           // Upcoming lines runway + language aid
@@ -135,6 +148,29 @@ struct PhraseStage: View {
           .opacity(sectionAlpha)
           .padding(.top, 44)
           .padding(.leading, 36)
+        }
+
+        // Dense/fast section badge — top right
+        if state.dense {
+          VStack {
+            HStack {
+              Spacer()
+              HStack(spacing: 5) {
+                Image(systemName: "bolt.fill")
+                  .font(.system(size: 13, weight: .bold))
+                Text("FAST")
+                  .font(Tokens.display(13, .bold))
+                  .tracking(2)
+              }
+              .foregroundStyle(Tokens.Glass.meter.opacity(0.65))
+              .padding(.horizontal, 10)
+              .padding(.vertical, 5)
+              .background(Tokens.surface2.opacity(0.6), in: Capsule())
+            }
+            Spacer()
+          }
+          .padding(.top, 44)
+          .padding(.trailing, 36)
         }
 
         // Faceplate: ARTIST · TITLE · M:SS at bottom
@@ -225,6 +261,26 @@ struct PhraseStage: View {
     return session.partyMode == "Everyone" ? "Everyone" : "Your stage"
   }
 
+  @ViewBuilder private func songSummaryOverlay(sungCount: Int, totalLines: Int) -> some View {
+    VStack(spacing: 20) {
+      Spacer()
+      Text("WELL DONE")
+        .font(Tokens.display(32, .bold))
+        .tracking(6)
+      Text("\(sungCount) / \(totalLines)")
+        .font(Tokens.lyric(72))
+        .monospacedDigit()
+      Text("LINES SUNG")
+        .font(Tokens.display(20))
+        .tracking(4)
+        .opacity(0.6)
+      Spacer()
+    }
+    .foregroundStyle(Tokens.Glass.filament)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background(.black.opacity(0.72))
+  }
+
   @ViewBuilder private func instrumentalCountdown(eta: Double, lines: [LyricLine], activeLi: Int) -> some View {
     let showCount = eta < 8 && eta > 0.2
     let countAlpha = showCount ? min(1.0, (8.0 - eta) / 2.0) : 0.0
@@ -289,6 +345,19 @@ private final class PhraseRuntime {
     return min(1.0, age / 0.25) * max(0.0, 1.0 - max(0, age - 1.5) / 1.5)
   }
 
+  private var lastSide = false
+  private var sideFlippedAt: Double = -100.0
+
+  func sideFlipAlpha(isEven: Bool, t: Double) -> Double {
+    if isEven != lastSide { lastSide = isEven; sideFlippedAt = t }
+    let age = t - sideFlippedAt
+    guard age < 1.5 else { return 0 }
+    return min(1.0, age / 0.15) * max(0.0, 1.0 - max(0, age - 0.5) / 1.0)
+  }
+
+  private var sungLines = Set<Int>()
+  var totalSung: Int { sungLines.count }
+
   func advance(timeline: Timeline, sections: [Sections.Section], choreography: Choreography?, sample: StageSample, preview: Double) -> StagePresentation {
     let state = director.advance(timeline: timeline, sections: sections, choreography: choreography, sample: sample, preview: preview)
     if state.line != displayedLine || frozenLine == nil {
@@ -296,6 +365,7 @@ private final class PhraseRuntime {
       fittedSize = nil
       displayedLine = state.line
     }
+    if state.entrance > 0.5 { sungLines.insert(state.line) }
     return state
   }
 }
