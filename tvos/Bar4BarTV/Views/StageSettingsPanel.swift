@@ -7,7 +7,7 @@ struct StageSettingsPanel: View {
   @Environment(\.dismiss) private var dismiss
   @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
   private var reduceMotion: Bool { systemReduceMotion || DemoLaunch.reduceMotion }
-  private enum Control: String { case focus, live, headliner, preview, roles, demo, done }
+  private enum Control: String { case focus, live, headliner, preview, roles, demo, blank, loop, done }
   @FocusState private var focused: Control?
   @State private var previewStart = Date()
   @Namespace private var pickerScope
@@ -63,6 +63,21 @@ struct StageSettingsPanel: View {
           }.buttonStyle(RoomButtonStyle()).accessibilityIdentifier("stageDemoSource")
             .focused($focused, equals: .demo).onMoveCommand { move($0, from: .demo) }
         }
+        let blankLabels = ["Blank off", "Every 2nd", "Every 3rd", "Every 4th"]
+        let blankValues = [0, 2, 3, 4]
+        let blankIdx = blankValues.firstIndex(of: session.blankNthWord) ?? 0
+        Button {
+          session.blankNthWord = blankValues[(blankIdx + 1) % blankValues.count]
+        } label: {
+          Label(blankLabels[blankIdx], systemImage: "eye.slash")
+        }.buttonStyle(RoomButtonStyle()).accessibilityIdentifier("stageBlankWords")
+          .focused($focused, equals: .blank).onMoveCommand { move($0, from: .blank) }
+        Button {
+          session.loopSection.toggle()
+        } label: {
+          Label(session.loopSection ? "Loop: on" : "Loop: off", systemImage: session.loopSection ? "repeat.1" : "repeat")
+        }.buttonStyle(RoomButtonStyle(prominent: session.loopSection)).accessibilityIdentifier("stageLoopSection")
+          .focused($focused, equals: .loop).onMoveCommand { move($0, from: .loop) }
       }
       Text(session.partyMode == "Take turns"
         ? "Side A and Side B alternate phrases. The next turn appears before the handoff."
@@ -87,7 +102,7 @@ struct StageSettingsPanel: View {
 
   private func move(_ direction: MoveCommandDirection, from control: Control) {
     let choices: [Control] = [.focus, .live, .headliner]
-    let options: [Control] = music.isDemo ? [.preview, .roles, .demo] : [.preview, .roles]
+    let options: [Control] = music.isDemo ? [.preview, .roles, .demo, .blank, .loop] : [.preview, .roles, .blank, .loop]
     let row = choices.contains(control) ? choices : options
     if let index = row.firstIndex(of: control) {
       if direction == .left && index > 0 { focused = row[index - 1] }

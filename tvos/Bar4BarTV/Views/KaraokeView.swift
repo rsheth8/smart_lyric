@@ -530,6 +530,7 @@ struct LyricLineView: View {
   var heldWord: Int? = nil
   var expressiveScale = false
   var estimatedWords: Set<Int> = []
+  var hiddenWords: Set<Int> = []
   var renderMode: WordRenderMode = .wipe
 
   var body: some View {
@@ -549,8 +550,10 @@ struct LyricLineView: View {
         ) {
           ForEach(Array(line.words.enumerated()), id: \.offset) { index, word in
             if depth.isActive {
+              var displayWord = word
+              if hiddenWords.contains(index) { displayWord.text = "___" }
               WordWipeView(
-                word: word, t: t, depth: depth,
+                word: displayWord, t: t, depth: depth,
                 gapToNext: gapToNext(after: index),
                 typeSize: resolvedTypeSize, fill: fill,
                 listen: listen,

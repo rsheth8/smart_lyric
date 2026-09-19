@@ -40,6 +40,8 @@ final class LyricsSession: ObservableObject {
   }
   @Published var partyMode = "Solo"
   @Published var automaticDemo = false
+  @Published var blankNthWord: Int = 0   // 0 = off, 2 = every 2nd, 3 = every 3rd, 4 = every 4th
+  @Published var loopSection: Bool = false
 
   func savedGuidance(for item: CatalogItem) async -> SongGuidance {
     let key = TimelineCache.cacheKey(artist: item.artist, track: item.title,

@@ -18,6 +18,16 @@ struct PhraseStage: View {
         timingRevision: session.timingRevision, seekRevision: music.stageSeekRevision)
       let state = runtime.advance(timeline: session.timeline, sections: session.sections,
         choreography: session.choreography, sample: sample, preview: session.previewSeconds)
+      // Loop section: when enabled, seek back to the current section's start
+      // as soon as the cue crosses into the next section.
+      if session.loopSection, music.isPlaying {
+        let cue = sample.cue
+        if let currentSection = session.sections.last(where: { $0.start <= cue }),
+           let nextSection = session.sections.first(where: { $0.start > cue }),
+           cue >= nextSection.start - 0.1 {
+          music.seek(to: max(0, currentSection.start - session.totalAlignment - session.singerLead))
+        }
+      }
       let lines = session.timeline.lines
       let activeLi = DisplayMath.resolveActiveLine(lines, t: sample.cue)
       let gap = DisplayMath.gapState(lines: lines, t: sample.cue, activeLi: activeLi)
@@ -71,6 +81,9 @@ struct PhraseStage: View {
         VStack(spacing: 0) {
           Spacer(minLength: 0)
           // Current line — centered horizontally, filament mode
+          let hiddenWords: Set<Int> = session.blankNthWord > 1
+            ? Set(line.words.indices.filter { ($0 + 1) % session.blankNthWord == 0 })
+            : []
           LyricLineView(
             line: line,
             t: state.ending ? line.end + 1 : cueTime,
@@ -85,6 +98,7 @@ struct PhraseStage: View {
             heldWord: state.hold,
             expressiveScale: false,
             estimatedWords: Set(line.words.indices.filter { session.timeline.quality(line: state.line, word: $0) == .estimated }),
+            hiddenWords: hiddenWords,
             renderMode: .filament     // whole-glyph heat, no wipe mask
           )
           .padding(.vertical, 12)
