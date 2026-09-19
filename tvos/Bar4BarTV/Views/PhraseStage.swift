@@ -300,30 +300,57 @@ struct PhraseStage: View {
     let countAlpha = showCount ? min(1.0, (8.0 - eta) / 2.0) : 0.0
     let countText = eta > 1.2 ? "BACK IN \(Int(ceil(eta)))s" : "GET READY"
     let nextIdx = activeLi + 1
-    VStack(spacing: 20) {
-      Spacer()
-      if showCount {
-        HStack(spacing: 8) {
-          Image(systemName: "music.note")
+    // Album art fades in when there's a long instrumental ahead, out as vocals approach
+    let artworkAlpha = min(1.0, max(0, (eta - 4) / 6.0))
+    // "INSTRUMENTAL" label only when far from next vocal (>10s)
+    let labelAlpha = max(0.0, min(1.0, (eta - 10.0) / 4.0))
+    ZStack {
+      PictureArtwork(
+        url: music.nowPlaying?.artworkURL,
+        tint: session.accent.accent,
+        amount: artworkAlpha
+      )
+      VStack(spacing: 20) {
+        Spacer()
+        // Section label — only during long instrumentals
+        HStack(spacing: 10) {
+          Image(systemName: "music.note.list")
             .font(.system(size: 16, weight: .medium))
-          Text(countText)
+          Text("INSTRUMENTAL")
             .font(Tokens.display(22, .semibold))
-            .tracking(4)
+            .tracking(5)
         }
-        .foregroundStyle(Tokens.Glass.legend.opacity(countAlpha))
+        .foregroundStyle(Tokens.Glass.legend.opacity(0.6))
+        .opacity(labelAlpha)
+        // Countdown pill — last 8 seconds
+        if showCount {
+          HStack(spacing: 8) {
+            Image(systemName: eta > 1.2 ? "music.note" : "mic.fill")
+              .font(.system(size: 16, weight: .medium))
+            Text(countText)
+              .font(Tokens.display(22, .semibold))
+              .tracking(4)
+          }
+          .foregroundStyle(Tokens.Glass.legend.opacity(countAlpha))
+          .padding(.horizontal, 18).padding(.vertical, 10)
+          .background(
+            eta <= 1.2 ? session.accent.accent.opacity(0.28 * countAlpha) : Color.clear,
+            in: Capsule()
+          )
+        }
+        if lines.indices.contains(nextIdx) {
+          Text(lines[nextIdx].text)
+            .font(Tokens.lyric(52))
+            .foregroundStyle(Tokens.Glass.filament.opacity(0.32))
+            .multilineTextAlignment(.center)
+            .lineLimit(2)
+            .minimumScaleFactor(0.6)
+            .padding(.horizontal, 200)
+        }
+        Spacer().frame(height: 100)
       }
-      if lines.indices.contains(nextIdx) {
-        Text(lines[nextIdx].text)
-          .font(Tokens.lyric(52))
-          .foregroundStyle(Tokens.Glass.filament.opacity(0.32))
-          .multilineTextAlignment(.center)
-          .lineLimit(2)
-          .minimumScaleFactor(0.6)
-          .padding(.horizontal, 200)
-      }
-      Spacer().frame(height: 100)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
     .allowsHitTesting(false)
     .accessibilityHidden(true)
   }

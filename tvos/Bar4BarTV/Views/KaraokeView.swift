@@ -31,6 +31,9 @@ struct KaraokeView: View {
       if hasLyrics {
         performance
         if !controlsVisible { stageCatcher }
+      } else if music.nowPlaying != nil && !session.isLoading {
+        concertVisualizer
+        if !controlsVisible { stageCatcher }
       } else {
         emptyState
       }
@@ -44,7 +47,7 @@ struct KaraokeView: View {
     .task(id: controlsVisible) {
       try? await Task.sleep(for: .milliseconds(100))
       guard !Task.isCancelled, !stagePresented else { return }
-      focus = controlsVisible ? defaultControl : (hasLyrics ? .stage : nil)
+      focus = controlsVisible ? defaultControl : (hasSomethingToWatch ? .stage : nil)
       resetFocus(in: stageNamespace)
     }
     .onAppear {
@@ -320,8 +323,10 @@ struct KaraokeView: View {
     withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { controlsVisible = true }
     scheduleHide()
   }
+  private var hasSomethingToWatch: Bool { hasLyrics || (music.nowPlaying != nil && !session.isLoading) }
+
   private func hideControls() {
-    guard hasLyrics else { return }
+    guard hasSomethingToWatch else { return }
     hideTask?.cancel()
     withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { controlsVisible = false }
   }
@@ -331,11 +336,11 @@ struct KaraokeView: View {
   }
   private func scheduleHide() {
     hideTask?.cancel()
-    guard controlsVisible, hasLyrics, music.isPlaying, !timingPresented, !optionsPresented, !stagePresented else { return }
+    guard controlsVisible, hasSomethingToWatch, music.isPlaying, !timingPresented, !optionsPresented, !stagePresented else { return }
     hideTask = Task { @MainActor in
       try? await Task.sleep(for: .seconds(8))
       guard !Task.isCancelled, !timingPresented, !optionsPresented, !stagePresented else { return }
-      hideControls()
+      if hasSomethingToWatch { hideControls() }
     }
   }
 
@@ -353,6 +358,79 @@ struct KaraokeView: View {
     if let start = StageDirection.nextChorusStart(sections: session.sections, t: cue) {
       music.seek(to: max(0, start - session.totalAlignment - session.singerLead))
     }
+  }
+
+  private var concertVisualizer: some View {
+    ZStack {
+      ListeningRoomBackdrop(accent: session.accent.accent, intensity: 1.1)
+      PictureArtwork(url: music.nowPlaying?.artworkURL, tint: session.accent.accent, amount: 0.82)
+      RecordEtching(accent: session.accent.accent)
+      VStack(spacing: 0) {
+        Spacer()
+        if music.isDemo {
+          RoomSleeve(side: 280)
+        } else {
+          CoverArt(url: music.nowPlaying?.artworkURL, side: 280, corner: 16,
+                   fallbackTint: session.accent.accent)
+        }
+        VStack(spacing: 10) {
+          Text(music.nowPlaying?.title ?? "")
+            .font(Tokens.lyric(56)).multilineTextAlignment(.center)
+            .lineLimit(2).minimumScaleFactor(0.7)
+          Text(music.nowPlaying?.artist ?? "")
+            .font(Tokens.display(28, .regular)).foregroundStyle(Tokens.text2).lineLimit(1)
+        }
+        .padding(.top, 28)
+        // Animated EQ bars driven at 30fps
+        TimelineView(.animation(minimumInterval: 1.0/30, paused: !music.isPlaying)) { ctx in
+          let t = ctx.date.timeIntervalSinceReferenceDate
+          Canvas { canvasCtx, size in
+            let accent = session.accent.accent
+            let freqs:  [Double] = [0.09, 0.17, 0.27, 0.40, 0.57]
+            let phases: [Double] = [0.00, 1.30, 2.60, 3.90, 5.20]
+            let scales: [Double] = [1.00, 0.82, 0.67, 0.53, 0.40]
+            let bW: CGFloat = 5; let bGap: CGFloat = 4
+            let totalW = 5 * bW + 4 * bGap
+            for side in 0..<2 {
+              let startX = side == 0
+                ? (size.width / 2 - totalW - 10)
+                : (size.width / 2 + 10)
+              for b in 0..<5 {
+                let wave = 0.5 + 0.5 * sin(t * freqs[b] + phases[b])
+                let h = max(4, size.height * CGFloat(0.2 + 0.8 * wave * scales[b]))
+                let x = startX + CGFloat(b) * (bW + bGap)
+                let rect = CGRect(x: x, y: size.height - h, width: bW, height: h)
+                canvasCtx.fill(Path(roundedRect: rect, cornerRadius: bW / 2),
+                               with: .color(accent.opacity(0.72)))
+              }
+            }
+          }
+          .frame(height: 48)
+          .padding(.top, 24)
+        }
+        Spacer()
+        HStack(spacing: 8) {
+          Image(systemName: "text.slash").font(.system(size: 14))
+          Text("No synced lyrics for this song")
+        }
+        .font(Tokens.display(17, .semibold)).tracking(1)
+        .foregroundStyle(Tokens.text2)
+        .padding(.horizontal, 16).padding(.vertical, 8)
+        .background(.white.opacity(0.08), in: Capsule())
+        HStack(spacing: 20) {
+          if let track = music.nowPlaying, !music.isDemo {
+            Button("Try again") { Task { await session.load(for: track) } }
+              .buttonStyle(RoomButtonStyle())
+          }
+          Button("Play the demo") { music.startDemo() }.buttonStyle(RoomButtonStyle(prominent: true))
+          Button("Find a song") { path.append(Route.search) }.buttonStyle(RoomButtonStyle())
+        }
+        .padding(.top, 20).padding(.bottom, 60)
+      }
+      .foregroundStyle(Tokens.text1)
+      .padding(.horizontal, 120)
+    }
+    .ignoresSafeArea()
   }
 
   private var emptyState: some View {
