@@ -26,6 +26,9 @@ struct ListeningGlass: View {
       let field = smoother.advance(computedField)
       let fieldRGB = GlassMath.field(dominant: dominant) ?? fieldFallbackRGB
       let fieldColor = Color(red: fieldRGB.r, green: fieldRGB.g, blue: fieldRGB.b)
+      let eqBuilt = dominant.flatMap { dom in
+        AccentMath.rebuild(dominant: RGB(r: dom.r, g: dom.g, b: dom.b))
+      }
 
       ZStack {
         // 1. Envelope — near-pure black, cool violet undertone
@@ -76,14 +79,17 @@ struct ListeningGlass: View {
           let freqs:  [Double] = [0.09, 0.17, 0.27, 0.40, 0.57]
           let phases: [Double] = [0.00, 1.30, 2.60, 3.90, 5.20]
 
-          // Cyan (#00EDFF) → violet (#8B5CF6)
+          // Bass → treble: artwork accent gradient; cyan → violet fallback
           let bandColors: [Color] = (0..<nBands).map { b in
             let mix = Double(b) / Double(nBands - 1)
-            return Color(
-              red:   mix * 0.545,
-              green: (1 - mix) * 0.929 + mix * 0.361,
-              blue:  (1 - mix) * 1.000 + mix * 0.965
-            )
+            if let built = eqBuilt {
+              return Color(
+                red:   built.glow.r + (built.accent.r - built.glow.r) * mix,
+                green: built.glow.g + (built.accent.g - built.glow.g) * mix,
+                blue:  built.glow.b + (built.accent.b - built.glow.b) * mix
+              )
+            }
+            return Color(red: mix * 0.545, green: (1 - mix) * 0.929 + mix * 0.361, blue: (1 - mix) * 1.000 + mix * 0.965)
           }
 
           // Use real FFT bands when analyzer has signal; sine simulation otherwise

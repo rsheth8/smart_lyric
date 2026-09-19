@@ -168,7 +168,7 @@ enum Tokens {
     fontCache.setObject(FontBox(font), forKey: key)
     return font
   }
-  static func lyric(_ size: CGFloat) -> Font { Font(typeface(size)) }
+  static func lyric(_ size: CGFloat) -> Font { Font(typeface(size, editorial: true)) }
   static func editorial(_ size: CGFloat, italic: Bool = false) -> Font {
     Font(typeface(size, editorial: true, italic: italic))
   }
