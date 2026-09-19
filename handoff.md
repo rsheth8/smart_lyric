@@ -1,6 +1,6 @@
 # Bar4Bar — Handoff
 
-Last updated: 2026-07-21
+Last updated: 2026-09-19
 
 Projector-ready lyric-follow / karaoke display. Clock-driven highlighting (display never reads audio directly). Multi-medium inputs, multi-format lyrics, Spotify follow, OBS/projector outputs.
 
@@ -33,6 +33,7 @@ Projector-ready lyric-follow / karaoke display. Clock-driven highlighting (displ
 | Apple Music | Stubbed (needs developer token) |
 | Vercel deploy | Live at https://smartlyric.vercel.app/ |
 | **Desktop-app overhaul** (hub nav, token system, art accent, native menu) | Done 2026-07-21 (see note below) |
+| **Native tvOS app — cinematic stage** (PhraseStage, CinematicStageFX, StageLightClock) | Shipped 2026-09-19 (see note below) |
 
 **Tests:** `npm test` → 440 passing.
 
@@ -170,6 +171,28 @@ Projector-ready lyric-follow / karaoke display. Clock-driven highlighting (displ
 > (clock, LRC/yrc/richsync/TTML, match, display math, lyrics client). MusicKit
 > playback + karaoke wipe UI. See `docs/tvos-migration.md`. Vinyl/align/separate
 > remain Mac Electron only.
+
+> **Bar4BarTV cinematic stage (2026-09-19):** the tvOS app received a full
+> 60fps karaoke stage and ambient hub pass.
+> **PhraseStage.swift** (TimelineView, 60fps) is now the live display path.
+> **CinematicStageFX**: stage beams, word-kick flash, anthem rays, chorus drop
+> plate. **StageLightClock**: eased lighting transitions per section.
+> **Remote gestures**: swipe-left = replay current line (`StageDirection.currentLineStart`),
+> swipe-right = skip to next chorus (`StageDirection.nextChorusStart`).
+> **Instrumental countdown overlay**: "BACK IN Xs" + next-line preview during
+> the last 8s of a gap. **3-line ghost runway**: upcoming lines rendered at
+> 42%/30%/22% font size. **Line-start cue dot**: 12pt circle shrinks to 4pt as
+> the line settles. **Section pill**: VERSE/CHORUS/BUILD/INSTRUMENTAL fades in
+> at section boundaries for 3s. **HubView ambient environment**: 30fps Halton
+> particles, artwork bloom, EQ bars, now-playing strip slides up.
+> **Violet/teal theme**: `accentStatic = #8B5CF6`, `Glass.meter/holdHorizon =
+> #00EDFF`. **AudioAnalyzer crash fix**: `startTap()` is a no-op — Apple Music
+> holds the audio HAL on tvOS; AVAudioEngine tap throws an Obj-C exception.
+> **Hold bar**: flat Rectangle → progress-filling Capsule (L→R with word-wipe
+> progress). **WordWipeView filament mode**: whole-glyph color heat + word-land
+> flash. **AccentPalette**: per-song accent extracted from artwork dominant
+> color. **Vocal isolation not implemented**: Apple Music DRM blocks
+> AVAudioEngine on tvOS; would need a licensed instrumental API.
 
 > **Duration-aware lyric matching (2026-07-16):** the single biggest match-accuracy
 > lever. Every medium supplies a target track **duration** (Spotify `duration_ms`,
@@ -474,6 +497,11 @@ tvOS-style hub; screens push in via `app/ui/router.js` (`window.__sl.router`).
 - [ ] App Store packaging (electron-builder, codesign, notarize, sandbox entitlements) — explicitly out of scope this pass; needs the Apple Developer account.
 - [ ] TV-layout polish: if `--card-w` in TV mode ever exceeds ~300px, bump `CARD_ART` (recommendations.js) above 600.
 - [ ] Optional light mode / theme picker (deferred; a lyric display is near-always used dark).
+- [ ] **tvOS — blank-a-word practice mode** (hide every Nth word as ___)
+- [ ] **tvOS — end-of-song performance stats** (lines sung / total)
+- [ ] **tvOS — loop section feature**
+- [ ] **tvOS — party mode "YOUR TURN" animated flash**
+- [ ] **tvOS — dense line indicator** for fast/rap sections
 
 ---
 
