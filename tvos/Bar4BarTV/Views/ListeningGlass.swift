@@ -19,6 +19,7 @@ struct ListeningGlass: View {
 
   @State private var dominant: (r: Double, g: Double, b: Double)? = nil
   @State private var smoother = GlassSmoother()
+  @StateObject private var analyzer = AudioAnalyzer()
 
   var body: some View {
     GeometryReader { geo in
@@ -85,10 +86,21 @@ struct ListeningGlass: View {
             )
           }
 
-          func drawBands(base: Double, startX: CGFloat, goRight: Bool, peak: Double) {
+          // Use real FFT bands when analyzer has signal; sine simulation otherwise
+          let hasSignal = analyzer.leftBands.max() ?? 0 > 0.04
+
+          func bandLevel(_ b: Int, base: Double, analyzerBands: [Float]) -> CGFloat {
+            if hasSignal {
+              return max(3, size.height * CGFloat(analyzerBands[b]))
+            }
+            let wave = 0.72 + 0.28 * sin(t * freqs[b] + phases[b])
+            return max(3, size.height * CGFloat(base * wave * scales[b]))
+          }
+
+          func drawBands(base: Double, startX: CGFloat, goRight: Bool,
+                         peak: Double, analyzerBands: [Float]) {
             for b in 0..<nBands {
-              let wave = 0.72 + 0.28 * sin(t * freqs[b] + phases[b])
-              let h = max(3, size.height * CGFloat(base * wave * scales[b]))
+              let h  = bandLevel(b, base: base, analyzerBands: analyzerBands)
               let bX = goRight
                 ? startX + CGFloat(b) * (bW + bGap)
                 : startX - CGFloat(b + 1) * bW - CGFloat(b) * bGap
@@ -109,8 +121,10 @@ struct ListeningGlass: View {
             }
           }
 
-          drawBands(base: f.leftMeter,  startX: edgeX,                 goRight: true,  peak: smoother.peakL)
-          drawBands(base: f.rightMeter, startX: size.width - edgeX,    goRight: false, peak: smoother.peakR)
+          drawBands(base: f.leftMeter,  startX: edgeX,              goRight: true,
+                    peak: smoother.peakL, analyzerBands: analyzer.leftBands)
+          drawBands(base: f.rightMeter, startX: size.width - edgeX, goRight: false,
+                    peak: smoother.peakR, analyzerBands: analyzer.rightBands)
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
