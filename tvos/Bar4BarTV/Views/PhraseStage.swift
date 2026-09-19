@@ -18,16 +18,15 @@ struct PhraseStage: View {
         timingRevision: session.timingRevision, seekRevision: music.stageSeekRevision)
       let state = runtime.advance(timeline: session.timeline, sections: session.sections,
         choreography: session.choreography, sample: sample, preview: session.previewSeconds)
-      // Loop section: when enabled, seek back to the current section's start
-      // as soon as the cue crosses into the next section.
-      if session.loopSection, music.isPlaying {
+      // Loop section: seek back to the current section start when the cue enters the next.
+      let _ = {
+        guard session.loopSection, music.isPlaying else { return }
         let cue = sample.cue
-        if let currentSection = session.sections.last(where: { $0.start <= cue }),
-           let nextSection = session.sections.first(where: { $0.start > cue }),
-           cue >= nextSection.start - 0.1 {
-          music.seek(to: max(0, currentSection.start - session.totalAlignment - session.singerLead))
-        }
-      }
+        guard let cur = session.sections.last(where: { $0.start <= cue }),
+              let nxt = session.sections.first(where: { $0.start > cue }),
+              cue >= nxt.start - 0.1 else { return }
+        music.seek(to: max(0, cur.start - session.totalAlignment - session.singerLead))
+      }()
       let lines = session.timeline.lines
       let activeLi = DisplayMath.resolveActiveLine(lines, t: sample.cue)
       let gap = DisplayMath.gapState(lines: lines, t: sample.cue, activeLi: activeLi)
@@ -131,6 +130,7 @@ struct PhraseStage: View {
                   .tracking(3)
                   .foregroundStyle(Tokens.Glass.filament.opacity(flipAlpha))
                   .scaleEffect(0.85 + 0.15 * flipAlpha)
+                  .accessibilityIdentifier("partyFlipFlash")
               }
             }
             .padding(.top, 8)
@@ -185,6 +185,8 @@ struct PhraseStage: View {
           }
           .padding(.top, 44)
           .padding(.trailing, 36)
+          .accessibilityElement(children: .ignore)
+          .accessibilityIdentifier("denseBadge")
         }
 
         // Faceplate: ARTIST · TITLE · M:SS at bottom
@@ -284,6 +286,7 @@ struct PhraseStage: View {
       Text("\(sungCount) / \(totalLines)")
         .font(Tokens.lyric(72))
         .monospacedDigit()
+        .accessibilityIdentifier("songSummaryCount")
       Text("LINES SUNG")
         .font(Tokens.display(20))
         .tracking(4)
@@ -293,6 +296,8 @@ struct PhraseStage: View {
     .foregroundStyle(Tokens.Glass.filament)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(.black.opacity(0.72))
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("songSummaryCard")
   }
 
   @ViewBuilder private func instrumentalCountdown(eta: Double, lines: [LyricLine], activeLi: Int) -> some View {
@@ -364,6 +369,8 @@ private final class PhraseRuntime {
   var frozenLine: LyricLine?
   private var fittedSize: CGFloat?
   private var fittedWidth: CGFloat?
+  private var endingLatched = false
+  private var lastSeekRevision = -1
   func typeSize(for line: LyricLine, width: CGFloat) -> CGFloat {
     if let fittedSize, fittedWidth == width { return fittedSize }
     // Glass floor: tries 64 first, falls back to 56, absolute minimum 52.
@@ -400,7 +407,10 @@ private final class PhraseRuntime {
   var totalSung: Int { sungLines.count }
 
   func advance(timeline: Timeline, sections: [Sections.Section], choreography: Choreography?, sample: StageSample, preview: Double) -> StagePresentation {
-    let state = director.advance(timeline: timeline, sections: sections, choreography: choreography, sample: sample, preview: preview)
+    if sample.seekRevision != lastSeekRevision { lastSeekRevision = sample.seekRevision; endingLatched = false }
+    var state = director.advance(timeline: timeline, sections: sections, choreography: choreography, sample: sample, preview: preview)
+    if state.ending { endingLatched = true }
+    if endingLatched { state.ending = true }
     if state.line != displayedLine || frozenLine == nil {
       if timeline.lines.indices.contains(state.line) { frozenLine = timeline.lines[state.line] }
       fittedSize = nil

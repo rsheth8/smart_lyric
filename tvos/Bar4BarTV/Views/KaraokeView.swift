@@ -429,6 +429,9 @@ struct KaraokeView: View {
       }
       .foregroundStyle(Tokens.text1)
       .padding(.horizontal, 120)
+      Color.clear
+        .accessibilityElement(children: .ignore)
+        .accessibilityIdentifier("concertVisualizer")
     }
     .ignoresSafeArea()
   }
@@ -628,8 +631,7 @@ struct LyricLineView: View {
         ) {
           ForEach(Array(line.words.enumerated()), id: \.offset) { index, word in
             if depth.isActive {
-              var displayWord = word
-              if hiddenWords.contains(index) { displayWord.text = "___" }
+              let displayWord: LyricWord = hiddenWords.contains(index) ? { var w = word; w.text = "___"; return w }() : word
               WordWipeView(
                 word: displayWord, t: t, depth: depth,
                 gapToNext: gapToNext(after: index),

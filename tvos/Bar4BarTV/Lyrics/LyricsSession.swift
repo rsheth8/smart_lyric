@@ -38,7 +38,9 @@ final class LyricsSession: ObservableObject {
       self?.audienceAccent.clear()
     }
   }
-  @Published var partyMode = "Solo"
+  @Published var partyMode = UserDefaults.standard.string(forKey: "bar4bar.stage.partyMode") ?? "Solo" {
+    didSet { UserDefaults.standard.set(partyMode, forKey: "bar4bar.stage.partyMode") }
+  }
   @Published var automaticDemo = false
   @Published var blankNthWord: Int = 0   // 0 = off, 2 = every 2nd, 3 = every 3rd, 4 = every 4th
   @Published var loopSection: Bool = false
@@ -220,15 +222,18 @@ final class LyricsSession: ObservableObject {
     // must never be persisted under a cache key a real track could collide with.
 
     if track.isDemo {
-      timeline = ProcessInfo.processInfo.environment["BAR4BAR_STAGE_FIXTURE"] == "long" ? DemoSong.layoutFixture() : DemoSong.timeline()
-      if ProcessInfo.processInfo.environment["BAR4BAR_STAGE_FIXTURE"] == "long" { aidMode = .english }
+      let fixture = ProcessInfo.processInfo.environment["BAR4BAR_STAGE_FIXTURE"]
+      if fixture != "no-lyrics" {
+        timeline = fixture == "long" ? DemoSong.layoutFixture() : DemoSong.timeline()
+        if fixture == "long" { aidMode = .english }
+        statusMessage = "Demo · word-level"
+      }
       currentCacheKey = nil
       syncOffset = 0
       isLoading = false
       errorMessage = nil
-      statusMessage = "Demo · word-level"
       await restorePreferredAid(id: id, generation: aidGen)
-      if ProcessInfo.processInfo.environment["BAR4BAR_STAGE_FIXTURE"] == "long" { aidMode = .english }
+      if fixture == "long" { aidMode = .english }
       return
     }
 
