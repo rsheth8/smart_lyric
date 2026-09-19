@@ -67,6 +67,7 @@ struct PhraseStage: View {
           .padding(.vertical, 12)
           .opacity(0.65 + 0.35 * state.entrance)
           .offset(y: reduceMotion ? 0 : (1 - state.entrance) * 16)
+          .scaleEffect(reduceMotion ? 1 : (0.94 + 0.06 * state.entrance), anchor: .center)
           .transaction { $0.animation = nil }  // 60 fps TimelineView drives this; no SwiftUI spring on top
           .accessibilityElement(children: .contain)
           .accessibilityIdentifier("currentPhrase")
@@ -107,13 +108,15 @@ struct PhraseStage: View {
         .frame(maxWidth: .infinity)
     } else if let next = state.next, session.timeline.lines.indices.contains(next) {
       let nextLine = session.timeline.lines[next]
+      let pulse = 0.28 + 0.14 * sin(cueTime * 1.1)
       Text(nextLine.text)
         .font(Tokens.lyric(currentSize * 0.42))
-        .foregroundStyle(Tokens.Glass.filament.opacity(0.35))
+        .foregroundStyle(Tokens.Glass.filament.opacity(pulse))
         .multilineTextAlignment(.center)
         .lineLimit(2)
         .minimumScaleFactor(0.65)
         .frame(maxWidth: .infinity)
+        .offset(y: CGFloat(sin(cueTime * 0.38) * 6))
     }
   }
 

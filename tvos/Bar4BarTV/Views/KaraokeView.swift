@@ -290,7 +290,7 @@ struct KaraokeView: View {
       GeometryReader { geo in
         ZStack(alignment: .leading) {
           Capsule().fill(.white.opacity(0.14))
-          Capsule().fill(Tokens.ember).frame(width: max(0, geo.size.width * fraction))
+          Capsule().fill(session.accent.accent).frame(width: max(0, geo.size.width * fraction))
           Circle().fill(Tokens.text1).frame(width: 8, height: 8).offset(x: geo.size.width * fraction - 4)
         }.frame(height: 3).frame(maxHeight: .infinity)
       }.frame(height: 10)
@@ -686,11 +686,11 @@ struct WordWipeView: View {
     }()
     let heat = estimated ? baseHeat * 0.75 : baseHeat
     let filamentColor = Tokens.Glass.filament.opacity(heat)
-    let glowOpacity = phase == .current ? 0.30 * rawWipe : 0.0
+    let glowOpacity = phase == .current ? 0.45 * rawWipe : 0.0
     ZStack(alignment: .bottom) {
       glyphs
         .foregroundStyle(filamentColor)
-        .shadow(color: Tokens.Glass.filament.opacity(glowOpacity), radius: 8)
+        .shadow(color: Tokens.Glass.filament.opacity(glowOpacity), radius: 22)
       if held && !estimated {
         Rectangle()
           .fill(Tokens.Glass.holdHorizon)
@@ -698,6 +698,7 @@ struct WordWipeView: View {
           .offset(y: 6)
       }
     }
+    .scaleEffect(phase == .current ? 1.0 + 0.04 * rawWipe : 1.0, anchor: .center)
     .transaction { $0.animation = nil }
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(word.text)
