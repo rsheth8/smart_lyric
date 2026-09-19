@@ -406,7 +406,7 @@ struct BrandLockup: View {
   var size: CGFloat = Tokens.FontSize.xxl
   var body: some View {
     (Text("Bar").foregroundColor(Tokens.text1)
-     + Text("4").foregroundColor(Tokens.accentStatic)
+     + Text("4").foregroundColor(Color(hex: 0x00EDFF))
      + Text("Bar").foregroundColor(Tokens.text1))
       .font(Tokens.editorial(size))
       .tracking(-size * 0.045)
@@ -621,7 +621,7 @@ struct SourceTile: View {
       HStack(spacing: Tokens.Space.s3) {
         Image(systemName: icon)
           .font(.system(size: Tokens.FontSize.md, weight: .semibold))
-          .foregroundStyle(Tokens.accentStatic)
+          .foregroundStyle(tint)
           .frame(width: 52, height: 52)
           .background(Tokens.surface2, in: RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
 

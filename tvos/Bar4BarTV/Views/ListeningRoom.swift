@@ -101,7 +101,7 @@ struct RoomButtonStyle: ButtonStyle {
     var body: some View {
       configuration.label
         .font(Tokens.display(24, .semibold))
-        .foregroundStyle(focused || prominent ? Color(hex: 0x16181C) : Tokens.text1)
+        .foregroundStyle(focused ? Color(hex: 0x16181C) : (prominent ? Tokens.accentInk : Tokens.text1))
         .padding(.horizontal, 26)
         .frame(height: 66)
         .background(focused ? Tokens.text1 : (prominent ? Tokens.accentStatic : Color.white.opacity(0.07)),

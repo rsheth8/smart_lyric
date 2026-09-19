@@ -45,7 +45,7 @@ private struct EditorialEntryStyle: ButtonStyle {
     configuration.label.padding(.horizontal, 24).padding(.vertical, 12)
       .foregroundStyle(focused ? Tokens.surfaceSolid1 : Tokens.text1)
       .background(focused ? Tokens.text1 : Tokens.surfaceSolid1.opacity(0.88))
-      .overlay(alignment: .leading) { Rectangle().fill(Tokens.ember).frame(width: focused ? 7 : 2) }
+      .overlay(alignment: .leading) { Rectangle().fill(Tokens.accentStatic).frame(width: focused ? 7 : 2) }
       .opacity(configuration.isPressed ? 0.8 : 1)
   }
 }

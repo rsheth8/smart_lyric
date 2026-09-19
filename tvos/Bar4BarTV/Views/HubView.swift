@@ -9,22 +9,22 @@ struct HubView: View {
   @EnvironmentObject private var session: LyricsSession
   @EnvironmentObject private var spotify: SpotifyService
   @Binding var path: NavigationPath
+  @State private var dominant: RGB? = nil
 
-  /// Where focus opens.
-  ///
-  /// `prefersDefaultFocus(in:)` does not survive a `ScrollView` — tvOS falls
-  /// back to first-in-traversal, which here is the search field, the one
-  /// control this screen deliberately does not want to open on. Driving it from
-  /// `@FocusState` is the version that actually holds.
   private enum HubFocus: Hashable {
     case demoTile
     case card(String)
   }
   @FocusState private var focus: HubFocus?
 
+  private var showStrip: Bool {
+    guard let track = music.nowPlaying else { return false }
+    return !track.isDemo
+  }
+
   var body: some View {
     ZStack {
-      PosterEnvironment(letters: "B4", browsing: true)
+      HubAmbient(dominant: dominant)
 
       ScrollView(.vertical) {
         VStack(alignment: .leading, spacing: 42) {
@@ -36,11 +36,19 @@ struct HubView: View {
         }
         .padding(.horizontal, Tokens.safeX)
         .padding(.vertical, Tokens.safeY)
+        .padding(.bottom, showStrip ? 108 : 0)
         .animation(Tokens.Motion.page, value: music.nowPlaying?.id)
         .animation(Tokens.Motion.page, value: music.chartSongs.count)
       }
+
+      if showStrip, let track = music.nowPlaying {
+        NowPlayingStrip(track: track, isPlaying: music.isPlaying)
+          .transition(.move(edge: .bottom).combined(with: .opacity))
+          .zIndex(1)
+      }
     }
     .ignoresSafeArea()
+    .animation(Tokens.Motion.page, value: showStrip)
     .task {
       if let mode = DemoLaunch.fakeResults {
         music.forceBrowseState(mode, term: "gold")
@@ -51,6 +59,10 @@ struct HubView: View {
       // screen guaranteed to work before anything is connected.
       try? await Task.sleep(for: .milliseconds(120))
       focus = .demoTile
+    }
+    .task(id: music.nowPlaying?.artworkURL) {
+      guard let url = music.nowPlaying?.artworkURL else { dominant = nil; return }
+      dominant = await ArtworkAccent.dominantColor(of: url)
     }
   }
 
@@ -123,7 +135,6 @@ struct HubView: View {
             path.append(Route.spotify)
           }
         }
-
       }
     }
   }
@@ -183,22 +194,6 @@ struct HubView: View {
     }
   }
 
-  private func shelf(title: String, items: [CatalogItem], defaultFocus: Bool = false) -> some View {
-    VStack(alignment: .leading, spacing: Tokens.Space.s3) {
-      ShelfHeader(title)
-      ScrollView(.horizontal) {
-        HStack(spacing: Tokens.Space.s3) {
-          ForEach(items) { item in
-            EditorialSongEntry(item: item, selected: focus == .card(item.id), compact: true) { start(item) }
-              .focused($focus, equals: .card(item.id))
-          }
-        }
-        .padding(.vertical, Tokens.Space.s3)
-        .padding(.horizontal, 4)
-      }
-    }
-  }
-
   /// Only navigate when playback actually started. Pushing the karaoke screen
   /// over silence — which is what happens when the song will not resolve, or
   /// Apple Music is not connected — is the dead end this guards.
@@ -226,6 +221,256 @@ struct HubView: View {
           .foregroundStyle(Tokens.text3)
       }
     }
+  }
+}
+
+// MARK: - Ambient background
+
+/// Animated backdrop for the hub. Isolated into its own view so the 30 fps
+/// TimelineView loop never forces the scroll content to re-evaluate.
+private struct HubAmbient: View {
+  let dominant: RGB?
+  @State private var epoch = Date()
+
+  var body: some View {
+    ZStack {
+      TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: false)) { ctx in
+        let t = ctx.date.timeIntervalSince(epoch)
+        ZStack {
+          // Drifting letter silhouettes — intensity: .live unlocks the sine drift
+          // that intensity: .focus (the default) suppresses.
+          PosterEnvironment(
+            state: {
+              var s = StagePresentation()
+              s.motionTime = t
+              return s
+            }(),
+            intensity: .live,
+            letters: "B4",
+            browsing: true
+          )
+
+          // Per-song color bloom: soft radial pulse driven by artwork accent.
+          if let dom = dominant {
+            let pulse = 0.5 + 0.5 * sin(t * 0.41)
+            RadialGradient(
+              colors: [
+                Color(red: dom.r, green: dom.g, blue: dom.b)
+                  .opacity(0.24 + 0.10 * pulse),
+                .clear,
+              ],
+              center: .center,
+              startRadius: 0,
+              endRadius: 740
+            )
+          }
+
+          // Sweeping stage spotlights — violet left, teal right.
+          HubSpotlights(t: t)
+
+          // Rising ember particles — golden-ratio distributed, some accent-tinted.
+          HubParticles(t: t, dominant: dominant)
+        }
+      }
+
+      // Teal floor glow — static gradient, outside the animation loop.
+      LinearGradient(
+        colors: [.clear, Color(hex: 0x00EDFF).opacity(0.06)],
+        startPoint: UnitPoint(x: 0.5, y: 0.6),
+        endPoint: .bottom
+      )
+    }
+    .ignoresSafeArea()
+    .allowsHitTesting(false)
+    .accessibilityHidden(true)
+    .animation(.easeInOut(duration: 1.8), value: dominant != nil)
+  }
+}
+
+// MARK: - Now-playing strip
+
+/// Ambient bottom bar: album art, title, artist, and animated EQ bars.
+/// Makes the hub a screen worth leaving on between songs.
+private struct NowPlayingStrip: View {
+  let track: NowPlayingTrack
+  let isPlaying: Bool
+  @State private var epoch = Date()
+
+  var body: some View {
+    VStack(spacing: 0) {
+      Spacer()
+      Rectangle().fill(Tokens.line1).frame(height: 1)
+      HStack(spacing: Tokens.Space.s3) {
+        CoverArt(url: track.artworkURL, side: 68, corner: Tokens.Radius.sm,
+                 fallbackTint: Tokens.Glass.fieldFallback)
+        VStack(alignment: .leading, spacing: 3) {
+          Text(track.title)
+            .font(Tokens.display(Tokens.FontSize.sm, .semibold))
+            .foregroundStyle(Tokens.text1)
+            .lineLimit(1)
+          Text(track.artist)
+            .font(Tokens.caption(18))
+            .foregroundStyle(Tokens.text3)
+            .lineLimit(1)
+        }
+        Spacer()
+        TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: !isPlaying)) { ctx in
+          StripEQBars(t: ctx.date.timeIntervalSince(epoch), isPlaying: isPlaying)
+        }
+        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+          .font(.system(size: 20, weight: .semibold))
+          .foregroundStyle(Tokens.text3)
+          .frame(width: 28)
+      }
+      .padding(.horizontal, Tokens.safeX)
+      .padding(.vertical, 18)
+      .background(Tokens.surfaceSolid1.opacity(0.92))
+    }
+  }
+}
+
+private struct StripEQBars: View {
+  let t: Double
+  let isPlaying: Bool
+
+  private let freqs:  [Double] = [0.11, 0.23, 0.37, 0.53, 0.71]
+  private let phases: [Double] = [0.00, 1.30, 2.60, 3.90, 5.20]
+  private let scales: [Double] = [1.00, 0.78, 0.60, 0.48, 0.38]
+
+  var body: some View {
+    Canvas { ctx, size in
+      let bW: CGFloat = 4
+      let gap: CGFloat = 4
+      var x = (size.width - (bW + gap) * 5 - gap) / 2
+      for b in 0..<5 {
+        let frac = isPlaying
+          ? (0.25 + 0.75 * (0.5 + 0.5 * sin(t * freqs[b] * .pi * 2 + phases[b])) * scales[b])
+          : 0.18
+        let h = max(3, size.height * frac)
+        ctx.fill(
+          Path(roundedRect: CGRect(x: x, y: size.height - h, width: bW, height: h),
+               cornerRadius: 2),
+          with: .color(Tokens.accentSoft.opacity(isPlaying ? 0.80 : 0.24))
+        )
+        x += bW + gap
+      }
+    }
+    .frame(width: 52, height: 34)
+  }
+}
+
+// MARK: - Stage spotlights
+
+/// Two slow-sweeping trapezoidal beams from the top — violet (brand) on the
+/// left, teal (icon accent) on the right. Same technique as CinematicStageFX
+/// but at lower opacity so they sit behind readable hub content.
+private struct HubSpotlights: View {
+  let t: Double
+
+  var body: some View {
+    Canvas(opaque: false, colorMode: .linear, rendersAsynchronously: true) { ctx, sz in
+      // Beams are blurred inside an isolated layer; the horizon line is drawn
+      // outside it so it stays crisp.
+      ctx.drawLayer { beam in
+        beam.addFilter(.blur(radius: 22))
+        let sway = sin(t * 0.14) * 52
+
+        // Left beam — violet. Gradient runs along the beam's center axis.
+        var L = Path()
+        L.move(to: CGPoint(x: sz.width * 0.07 + sway, y: -10))
+        L.addLine(to: CGPoint(x: sz.width * 0.20 + sway, y: -10))
+        L.addLine(to: CGPoint(x: sz.width * 0.56 + sway, y: sz.height))
+        L.addLine(to: CGPoint(x: sz.width * 0.24 + sway, y: sz.height))
+        L.closeSubpath()
+        beam.fill(L, with: .linearGradient(
+          Gradient(colors: [Tokens.accentStatic.opacity(0.18), .clear]),
+          startPoint: CGPoint(x: sz.width * 0.13 + sway, y: 0),
+          endPoint: CGPoint(x: sz.width * 0.40 + sway, y: sz.height)
+        ))
+
+        // Right beam — teal. Mirror axis.
+        var R = Path()
+        R.move(to: CGPoint(x: sz.width * 0.80 - sway, y: -10))
+        R.addLine(to: CGPoint(x: sz.width * 0.93 - sway, y: -10))
+        R.addLine(to: CGPoint(x: sz.width * 0.76 - sway, y: sz.height))
+        R.addLine(to: CGPoint(x: sz.width * 0.44 - sway, y: sz.height))
+        R.closeSubpath()
+        beam.fill(R, with: .linearGradient(
+          Gradient(colors: [Color(hex: 0x00EDFF).opacity(0.14), .clear]),
+          startPoint: CGPoint(x: sz.width * 0.87 - sway, y: 0),
+          endPoint: CGPoint(x: sz.width * 0.60 - sway, y: sz.height)
+        ))
+      }
+
+      // Stage floor horizon — thin teal glow at 72% height, slightly pulsing.
+      let hY = sz.height * 0.725
+      let horizonAlpha = 0.14 + 0.06 * sin(t * 0.21)
+      ctx.drawLayer { h in
+        h.addFilter(.blur(radius: 8))
+        h.fill(
+          Path(CGRect(x: sz.width * 0.06, y: hY - 1, width: sz.width * 0.88, height: 2)),
+          with: .linearGradient(
+            Gradient(colors: [.clear, Color(hex: 0x00EDFF).opacity(horizonAlpha),
+                               Color(hex: 0x00EDFF).opacity(horizonAlpha * 1.3),
+                               Color(hex: 0x00EDFF).opacity(horizonAlpha), .clear]),
+            startPoint: CGPoint(x: 0, y: hY),
+            endPoint: CGPoint(x: sz.width, y: hY)
+          )
+        )
+      }
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .allowsHitTesting(false)
+    .accessibilityHidden(true)
+  }
+}
+
+// MARK: - Particle field
+
+/// 90 concert-ember particles rising from the stage floor. Distributed via
+/// golden-ratio Halton sequence for uniform coverage without visible pattern.
+/// Particles fade in off the floor and fade out as they reach the top.
+private struct HubParticles: View {
+  let t: Double
+  let dominant: RGB?
+
+  var body: some View {
+    Canvas { ctx, sz in
+      let accent = dominant.map { Color(red: $0.r, green: $0.g, blue: $0.b) }
+        ?? Tokens.accentSoft
+
+      for i in 0..<90 {
+        let fi = Double(i)
+        let baseX    = fmod(fi * 0.618033988749895,  1.0)
+        let phase    = fmod(fi * 0.381966011250105,  1.0)
+        let speed    = 0.005 + fmod(fi * 0.127,      1.0) * 0.013
+        let swayAmp  = fmod(fi * 0.293,              1.0) * 0.028
+        let swayFreq = 0.18 + fmod(fi * 0.157,       1.0) * 0.34
+        let radius   = CGFloat(1.2 + fmod(fi * 0.235, 1.0) * 2.8)
+        let baseAlpha = 0.10 + fmod(fi * 0.179,      1.0) * 0.22
+
+        let yPct = 1.0 - fmod(phase + t * speed, 1.0)
+        let xPct = baseX + swayAmp * sin(t * swayFreq + phase * .pi * 2)
+
+        // Fade in from floor, fade out at ceiling — hides the wrap teleport.
+        let fadeIn  = min(1.0, (1.0 - yPct) * 9)
+        let fadeOut = min(1.0, yPct * 9)
+        let alpha   = baseAlpha * fadeIn * fadeOut
+
+        let x = sz.width  * max(0, min(1, xPct))
+        let y = sz.height * yPct
+
+        let isAccent = i % 8 == 0
+        ctx.fill(
+          Path(ellipseIn: CGRect(x: x - radius, y: y - radius,
+                                 width: radius * 2, height: radius * 2)),
+          with: .color((isAccent ? accent : Tokens.text1).opacity(alpha))
+        )
+      }
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .allowsHitTesting(false)
+    .accessibilityHidden(true)
   }
 }
 

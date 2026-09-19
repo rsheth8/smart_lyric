@@ -7,13 +7,13 @@ enum Tokens {
 
   // MARK: - Brand
 
-  /// Vermilion. The brand constant — never overwritten. Per-song accents
-  /// fall back to exactly this when the artwork can't supply a usable hue.
-  static let accentStatic = Color(hex: 0xEF684B)
-  static let accentSoft = Color(hex: 0xB9A1DC)
-  /// Text ON an accent fill.
-  static let accentInk = Color(hex: 0x100F15)
-  /// The brand vermilion.
+  /// Violet. The brand constant — matches the icon's glow and the Glass
+  /// spotlight. Per-song artwork accents fall back to this.
+  static let accentStatic = Color(hex: 0x8B5CF6)
+  static let accentSoft = Color(hex: 0xA78BFA)
+  /// Text ON an accent fill — near-white for legibility on violet.
+  static let accentInk = Color(hex: 0xF5F3FF)
+  /// Vermilion — kept for Apple Music brand and semantic error/heat states.
   static let ember = Color(hex: 0xEF684B)
 
   // MARK: - Surfaces (elevation: 0 = the room, 3 = closest to you)
