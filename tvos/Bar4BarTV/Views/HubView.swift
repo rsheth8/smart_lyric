@@ -275,7 +275,7 @@ private struct HubAmbient: View {
 
       // Teal floor glow — static gradient, outside the animation loop.
       LinearGradient(
-        colors: [.clear, Color(hex: 0x00EDFF).opacity(0.06)],
+        colors: [.clear, Tokens.Glass.meter.opacity(0.06)],
         startPoint: UnitPoint(x: 0.5, y: 0.6),
         endPoint: .bottom
       )
@@ -396,7 +396,7 @@ private struct HubSpotlights: View {
         R.addLine(to: CGPoint(x: sz.width * 0.44 - sway, y: sz.height))
         R.closeSubpath()
         beam.fill(R, with: .linearGradient(
-          Gradient(colors: [Color(hex: 0x00EDFF).opacity(0.14), .clear]),
+          Gradient(colors: [Tokens.Glass.meter.opacity(0.14), .clear]),
           startPoint: CGPoint(x: sz.width * 0.87 - sway, y: 0),
           endPoint: CGPoint(x: sz.width * 0.60 - sway, y: sz.height)
         ))
@@ -410,9 +410,9 @@ private struct HubSpotlights: View {
         h.fill(
           Path(CGRect(x: sz.width * 0.06, y: hY - 1, width: sz.width * 0.88, height: 2)),
           with: .linearGradient(
-            Gradient(colors: [.clear, Color(hex: 0x00EDFF).opacity(horizonAlpha),
-                               Color(hex: 0x00EDFF).opacity(horizonAlpha * 1.3),
-                               Color(hex: 0x00EDFF).opacity(horizonAlpha), .clear]),
+            Gradient(colors: [.clear, Tokens.Glass.meter.opacity(horizonAlpha),
+                               Tokens.Glass.meter.opacity(horizonAlpha * 1.3),
+                               Tokens.Glass.meter.opacity(horizonAlpha), .clear]),
             startPoint: CGPoint(x: 0, y: hY),
             endPoint: CGPoint(x: sz.width, y: hY)
           )

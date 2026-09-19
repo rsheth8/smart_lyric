@@ -406,7 +406,7 @@ struct BrandLockup: View {
   var size: CGFloat = Tokens.FontSize.xxl
   var body: some View {
     (Text("Bar").foregroundColor(Tokens.text1)
-     + Text("4").foregroundColor(Color(hex: 0x00EDFF))
+     + Text("4").foregroundColor(Tokens.Glass.meter)
      + Text("Bar").foregroundColor(Tokens.text1))
       .font(Tokens.editorial(size))
       .tracking(-size * 0.045)
