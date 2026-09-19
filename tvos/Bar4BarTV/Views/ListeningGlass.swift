@@ -60,34 +60,57 @@ struct ListeningGlass: View {
         entrancePlateView(field: field)
         sleeveView(field: field)
 
-        // 6. VU meters — thin neon slivers with glow bloom
+        // 6. EQ spectrum — 5 bands per side, bass→treble, cyan→violet
         Canvas { ctx, size in
           let f = field
-          // Thin sliver: 0.6% of width (~11 px on 1920)
-          let meterW: CGFloat = size.width * 0.006
-          let meterX: CGFloat = size.width * 0.022
+          let t = state.motionTime
 
-          func drawMeter(x: CGFloat, h: CGFloat, peakH: CGFloat) {
-            guard h > 1 else { return }
-            let rect = CGRect(x: x, y: size.height - h, width: meterW, height: h)
-            // Bloom layer — wider, low alpha
-            ctx.fill(Path(roundedRect: rect.insetBy(dx: -meterW * 1.5, dy: 0), cornerRadius: 4),
-                     with: .color(Tokens.Glass.meter.opacity(0.18)))
-            // Core sliver — bright neon
-            ctx.fill(Path(roundedRect: rect, cornerRadius: meterW / 2),
-                     with: .color(Tokens.Glass.meter.opacity(0.80)))
-            // Peak hold tick
-            if peakH > 6 {
-              let tickY = size.height - peakH - 3
-              let tick = CGRect(x: x - meterW * 0.5, y: tickY, width: meterW * 2, height: 2)
+          let nBands = 5
+          let bW: CGFloat = size.width * 0.0055
+          let bGap: CGFloat = size.width * 0.003
+          let edgeX: CGFloat = size.width * 0.014
+
+          // Bass is loudest and slowest; treble is quieter and quicker
+          let scales: [Double] = [1.00, 0.82, 0.67, 0.53, 0.40]
+          let freqs:  [Double] = [0.09, 0.17, 0.27, 0.40, 0.57]
+          let phases: [Double] = [0.00, 1.30, 2.60, 3.90, 5.20]
+
+          // Cyan (#00EDFF) → violet (#8B5CF6)
+          let bandColors: [Color] = (0..<nBands).map { b in
+            let mix = Double(b) / Double(nBands - 1)
+            return Color(
+              red:   mix * 0.545,
+              green: (1 - mix) * 0.929 + mix * 0.361,
+              blue:  (1 - mix) * 1.000 + mix * 0.965
+            )
+          }
+
+          func drawBands(base: Double, startX: CGFloat, goRight: Bool, peak: Double) {
+            for b in 0..<nBands {
+              let wave = 0.72 + 0.28 * sin(t * freqs[b] + phases[b])
+              let h = max(3, size.height * CGFloat(base * wave * scales[b]))
+              let bX = goRight
+                ? startX + CGFloat(b) * (bW + bGap)
+                : startX - CGFloat(b + 1) * bW - CGFloat(b) * bGap
+              let rect = CGRect(x: bX, y: size.height - h, width: bW, height: h)
+              let color = bandColors[b]
+              ctx.fill(Path(roundedRect: rect.insetBy(dx: -bW, dy: 0), cornerRadius: 3),
+                       with: .color(color.opacity(0.14)))
+              ctx.fill(Path(roundedRect: rect, cornerRadius: bW / 2),
+                       with: .color(color.opacity(0.82)))
+            }
+            // Peak tick on the bass band
+            let peakH = size.height * CGFloat(peak)
+            if peakH > 8 {
+              let bX = goRight ? startX : startX - bW
+              let tick = CGRect(x: bX - bW * 0.6, y: size.height - peakH - 3, width: bW * 2.2, height: 2)
               ctx.fill(Path(roundedRect: tick, cornerRadius: 1),
                        with: .color(Tokens.Glass.holdHorizon))
             }
           }
 
-          drawMeter(x: meterX, h: size.height * f.leftMeter, peakH: size.height * smoother.peakL)
-          drawMeter(x: size.width - meterX - meterW,
-                    h: size.height * f.rightMeter, peakH: size.height * smoother.peakR)
+          drawBands(base: f.leftMeter,  startX: edgeX,                 goRight: true,  peak: smoother.peakL)
+          drawBands(base: f.rightMeter, startX: size.width - edgeX,    goRight: false, peak: smoother.peakR)
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)

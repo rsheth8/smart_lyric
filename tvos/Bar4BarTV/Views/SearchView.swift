@@ -158,7 +158,7 @@ struct SearchView: View {
     } else if let term = music.lastSearchTerm {
       statusBlock(
         icon: "questionmark.circle",
-        title: "Nothing matched "\(term)"",
+        title: "Nothing matched \u{201C}\(term)\u{201D}",
         detail: scope == .albums
           ? "Try an artist name or shorter album title."
           : "Try the artist's name, or fewer words."
