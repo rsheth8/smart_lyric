@@ -146,8 +146,12 @@ struct KaraokeView: View {
     .defaultFocus($focus, .stage, priority: .userInitiated)
     .onMoveCommand { direction in
       switch direction {
-      case .left: if music.canTransport { replayCurrentLine() }
-      case .right: if music.canTransport { skipToNextChorus() }
+      case .left:
+        if music.canTransport { replayCurrentLine() }
+        else { showControls() }
+      case .right:
+        if music.canTransport { skipToNextChorus() }
+        else { showControls() }
       default: showControls()
       }
     }
@@ -161,6 +165,9 @@ struct KaraokeView: View {
         Button { path = NavigationPath() } label: { Label("Home", systemImage: "chevron.left") }
           .buttonStyle(RoomButtonStyle())
           .focused($focus, equals: .home)
+          .onMoveCommand { direction in
+            if direction == .right || direction == .down { focus = defaultControl }
+          }
         if immersive || !hasLyrics {
           VStack(alignment: .leading, spacing: 4) {
             Text(music.nowPlaying?.title ?? "").font(Tokens.display(26, .semibold))

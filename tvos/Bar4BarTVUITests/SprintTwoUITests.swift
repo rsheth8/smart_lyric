@@ -23,7 +23,7 @@ final class SprintTwoUITests: XCTestCase {
     // Demo line 6 (31.40–35.20): "Quick, quick, catch it on the up-beat now" — 8 words in 1.9s
     let app = demo(seek: "32", paused: true, clean: true)
     XCTAssertTrue(app.buttons["showPlaybackControls"].waitForExistence(timeout: 12))
-    XCTAssertTrue(app.otherElements["denseBadge"].exists)
+    XCTAssertTrue(app.staticTexts["denseBadge"].exists)
     attachScreen(named: "sprint2-dense-badge")
   }
 
@@ -31,7 +31,7 @@ final class SprintTwoUITests: XCTestCase {
     // Demo line 4 (21.20–27.20): "Hold it here" — 3 words over 6s
     let app = demo(seek: "22", paused: true, clean: true)
     XCTAssertTrue(app.buttons["showPlaybackControls"].waitForExistence(timeout: 12))
-    XCTAssertFalse(app.otherElements["denseBadge"].exists)
+    XCTAssertFalse(app.staticTexts["denseBadge"].exists)
   }
 
   // MARK: - Stage settings panel — practice controls

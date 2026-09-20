@@ -290,7 +290,7 @@ final class RemoteNavigationTests: XCTestCase {
     XCTAssertTrue(app.staticTexts["K7M-3QP"].waitForExistence(timeout: 10))
     XCTAssertTrue(app.buttons["Cancel"].exists)
     XCUIRemote.shared.press(.menu)
-    XCTAssertTrue(app.buttons["Experience Bar4Bar"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["Explore the visual stage"].waitForExistence(timeout: 5))
   }
 
   private func assertFocused(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
