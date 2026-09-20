@@ -780,15 +780,12 @@ struct WordWipeView: View {
     )
     let baseHeat: Double = {
       switch phase {
-      case .leadin, .upcoming: return 0.80
-      case .current: return held ? 1.0 : 0.88 + 0.12 * rawWipe
-      case .sung:
-        return 0.86
+      case .leadin, .upcoming: return 0.32
+      case .current: return held ? 1.0 : 0.90 + 0.10 * rawWipe
+      case .sung:    return 0.58
       }
     }()
-    // Estimated timing remains visible. Quality changes the strength of the
-    // accent, never whether an essential word can be read.
-    let heat = estimated ? max(0.78, baseHeat * 0.92) : baseHeat
+    let heat = estimated ? baseHeat * 0.90 : baseHeat
     ZStack(alignment: .bottom) {
       glyphs
         .foregroundStyle(Tokens.ink.opacity(heat))
