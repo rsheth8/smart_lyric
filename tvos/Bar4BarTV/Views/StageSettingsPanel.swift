@@ -14,28 +14,36 @@ struct StageSettingsPanel: View {
   @Environment(\.resetFocus) private var resetFocus
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 22) {
+    VStack(alignment: .leading, spacing: 16) {
       HStack {
         VStack(alignment: .leading, spacing: 8) {
-          Text("Choose your atmosphere.").font(Tokens.editorial(62, italic: true))
-          Text("Three studies in how a room comes alive.").font(Tokens.display(25, .medium)).foregroundStyle(Tokens.text2)
+          Text("Make the stage yours.").font(Tokens.editorial(62, italic: true))
+          Text("Three ways to shape the room. Your words stay in place.")
+            .font(Tokens.display(25, .medium)).foregroundStyle(Tokens.text2)
         }
         Spacer()
         Button("Done") { dismiss() }.buttonStyle(RoomButtonStyle()).accessibilityIdentifier("stageDone")
           .focused($focused, equals: .done).onMoveCommand { move($0, from: .done) }
       }
-      preview.frame(height: 245).clipped()
+      preview.frame(height: 180).clipped()
+      Text("ATMOSPHERE")
+        .font(Tokens.caption(17)).tracking(3).foregroundStyle(Tokens.lilac)
       HStack(spacing: 22) {
-        ForEach(StageIntensity.allCases, id: \.self) { intensity in
+        ForEach(Array(StageIntensity.allCases.enumerated()), id: \.element) { index, intensity in
           Button { session.intensity = intensity } label: {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
               HStack {
-                Text(intensity.rawValue.capitalized).font(Tokens.editorial(38))
+                Text(String(format: "STUDY %02d", index + 1))
+                  .font(Tokens.caption(15)).tracking(2.3)
                 Spacer()
                 if session.intensity == intensity { Image(systemName: "checkmark.circle.fill") }
               }
-              Text(description(intensity)).font(Tokens.display(20, .medium)).lineLimit(2)
-            }.frame(maxWidth: .infinity, alignment: .leading).frame(height: 110)
+              Text(intensity.rawValue.capitalized).font(Tokens.editorial(36))
+              Text(description(intensity))
+                .font(Tokens.display(18, .medium))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            }.frame(maxWidth: .infinity, alignment: .leading).frame(height: 130)
           }
           .buttonStyle(ExhibitionStudyStyle())
           .focused($focused, equals: Control(rawValue: intensity.rawValue))
@@ -43,6 +51,8 @@ struct StageSettingsPanel: View {
           .accessibilityIdentifier("intensity-\(intensity.rawValue)")
         }
       }
+      Text("SINGING")
+        .font(Tokens.caption(17)).tracking(3).foregroundStyle(Tokens.lilac)
       HStack(spacing: 22) {
         Button {
           session.previewSeconds = session.previewSeconds < 2 ? 3 : session.previewSeconds < 4 ? 5 : 1.5
@@ -54,7 +64,8 @@ struct StageSettingsPanel: View {
           let roles = ["Solo", "Take turns", "Everyone"]
           session.partyMode = roles[((roles.firstIndex(of: session.partyMode) ?? 0) + 1) % roles.count]
         } label: {
-          Label(session.partyMode, systemImage: "person.2")
+          Label(session.partyMode == "Take turns" ? "Duo · Take turns" : session.partyMode,
+            systemImage: "person.2")
         }.buttonStyle(RoomButtonStyle()).accessibilityIdentifier("stageRoles")
           .focused($focused, equals: .roles).onMoveCommand { move($0, from: .roles) }
         if music.isDemo {
@@ -63,6 +74,10 @@ struct StageSettingsPanel: View {
           }.buttonStyle(RoomButtonStyle()).accessibilityIdentifier("stageDemoSource")
             .focused($focused, equals: .demo).onMoveCommand { move($0, from: .demo) }
         }
+      }
+      Text("PRACTICE")
+        .font(Tokens.caption(17)).tracking(3).foregroundStyle(Tokens.lilac)
+      HStack(spacing: 22) {
         let blankLabels = ["Blank off", "Every 2nd", "Every 3rd", "Every 4th"]
         let blankValues = [0, 2, 3, 4]
         let blankIdx = blankValues.firstIndex(of: session.blankNthWord) ?? 0
@@ -80,14 +95,14 @@ struct StageSettingsPanel: View {
           .focused($focused, equals: .loop).onMoveCommand { move($0, from: .loop) }
       }
       Text(session.partyMode == "Take turns"
-        ? "Side A and Side B alternate phrases. The next turn appears before the handoff."
+        ? "Side A and Side B alternate singable phrases. A handoff appears before the next voice."
         : session.partyMode == "Everyone" ? "Everyone sings together. No scores, just the room."
         : "Sing solo, or choose how the room joins in.")
         .font(Tokens.display(21, .medium)).foregroundStyle(Tokens.text2)
-      Text("Word timing and pronunciation are adjusted separately in Timing and More.")
+      Text("Adjust word timing and language separately from the playback deck.")
         .font(Tokens.display(18, .regular)).foregroundStyle(Tokens.text2)
     }
-    .padding(65)
+    .padding(56)
     .background(Tokens.surface0.ignoresSafeArea())
     .focusScope(pickerScope)
     .defaultFocus($focused, Control(rawValue: session.intensity.rawValue), priority: .userInitiated)
@@ -102,14 +117,21 @@ struct StageSettingsPanel: View {
 
   private func move(_ direction: MoveCommandDirection, from control: Control) {
     let choices: [Control] = [.focus, .live, .headliner]
-    let options: [Control] = music.isDemo ? [.preview, .roles, .demo, .blank, .loop] : [.preview, .roles, .blank, .loop]
-    let row = choices.contains(control) ? choices : options
+    let options: [Control] = music.isDemo ? [.preview, .roles, .demo] : [.preview, .roles]
+    let practice: [Control] = [.blank, .loop]
+    let row = choices.contains(control) ? choices : options.contains(control) ? options : practice
     if let index = row.firstIndex(of: control) {
       if direction == .left && index > 0 { focused = row[index - 1] }
       if direction == .right && index + 1 < row.count { focused = row[index + 1] }
     }
-    if direction == .up { focused = choices.contains(control) ? .done : Control(rawValue: session.intensity.rawValue) }
-    if direction == .down { focused = control == .done ? Control(rawValue: session.intensity.rawValue) : choices.contains(control) ? .preview : .done }
+    if direction == .up {
+      focused = choices.contains(control) ? .done : options.contains(control)
+        ? Control(rawValue: session.intensity.rawValue) : .preview
+    }
+    if direction == .down {
+      focused = control == .done ? Control(rawValue: session.intensity.rawValue)
+        : choices.contains(control) ? .preview : options.contains(control) ? .blank : .done
+    }
   }
 
   private var preview: some View {
@@ -146,9 +168,9 @@ struct StageSettingsPanel: View {
   }
   private func description(_ intensity: StageIntensity) -> String {
     switch intensity {
-    case .focus: return "Quiet field. Words only."
-    case .live: return "Glass lamp. Slow field."
-    case .headliner: return "Open iris. Holds kill the room."
+    case .focus: return "Still scene. Clear entrances."
+    case .live: return "Phrases enter; the room responds."
+    case .headliner: return "Bigger hooks. Words stay put."
     }
   }
 }

@@ -55,11 +55,9 @@ final class SprintTwoUITests: XCTestCase {
     let btn = app.buttons["stageBlankWords"]
     XCTAssertTrue(btn.waitForExistence(timeout: 12))
     XCTAssertEqual(btn.label, "Blank off")
-    // Navigate: live(default) → down → preview → right → roles → right → demo → right → blank
+    // Atmosphere → singing → practice, with each group on its own remote row.
     XCUIRemote.shared.press(.down)
-    XCUIRemote.shared.press(.right)
-    XCUIRemote.shared.press(.right)
-    XCUIRemote.shared.press(.right)
+    XCUIRemote.shared.press(.down)
     assertFocused(btn)
     XCUIRemote.shared.press(.select); XCTAssertEqual(btn.label, "Every 2nd")
     XCUIRemote.shared.press(.select); XCTAssertEqual(btn.label, "Every 3rd")
@@ -75,9 +73,10 @@ final class SprintTwoUITests: XCTestCase {
     let btn = app.buttons["stageLoopSection"]
     XCTAssertTrue(btn.waitForExistence(timeout: 12))
     XCTAssertEqual(btn.label, "Loop: off")
-    // Navigate to loop: down → preview → roles → demo → blank → loop
+    // Navigate to loop: down to singing, down to practice, right to loop.
     XCUIRemote.shared.press(.down)
-    for _ in 0..<4 { XCUIRemote.shared.press(.right) }
+    XCUIRemote.shared.press(.down)
+    XCUIRemote.shared.press(.right)
     assertFocused(btn)
     XCUIRemote.shared.press(.select); XCTAssertEqual(btn.label, "Loop: on")
     XCUIRemote.shared.press(.select); XCTAssertEqual(btn.label, "Loop: off")

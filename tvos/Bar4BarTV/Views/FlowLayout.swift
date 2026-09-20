@@ -85,8 +85,9 @@ struct FlowLayout: Layout {
           let removed = sizes[last].width + spacing
           let newLeft = rows[index].width - removed
           let newRight = rows[index + 1].width + removed
+          let removesOrphan = rows[index + 1].items.count == 1 && rows[index].items.count > 2
           guard newRight <= maxWidth,
-                abs(newLeft - newRight) < abs(rows[index].width - rows[index + 1].width) else { break }
+                removesOrphan || abs(newLeft - newRight) < abs(rows[index].width - rows[index + 1].width) else { break }
           rows[index].items.removeLast()
           rows[index + 1].items.insert(last, at: 0)
           rows[index].width = newLeft

@@ -8,7 +8,6 @@ struct PhraseStage: View {
   @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
   private var reduceMotion: Bool { systemReduceMotion || DemoLaunch.reduceMotion }
   @State private var runtime = PhraseRuntime()
-  @State private var lightClock = StageLightClock()
 
   var body: some View {
     GeometryReader { geometry in
@@ -30,39 +29,25 @@ struct PhraseStage: View {
       let lines = session.timeline.lines
       let activeLi = DisplayMath.resolveActiveLine(lines, t: sample.cue)
       let gap = DisplayMath.gapState(lines: lines, t: sample.cue, activeLi: activeLi)
-      let look = StageLookMath.resolve(lines: lines, t: sample.cue, sections: session.sections, reduceMotion: reduceMotion)
-      let light = lightClock.advance(look: look, nextVocalIn: gap.nextVocalIn, now: Date(), reduceMotion: reduceMotion)
       ZStack {
-        ListeningGlass(state: state, intensity: session.intensity,
-          partyMode: session.partyMode, sideA: state.line.isMultiple(of: 2),
+        PosterEnvironment(state: state, intensity: session.intensity,
+          reduceMotion: reduceMotion,
+          letters: InstallationForms.initials(music.nowPlaying?.title ?? "BAR FOR BAR"),
           cheer: session.audienceAccent.amount(at: Date().timeIntervalSinceReferenceDate),
-          playing: music.isPlaying, reduceMotion: reduceMotion,
-          artworkURL: music.nowPlaying?.artworkURL,
-          lines: lines, cueTime: sample.cue,
-          previewSeconds: session.previewSeconds,
-          nowPlayingTitle: music.nowPlaying?.title ?? "BAR FOR BAR",
-          nowPlayingArtist: music.nowPlaying?.artist ?? "BAR4BAR")
-        CinematicStageFX(
-          look: look, light: light, accent: session.accent,
-          t: state.motionTime,
-          wordImpact: StageDirection.wordImpact(lines: lines, t: sample.cue, activeLi: activeLi),
-          chorusDrop: StageDirection.chorusDrop(sections: session.sections, t: sample.cue),
-          finale: StageDirection.isFinale(sections: session.sections, t: sample.cue),
-          roomEnergy: session.audienceAccent.amount(at: Date().timeIntervalSinceReferenceDate),
-          reduceMotion: reduceMotion
-        )
-        if gap.instrumental, let eta = gap.nextVocalIn {
-          instrumentalCountdown(eta: eta, lines: lines, activeLi: activeLi)
-        }
-        board(state: state, cueTime: sample.cue, width: max(1, geometry.size.width - 350))
+          artworkAccent: session.accent.accent)
         if state.ending {
           songSummaryOverlay(sungCount: runtime.totalSung, totalLines: lines.count)
+        } else if gap.instrumental, let eta = gap.nextVocalIn, eta > 8 {
+          instrumentalCountdown(eta: eta, lines: lines, activeLi: activeLi)
+        } else {
+          board(state: state, cueTime: sample.cue)
         }
-        // Hidden accessibility element — VoiceOver announces singer role; UITests can assert it.
-        Color.clear
-          .accessibilityElement(children: .ignore)
-          .accessibilityLabel(phraseRoleLabel(state))
-          .accessibilityIdentifier("phraseRole")
+        if !state.ending {
+          Color.clear
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(phraseRoleLabel(state))
+            .accessibilityIdentifier("phraseRole")
+        }
       }
 
     }
@@ -70,179 +55,140 @@ struct PhraseStage: View {
     .allowsHitTesting(false)
   }
 
-  @ViewBuilder private func board(state: StagePresentation, cueTime: Double, width: CGFloat) -> some View {
+  @ViewBuilder private func board(state: StagePresentation, cueTime: Double) -> some View {
     if session.timeline.lines.indices.contains(state.line) {
       let line = displayLine(at: state.line)
-      let size = runtime.typeSize(for: line, width: width)
-      let sectionAlpha = runtime.sectionLabelAlpha(kind: state.kind, t: cueTime)
-      let dotProgress = min(1.0, state.entrance / 0.6)
+      let turn = SingerTurnPreview(timeline: session.timeline, state: state,
+        cueTime: cueTime, preview: session.previewSeconds, mode: session.partyMode)
       GeometryReader { geo in
-        VStack(spacing: 0) {
-          Spacer(minLength: 0)
-          // Current line — centered horizontally, filament mode
+        let readingWidth = min(1380, max(620, geo.size.width - 400))
+        let size = runtime.typeSize(for: line, width: readingWidth)
+        ZStack {
+          // The reading plane is fixed. Preview length and timing revisions
+          // cannot move the active phrase around the television.
           let hiddenWords: Set<Int> = session.blankNthWord > 1
             ? Set(line.words.indices.filter { ($0 + 1) % session.blankNthWord == 0 })
             : []
-          LyricLineView(
-            line: line,
-            t: state.ending ? line.end + 1 : cueTime,
-            depth: .active,
-            accent: AccentPalette(accent: Tokens.Glass.filament, soft: Tokens.Glass.filamentSung, glow: Tokens.Glass.filament),
-            wordTiming: true,
-            listen: session.performanceMode == .listen,
-            typeSize: size,
-            leading: false,           // centered
-            emphasisWord: state.emphasis,
-            emphasisAmount: 0,        // no scale punch on Glass
-            heldWord: state.hold,
-            expressiveScale: false,
-            estimatedWords: Set(line.words.indices.filter { session.timeline.quality(line: state.line, word: $0) == .estimated }),
-            hiddenWords: hiddenWords,
-            renderMode: .filament     // whole-glyph heat, no wipe mask
-          )
-          .padding(.vertical, 12)
-          .opacity(0.65 + 0.35 * state.entrance)
-          .offset(y: reduceMotion ? 0 : (1 - state.entrance) * 16)
-          .scaleEffect(reduceMotion ? 1 : (0.94 + 0.06 * state.entrance), anchor: .center)
-          .transaction { $0.animation = nil }  // 60 fps TimelineView drives this; no SwiftUI spring on top
-          .accessibilityElement(children: .contain)
-          .accessibilityIdentifier("currentPhrase")
-
-          // Line-start cue dot — shrinks in as the line settles
-          if state.entrance < 0.6 && !reduceMotion {
-            Circle()
-              .fill(Tokens.Glass.filament.opacity((1 - dotProgress) * 0.50))
-              .frame(width: max(4, CGFloat(12 - dotProgress * 8)), height: max(4, CGFloat(12 - dotProgress * 8)))
-              .padding(.top, 6)
-          }
-
-          // Party singer indicator
-          if session.partyMode == "Take turns" {
-            let flipAlpha = runtime.sideFlipAlpha(isEven: state.line.isMultiple(of: 2), t: cueTime)
-            ZStack {
-              Text(state.line.isMultiple(of: 2) ? "— YOU —" : "— THEM —")
-                .font(Tokens.display(15, .semibold))
-                .tracking(3)
-                .foregroundStyle(Tokens.Glass.filament.opacity(0.40))
-              if flipAlpha > 0.01 {
-                Text(state.line.isMultiple(of: 2) ? "YOUR TURN" : "THEIR TURN")
-                  .font(Tokens.display(22, .bold))
-                  .tracking(3)
-                  .foregroundStyle(Tokens.Glass.filament.opacity(flipAlpha))
-                  .scaleEffect(0.85 + 0.15 * flipAlpha)
-                  .accessibilityIdentifier("partyFlipFlash")
-              }
-            }
-            .padding(.top, 8)
-          }
-
-          // Upcoming lines runway + language aid
-          ghostOrAid(state: state, cueTime: cueTime, currentSize: size)
-            .padding(.top, session.partyMode == "Take turns" ? 20 : 48)
-
-          Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity)
-
-        // Section label pill — fades in at section boundaries
-        if sectionAlpha > 0.01 {
-          VStack {
-            HStack {
+          VStack(spacing: 16) {
+            HStack(spacing: 13) {
               Text(state.kind.sectionLabel)
-                .font(Tokens.display(15, .semibold))
-                .tracking(3.5)
-                .foregroundStyle(Tokens.Glass.legend)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Tokens.surface2.opacity(sectionAlpha), in: Capsule())
-              Spacer()
+                .foregroundStyle(session.accent.accent)
+              Text("/")
+                .foregroundStyle(Tokens.text3)
+              Text(roleName(for: state))
+                .foregroundStyle(Tokens.ink)
             }
-            Spacer()
+            .font(Tokens.caption(20)).tracking(3.5)
+            .accessibilityIdentifier("partyFlipFlash")
+            LyricLineView(
+              line: line, t: cueTime, depth: .active,
+              accent: session.accent,
+              wordTiming: true,
+              listen: session.performanceMode == .listen,
+              typeSize: size,
+              emphasisWord: state.emphasis, emphasisAmount: 0,
+              heldWord: state.hold, expressiveScale: false,
+              estimatedWords: Set(line.words.indices.filter { session.timeline.quality(line: state.line, word: $0) == .estimated }),
+              hiddenWords: hiddenWords, renderMode: .filament
+            )
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("currentPhrase")
           }
-          .opacity(sectionAlpha)
-          .padding(.top, 44)
-          .padding(.leading, 36)
-        }
+          .frame(width: readingWidth, height: 340)
+          .opacity(0.85 + 0.15 * state.entrance)
+          .offset(y: reduceMotion || session.intensity == .focus ? 0 : (1 - state.entrance) * 8)
+          .position(x: geo.size.width * 0.5, y: geo.size.height * 0.43)
 
-        // Dense/fast section badge — top right
-        if state.dense {
-          VStack {
-            HStack {
-              Spacer()
-              HStack(spacing: 5) {
-                Image(systemName: "bolt.fill")
-                  .font(.system(size: 13, weight: .bold))
-                Text("FAST")
-                  .font(Tokens.display(13, .bold))
-                  .tracking(2)
-              }
-              .foregroundStyle(Tokens.Glass.meter.opacity(0.65))
-              .padding(.horizontal, 10)
-              .padding(.vertical, 5)
-              .background(Tokens.surface2.opacity(0.6), in: Capsule())
+          ghostOrAid(state: state, cueTime: cueTime, currentSize: size)
+            .frame(width: readingWidth, height: 150)
+            .position(x: geo.size.width * 0.5, y: geo.size.height * 0.70)
+
+          if line.start > cueTime, line.start - cueTime <= (state.kind == .instrumental ? 8 : 3.5) {
+            Text("SING IN \(max(1, Int(ceil(line.start - cueTime))))")
+              .font(Tokens.caption(20)).tracking(3)
+              .foregroundStyle(Tokens.ink)
+              .padding(.horizontal, 24).padding(.vertical, 11)
+              .background(session.accent.accent, in: Capsule())
+              .position(x: geo.size.width * 0.5, y: geo.size.height * 0.18)
+          }
+
+          if let turn {
+            VStack(alignment: .leading, spacing: 8) {
+              Text("NEXT VOICE")
+                .font(Tokens.caption(15)).tracking(2.5)
+                .foregroundStyle(Tokens.lilac)
+              Text(turn.role)
+                .font(Tokens.editorial(36))
+                .foregroundStyle(Tokens.ink)
+              Text("IN \(turn.seconds)")
+                .font(Tokens.caption(17)).tracking(2)
+                .foregroundStyle(session.accent.accent)
             }
-            Spacer()
+            .frame(width: 270, alignment: .leading)
+            .position(x: geo.size.width * 0.16, y: geo.size.height * 0.20)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(turn.role) sings in \(turn.seconds) seconds")
+            .accessibilityIdentifier("singerHandoff")
           }
-          .padding(.top, 44)
-          .padding(.trailing, 36)
-          .accessibilityElement(children: .ignore)
-          .accessibilityIdentifier("denseBadge")
-        }
 
-        // Faceplate: ARTIST · TITLE · M:SS at bottom
-        VStack {
-          Spacer()
+          if state.dense && state.kind != .chorus && state.kind != .finale {
+            Text("FAST · READ AHEAD")
+              .font(Tokens.caption(18)).tracking(2)
+              .foregroundStyle(session.accent.accent)
+              .frame(width: geo.size.width - 190, alignment: .trailing)
+              .position(x: geo.size.width * 0.5, y: 70)
+              .accessibilityIdentifier("denseBadge")
+          }
+
           Text(faceplateText)
-            .font(Tokens.display(24))
-            .tracking(2.5)
-            .foregroundStyle(Tokens.Glass.legend)
-            .frame(maxWidth: .infinity, alignment: .center)
+            .font(Tokens.caption(19)).tracking(1.7)
+            .foregroundStyle(Tokens.text2)
             .monospacedDigit()
-            .padding(.bottom, 54)
+            .position(x: geo.size.width * 0.5, y: geo.size.height - 56)
         }
       }
-      .padding(.horizontal, width * 0.15)  // ~15% side inset keeps text away from meters
     }
   }
 
   @ViewBuilder private func ghostOrAid(state: StagePresentation, cueTime: Double, currentSize: CGFloat) -> some View {
     if let aid = aidText(displayLine(at: state.line)) {
       Text(aid)
-        .font(Tokens.display(25, .medium))
-        .foregroundStyle(Tokens.Glass.legend)
+        .font(Tokens.caption(31))
+        .foregroundStyle(Tokens.ink)
         .multilineTextAlignment(.center)
         .lineLimit(2)
-        .minimumScaleFactor(0.65)
-        .opacity(0.5)
+        .minimumScaleFactor(0.75)
         .frame(maxWidth: .infinity)
-    } else if let next = state.next, session.timeline.lines.indices.contains(next) {
-      let pulse = 0.28 + 0.14 * sin(cueTime * 1.1)
-      VStack(spacing: 16) {
+        .accessibilityIdentifier("phraseAid")
+    } else if let next = Participation.nextSingableLine(after: state.line, in: session.timeline) {
+      VStack(spacing: 11) {
+        Text(upNextLabel(at: next))
+          .font(Tokens.caption(17)).tracking(3)
+          .foregroundStyle(Tokens.lilac)
         Text(session.timeline.lines[next].text)
-          .font(Tokens.lyric(currentSize * 0.42))
-          .foregroundStyle(Tokens.Glass.filament.opacity(pulse))
+          .font(Tokens.lyric(min(40, currentSize * 0.55)))
+          .foregroundStyle(Tokens.ink.opacity(0.88))
           .multilineTextAlignment(.center)
           .lineLimit(2)
-          .minimumScaleFactor(0.65)
-          .offset(y: CGFloat(sin(cueTime * 0.38) * 6))
-        if session.timeline.lines.indices.contains(next + 1) {
-          Text(session.timeline.lines[next + 1].text)
-            .font(Tokens.lyric(currentSize * 0.30))
-            .foregroundStyle(Tokens.Glass.filament.opacity(0.16))
-            .multilineTextAlignment(.center)
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
-        }
-        if session.timeline.lines.indices.contains(next + 2) {
-          Text(session.timeline.lines[next + 2].text)
-            .font(Tokens.lyric(currentSize * 0.22))
-            .foregroundStyle(Tokens.Glass.filament.opacity(0.09))
-            .multilineTextAlignment(.center)
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
-        }
+          .minimumScaleFactor(0.72)
       }
       .frame(maxWidth: .infinity)
+    }
+  }
+
+  private func roleName(for state: StagePresentation) -> String {
+    switch ParticipationMode(savedValue: session.partyMode) {
+    case .everyone: return "EVERYONE"
+    case .duo: return Participation.side(at: state.line, in: session.timeline)?.rawValue ?? "DUO"
+    case .solo: return "SOLO"
+    }
+  }
+
+  private func upNextLabel(at index: Int) -> String {
+    switch ParticipationMode(savedValue: session.partyMode) {
+    case .everyone: return "UP NEXT  /  EVERYONE"
+    case .duo: return "UP NEXT  /  \(Participation.side(at: index, in: session.timeline)?.rawValue ?? "DUO")"
+    case .solo: return "UP NEXT"
     }
   }
 
@@ -271,39 +217,43 @@ struct PhraseStage: View {
     session.aidMode == .roman ? line.roman : session.aidMode == .english ? line.english : nil
   }
   private func phraseRoleLabel(_ state: StagePresentation) -> String {
-    if session.partyMode == "Take turns" {
-      return state.line.isMultiple(of: 2) ? "Side A" : "Side B"
+    switch ParticipationMode(savedValue: session.partyMode) {
+    case .duo: return Participation.side(at: state.line, in: session.timeline)?.rawValue ?? "Duo"
+    case .everyone: return "Everyone"
+    case .solo: return "Your stage"
     }
-    return session.partyMode == "Everyone" ? "Everyone" : "Your stage"
   }
 
   @ViewBuilder private func songSummaryOverlay(sungCount: Int, totalLines: Int) -> some View {
-    VStack(spacing: 20) {
-      Spacer()
-      Text("WELL DONE")
-        .font(Tokens.display(32, .bold))
-        .tracking(6)
-      Text("\(sungCount) / \(totalLines)")
-        .font(Tokens.lyric(72))
-        .monospacedDigit()
-        .accessibilityIdentifier("songSummaryCount")
-      Text("LINES SUNG")
-        .font(Tokens.display(20))
-        .tracking(4)
-        .opacity(0.6)
-      Spacer()
+    ZStack {
+      Tokens.surface0
+      Text("B4B")
+        .font(Tokens.editorial(510))
+        .foregroundStyle(session.accent.accent.opacity(0.12))
+        .rotationEffect(.degrees(-12))
+        .offset(x: 570, y: 120)
+        .accessibilityHidden(true)
+      VStack(alignment: .leading, spacing: 25) {
+        Text("THE ROOM WAS YOURS")
+          .font(Tokens.caption(22)).tracking(5)
+          .foregroundStyle(session.accent.accent)
+        Text("Every voice\nleaves a mark.")
+          .font(Tokens.editorial(94, italic: true))
+          .lineSpacing(-8)
+        Text("\(sungCount) of \(totalLines) phrases followed")
+          .font(Tokens.caption(27))
+          .foregroundStyle(Tokens.text2)
+          .accessibilityIdentifier("songSummaryCount")
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
-    .foregroundStyle(Tokens.Glass.filament)
+    .foregroundStyle(Tokens.ink)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(.black.opacity(0.72))
     .accessibilityElement(children: .contain)
     .accessibilityIdentifier("songSummaryCard")
   }
 
   @ViewBuilder private func instrumentalCountdown(eta: Double, lines: [LyricLine], activeLi: Int) -> some View {
-    let showCount = eta < 8 && eta > 0.2
-    let countAlpha = showCount ? min(1.0, (8.0 - eta) / 2.0) : 0.0
-    let countText = eta > 1.2 ? "BACK IN \(Int(ceil(eta)))s" : "GET READY"
     let nextIdx = activeLi + 1
     // Album art fades in when there's a long instrumental ahead, out as vocals approach
     let artworkAlpha = min(1.0, max(0, (eta - 4) / 6.0))
@@ -327,26 +277,10 @@ struct PhraseStage: View {
         }
         .foregroundStyle(Tokens.Glass.legend.opacity(0.6))
         .opacity(labelAlpha)
-        // Countdown pill — last 8 seconds
-        if showCount {
-          HStack(spacing: 8) {
-            Image(systemName: eta > 1.2 ? "music.note" : "mic.fill")
-              .font(.system(size: 16, weight: .medium))
-            Text(countText)
-              .font(Tokens.display(22, .semibold))
-              .tracking(4)
-          }
-          .foregroundStyle(Tokens.Glass.legend.opacity(countAlpha))
-          .padding(.horizontal, 18).padding(.vertical, 10)
-          .background(
-            eta <= 1.2 ? session.accent.accent.opacity(0.28 * countAlpha) : Color.clear,
-            in: Capsule()
-          )
-        }
         if lines.indices.contains(nextIdx) {
           Text(lines[nextIdx].text)
             .font(Tokens.lyric(52))
-            .foregroundStyle(Tokens.Glass.filament.opacity(0.32))
+            .foregroundStyle(Tokens.ink.opacity(0.84))
             .multilineTextAlignment(.center)
             .lineLimit(2)
             .minimumScaleFactor(0.6)
@@ -373,15 +307,13 @@ private final class PhraseRuntime {
   private var lastSeekRevision = -1
   func typeSize(for line: LyricLine, width: CGFloat) -> CGFloat {
     if let fittedSize, fittedWidth == width { return fittedSize }
-    // Glass floor: tries 64 first, falls back to 56, absolute minimum 52.
-    let bandH: CGFloat = 260  // ~24% of 1080 for the current line slot
-    for floor: CGFloat in [64, 56, 52] {
-      let s = PhraseFitting.size(words: line.words.map(\.text), width: width, height: bandH, minSize: floor)
-      if s >= floor { fittedWidth = width; fittedSize = s; return s }
-    }
+    // A long translation has to fit the same fixed reading plane as a short
+    // hook. A floor of 56pt made five-row phrases collide with the aid below.
+    let fitted = PhraseFitting.size(words: line.words.map(\.text), width: width,
+      height: 270, minSize: 30)
     fittedWidth = width
-    fittedSize = 52
-    return 52
+    fittedSize = min(82, fitted)
+    return fittedSize!
   }
   private var lastKind: Choreography.Kind = .verse
   private var kindChangedAt: Double = -100.0

@@ -3,7 +3,7 @@ import XCTest
 final class RemoteNavigationTests: XCTestCase {
   private func demo(clean: Bool = false, paused: Bool = true, cue: String = "18") -> XCUIApplication {
     let app = XCUIApplication()
-    app.launchArguments = ["-bar4bar.stage.intensity", "live"]
+    app.launchArguments = ["-bar4bar.stage.intensity", "live", "-bar4bar.stage.partyMode", "Solo"]
     app.launchEnvironment["BAR4BAR_SKIP_STAGE_SETUP"] = "1"
     app.launchEnvironment["BAR4BAR_AUTODEMO"] = "1"
     app.launchEnvironment["BAR4BAR_DEMO_SEEK"] = cue
@@ -51,6 +51,7 @@ final class RemoteNavigationTests: XCTestCase {
     let handoff = app.otherElements["singerHandoff"]
     XCTAssertTrue(handoff.waitForExistence(timeout: 5))
     XCTAssertTrue(handoff.label.contains("SIDE B"))
+    XCTAssertTrue(handoff.label.contains("seconds"))
     XCTAssertEqual(phrase.frame, before)
     assertFocused(app.buttons["stageView"])
     attachScreen(named: "glass-incoming-singer")
@@ -86,8 +87,11 @@ final class RemoteNavigationTests: XCTestCase {
       XCTAssertTrue(app.buttons["showPlaybackControls"].waitForExistence(timeout: 12))
       let words = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "canción"))
       XCTAssertGreaterThan(words.count, 0)
-      // Centered layout: phrase sits at vertical center; 900 leaves room for faceplate.
-      for word in words.allElementsBoundByIndex { XCTAssertLessThanOrEqual(word.frame.maxY, 900) }
+      let aid = app.staticTexts["phraseAid"]
+      XCTAssertTrue(aid.exists)
+      for word in words.allElementsBoundByIndex {
+        XCTAssertLessThan(word.frame.maxY + 20, aid.frame.minY, "Lyric must clear the translation at \(intensity) intensity")
+      }
       attachScreen(named: "glass-long-\(intensity)")
       app.terminate()
     }
@@ -142,6 +146,7 @@ final class RemoteNavigationTests: XCTestCase {
     XCUIRemote.shared.press(.select)
     let live = app.buttons["intensity-live"]
     XCTAssertTrue(live.waitForExistence(timeout: 5))
+    attachScreen(named: "after-dark-stage-settings")
     // Select a specific intensity regardless of a preference from a prior run.
     assertFocused(live)
     XCUIRemote.shared.press(.right)
@@ -150,14 +155,14 @@ final class RemoteNavigationTests: XCTestCase {
     XCUIRemote.shared.press(.right)
     assertFocused(app.buttons["stageRoles"])
     XCUIRemote.shared.press(.select)
-    XCTAssertEqual(app.buttons["stageRoles"].label, "Take turns")
+    XCTAssertEqual(app.buttons["stageRoles"].label, "Duo · Take turns")
     XCUIRemote.shared.press(.right)
     assertFocused(app.buttons["stageDemoSource"])
     XCUIRemote.shared.press(.select)
     XCTAssertEqual(app.buttons["stageDemoSource"].label, "Automatic demo")
     XCUIRemote.shared.press(.menu)
     assertFocused(app.buttons["stageView"])
-    // "APPROXIMATE WORD GUIDANCE" banner removed in Glass stage (estimated words use reduced heat).
+    // Estimated words remain visible in the phrase board.
     XCUIRemote.shared.press(.select)
     XCTAssertTrue(app.buttons["intensity-headliner"].waitForExistence(timeout: 5))
     assertFocused(app.buttons["intensity-headliner"])
@@ -173,7 +178,7 @@ final class RemoteNavigationTests: XCTestCase {
     assertFocused(app.buttons["Hide controls"])
     XCUIRemote.shared.press(.select)
     XCTAssertTrue(stage.waitForExistence(timeout: 5))
-    XCUIRemote.shared.press(.left)
+    XCUIRemote.shared.press(.select)
     XCTAssertTrue(play.waitForExistence(timeout: 5))
     assertFocused(play)
     attachScreen(named: "listening-room-controls")

@@ -7,25 +7,24 @@ enum Tokens {
 
   // MARK: - Brand
 
-  /// Violet. The brand constant — matches the icon's glow and the Glass
-  /// spotlight. Per-song artwork accents fall back to this.
-  static let accentStatic = Color(hex: 0x8B5CF6)
-  static let accentSoft = Color(hex: 0xA78BFA)
+  /// The editorial room uses one strong accent at a time. Violet is reserved
+  /// for supporting details rather than becoming a full-screen light wash.
+  static let accentStatic = Color(hex: 0xEF684B)
+  static let accentSoft = Color(hex: 0xF29B82)
   /// Text ON an accent fill — near-white for legibility on violet.
-  static let accentInk = Color(hex: 0xF5F3FF)
-  /// Vermilion — kept for Apple Music brand and semantic error/heat states.
+  static let accentInk = Color(hex: 0x100F15)
   static let ember = Color(hex: 0xEF684B)
 
   // MARK: - Surfaces (elevation: 0 = the room, 3 = closest to you)
 
-  static let surface0 = Color(hex: 0x07040E)   // concert black — near pure, violet undertone
+  static let surface0 = Color(hex: 0x100F15)
   static let surface1 = Color.white.opacity(0.040)
   static let surface2 = Color.white.opacity(0.075)
   static let surface3 = Color.white.opacity(0.12)
   /// Opaque variants — for anything sitting over a blur/material.
-  static let surfaceSolid1 = Color(hex: 0x07040E)
-  static let surfaceSolid2 = Color(hex: 0x16092B)
-  static let scrim = Color(hex: 0x07040E).opacity(0.82)
+  static let surfaceSolid1 = Color(hex: 0x19121F)
+  static let surfaceSolid2 = Color(hex: 0x251B2C)
+  static let scrim = Color(hex: 0x100F15).opacity(0.84)
 
   // MARK: - Hairlines
 
@@ -48,22 +47,22 @@ enum Tokens {
 
   // MARK: - Lyric word states
 
-  static let wordDim = Color(hex: 0xF2EBDD).opacity(0.28)
-  static let wordUpcoming = Color(hex: 0xF2EBDD).opacity(0.42)
+  static let wordDim = Color(hex: 0xF2EBDD).opacity(0.78)
+  static let wordUpcoming = Color(hex: 0xF2EBDD).opacity(0.86)
   /// A word already sung stays full ink — the accent marks the *current* word.
   static let wordSung = text1
 
   // MARK: - Glass (performance stage)
   enum Glass {
-    static let envelope      = Color(hex: 0x030108)   // near-pure black, cool violet
-    static let fieldFallback = Color(hex: 0x1E0838)   // deep concert violet fallback
-    static let filament      = Color(hex: 0xF6F0FF)   // near-white, barely violet — cooler than before
-    static let filamentDim   = Color(hex: 0xF6F0FF).opacity(0.28)
-    static let filamentSung  = Color(hex: 0xF6F0FF).opacity(0.65)
-    static let meter         = Color(hex: 0x00EDFF)   // neon cyan (was flat blue)
-    static let legend        = Color(hex: 0xF6F0FF).opacity(0.40)
-    static let holdHorizon   = Color(hex: 0x00EDFF).opacity(0.95)
-    static let spotlight     = Color(hex: 0x8B5CF6)   // concert violet, used for stage-light cone
+    static let envelope      = Color(hex: 0x100F15)
+    static let fieldFallback = Color(hex: 0x19121F)
+    static let filament      = Color(hex: 0xF2EBDD)
+    static let filamentDim   = Color(hex: 0xF2EBDD).opacity(0.78)
+    static let filamentSung  = Color(hex: 0xF2EBDD).opacity(0.86)
+    static let meter         = Color(hex: 0xD8E77B)
+    static let legend        = Color(hex: 0xF2EBDD).opacity(0.76)
+    static let holdHorizon   = Color(hex: 0xD8E77B)
+    static let spotlight     = Color(hex: 0xB9A1DC)
   }
 
   // MARK: - Type (TV density)
@@ -144,7 +143,7 @@ enum Tokens {
 
   // MARK: - Type helpers
 
-  static let lilac = Color(hex: 0xC77DFF)       // hotter concert purple (was muted lilac)
+  static let lilac = Color(hex: 0xB9A1DC)
   static let chartreuse = Color(hex: 0xD8E77B)
 
   private static let fontCache = NSCache<NSString, FontBox>()
@@ -168,7 +167,8 @@ enum Tokens {
     fontCache.setObject(FontBox(font), forKey: key)
     return font
   }
-  static func lyric(_ size: CGFloat) -> Font { Font(typeface(size, editorial: true)) }
+  /// Lyrics are working text. Fraunces belongs to the installation around them.
+  static func lyric(_ size: CGFloat) -> Font { Font(typeface(size)) }
   static func editorial(_ size: CGFloat, italic: Bool = false) -> Font {
     Font(typeface(size, editorial: true, italic: italic))
   }

@@ -31,12 +31,15 @@ struct SingerTurnPreview: Equatable {
   let role: String
   let seconds: Int
   init?(timeline: Timeline, state: StagePresentation, cueTime: Double, preview: Double, mode: String) {
-    guard mode == "Take turns", cueTime.isFinite, !state.ending,
-      let target = state.countdown != nil ? Optional(state.line) : state.next,
-      timeline.lines.indices.contains(target) else { return nil }
+    guard ParticipationMode(savedValue: mode) == .duo, cueTime.isFinite, !state.ending else { return nil }
+    let currentIsUpcoming = state.countdown != nil && timeline.lines.indices.contains(state.line)
+      && Participation.isSingable(timeline.lines[state.line])
+    let target = currentIsUpcoming
+      ? state.line : Participation.nextSingableLine(after: state.line, in: timeline)
+    guard let target, let side = Participation.side(at: target, in: timeline) else { return nil }
     let eta = timeline.lines[target].start - cueTime
     guard eta > 0, eta <= max(3, preview + (state.dense ? 1 : 0)) else { return nil }
-    role = target.isMultiple(of: 2) ? "SIDE A" : "SIDE B"
+    role = side.rawValue
     seconds = Int(ceil(eta))
   }
 }

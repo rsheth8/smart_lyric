@@ -84,7 +84,7 @@ struct HubView: View {
 
   private var hero: some View {
     VStack(alignment: .leading, spacing: 24) {
-      Text("LIVE · WORD FOR WORD · EVERY NIGHT")
+      Text("SING TOGETHER · STAY WITH THE SONG")
         .font(Tokens.caption(18)).tracking(3).foregroundStyle(Tokens.lilac)
       Text("Your voice,\nin good company.")
         .font(Tokens.editorial(86, italic: true)).tracking(-2)
@@ -94,7 +94,7 @@ struct HubView: View {
           if music.nowPlaying == nil { music.startDemo() }
           path.append(Route.karaoke)
         } label: {
-          Label(music.nowPlaying == nil ? "Experience Bar4Bar" : "Back to the stage", systemImage: "play.fill")
+          Label(music.nowPlaying == nil ? "Explore the visual stage" : "Back to the stage", systemImage: "play.fill")
         }.buttonStyle(RoomButtonStyle(prominent: true)).focused($focus, equals: .demoTile)
         Button("Find a song") { path.append(Route.search) }.buttonStyle(RoomButtonStyle())
       }.padding(.top, 12)
@@ -265,11 +265,8 @@ private struct HubAmbient: View {
             )
           }
 
-          // Sweeping stage spotlights — violet left, teal right.
-          HubSpotlights(t: t)
-
-          // Rising ember particles — golden-ratio distributed, some accent-tinted.
-          HubParticles(t: t, dominant: dominant)
+          // The typography supplies the identity; lighting follows artwork
+          // gently without simulated particles or competing motion.
         }
       }
 

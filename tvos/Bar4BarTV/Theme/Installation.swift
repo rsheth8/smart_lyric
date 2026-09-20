@@ -66,6 +66,7 @@ struct PosterEnvironment: View {
   var cheer: Double = 0
   var featuredWord: String? = nil
   var browsing = false
+  var artworkAccent: Color = Tokens.ember
 
   var body: some View {
     let forms = InstallationForms.outline(state.ending ? "B4B" : letters)
@@ -74,7 +75,8 @@ struct PosterEnvironment: View {
     let blend = state.sectionTransition * state.sectionTransition * (3 - 2 * state.sectionTransition)
     let hookAmount = (previousHook ? 1.0 : 0) + ((hook ? 1.0 : 0) - (previousHook ? 1.0 : 0)) * blend
     let shapeHook = reduceMotion || intensity == .focus ? (hook ? 1.0 : 0) : hookAmount
-    let accent = Tokens.ember.mixed(with: Tokens.chartreuse, by: hookAmount)
+    // Chorus brightens by blending 35% toward chartreuse; base hue comes from artwork.
+    let accent = artworkAccent.mixed(with: Tokens.chartreuse, by: hookAmount * 0.35)
     let strength = state.dense ? 0.12 : intensity.strength
     let drift = reduceMotion || intensity == .focus ? 0 : sin(state.motionTime * 0.19) * 30 * strength
     let expansion = reduceMotion || intensity == .focus ? 0 : shapeHook * 22 + state.build * 24 + (state.arrival + cheer) * 26 * strength
@@ -91,30 +93,33 @@ struct PosterEnvironment: View {
         layer.fill(outline.path, with: .color(color.opacity(alpha)))
       }
       // Unequal, cropped silhouettes rather than repeated frames or decorative bars.
-      let width = size.width * (browsing ? 0.93 : state.kind == .instrumental || state.ending ? 0.78 : 0.64 + shapeHook * 0.12)
-      let x = browsing ? size.width * 0.36 : size.width * 0.64
-      let y = browsing ? size.height * 0.03 : -size.height * 0.23
+      let width = size.width * (browsing ? 0.82 : state.kind == .instrumental || state.ending ? 0.78 : 0.65 + shapeHook * 0.16)
+      let x = browsing ? size.width * 0.46 : size.width * (0.71 - shapeHook * 0.06)
+      let y = browsing ? size.height * 0.02 : -size.height * (0.19 - shapeHook * 0.05)
       for depth in (1...4).reversed() {
         letter(forms, x: x + CGFloat(depth) * (11 + expansion * 0.25 + (state.hold != nil ? 8 : 0)),
           y: y + CGFloat(depth) * 13 + drift, width: width,
-          color: Tokens.lilac, alpha: browsing ? 0.06 : 0.032 + strength * 0.014, rotation: -12)
+          color: Tokens.lilac, alpha: browsing ? 0.045 : 0.045 + strength * 0.025, rotation: -12)
       }
       letter(forms, x: x - expansion, y: y + drift, width: width,
-        color: accent, alpha: browsing ? 0.38 : (state.dense ? 0.055 : 0.15 + hookAmount * 0.09) + cheer * 0.12, rotation: -12)
-      letter(forms, x: -size.width * 0.25 - expansion, y: size.height * 0.71 - drift,
-        width: size.width * 0.78, color: Tokens.lilac,
-        alpha: state.dense ? 0.025 : 0.075 + strength * 0.025, rotation: 9)
+        color: accent, alpha: browsing ? 0.25 : (state.dense ? 0.16 : 0.30 + hookAmount * 0.22) + cheer * 0.09, rotation: -12)
+      letter(forms, x: -size.width * 0.25 - expansion,
+        y: size.height * (0.78 - 0.65 * hookAmount) - drift,
+        width: size.width * (0.78 + hookAmount * 0.08), color: Tokens.lilac,
+        alpha: state.dense ? 0.09 : 0.20 + hookAmount * 0.20 + strength * 0.025, rotation: 9)
       if let featuredWord, state.impact > 0, intensity != .focus {
         letter(InstallationForms.outline(featuredWord), x: size.width * 0.58,
           y: size.height * 0.06, width: size.width * 0.30,
           color: accent, alpha: 0.19 * state.impact)
       }
-      // Quiet reading foreground: ink is layered over forms, never a lyric blur.
+      // Soft ink pool preserves the reading plane without a visible rectangular
+      // scrim edge cutting across the sculptural letterforms.
       if !browsing {
-        context.fill(Path(CGRect(x: size.width * 0.075, y: size.height * 0.18,
-          width: size.width * 0.85, height: size.height * 0.52)),
-          with: .linearGradient(Gradient(colors: [Tokens.surface0.opacity(0.82), Tokens.surface0.opacity(0.94)]),
-            startPoint: CGPoint(x: 0, y: size.height * 0.2), endPoint: CGPoint(x: size.width, y: size.height * 0.6)))
+        context.fill(Path(CGRect(origin: .zero, size: size)),
+          with: .radialGradient(Gradient(colors: [Tokens.surface0.opacity(0.96),
+            Tokens.surface0.opacity(0.82), Tokens.surface0.opacity(0)]),
+            center: CGPoint(x: size.width * 0.5, y: size.height * 0.48),
+            startRadius: size.width * 0.13, endRadius: size.width * 0.43))
       }
       var texture = context
       texture.scaleBy(x: size.width / 1920, y: size.height / 1080)

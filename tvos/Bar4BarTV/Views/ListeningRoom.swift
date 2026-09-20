@@ -69,7 +69,7 @@ struct RoomSleeve: View {
         .tracking(side * 0.004)
         Spacer()
         Text("BAR\nFOR BAR")
-          .font(Tokens.lyric(side * 0.18))
+          .font(Tokens.editorial(side * 0.18))
           .tracking(-side * 0.008)
           .lineSpacing(-side * 0.015)
         Text("A ROOM FULL OF WORDS")

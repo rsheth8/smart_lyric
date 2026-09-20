@@ -24,7 +24,9 @@ struct SearchView: View {
 
   var body: some View {
     ZStack {
+      Tokens.surface0.ignoresSafeArea()
       PosterEnvironment(letters: InstallationForms.initials(focusedTitle), browsing: true)
+        .opacity(0.68)
 
       VStack(alignment: .leading, spacing: Tokens.Space.s4) {
         header
@@ -112,13 +114,19 @@ struct SearchView: View {
 
   private var searchBar: some View {
     HStack(spacing: Tokens.Space.s3) {
-      TextField(scope == .albums ? "Album or artist" : "Song or artist", text: $query)
+      TextField("", text: $query,
+        prompt: Text(scope == .albums ? "Album or artist" : "Song or artist")
+          .foregroundColor(Tokens.text2))
         .textFieldStyle(.plain)
         .font(Tokens.display(Tokens.FontSize.md, .medium))
+        .foregroundStyle(Tokens.ink)
         .focused($focus, equals: .field)
         .submitLabel(.search)
         .onSubmit { runSearch() }
         .onChange(of: query) { _, term in music.searchDebounced(term, scope: scope) }
+        .padding(.horizontal, 24).frame(height: 76)
+        .background(Tokens.surfaceSolid1, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Tokens.line2, lineWidth: 1))
         .frame(maxWidth: 820)
 
       Button { runSearch() } label: {
@@ -170,7 +178,7 @@ struct SearchView: View {
 
   private func grid(_ items: [CatalogItem]) -> some View {
     ScrollView(.vertical) {
-      LazyVStack(alignment: .leading, spacing: 14) {
+      LazyVStack(alignment: .leading, spacing: 12) {
         ForEach(items) { item in
           EditorialSongEntry(item: item, selected: focus == .card(item.id)) { tap(item) }
             .focused($focus, equals: .card(item.id))

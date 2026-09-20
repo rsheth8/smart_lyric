@@ -15,44 +15,80 @@ struct SettingsView: View {
   @EnvironmentObject private var spotify: SpotifyService
   @ObservedObject private var logs = TVLogStore.shared
   @Binding var path: NavigationPath
+  @State private var stagePresented = false
 
   var body: some View {
     ZStack {
-      AmbientBackdrop(intensity: 0.5)
+      Tokens.surface0.ignoresSafeArea()
+      PosterEnvironment(letters: "B4", browsing: true)
+        .opacity(0.22)
 
       ScrollView(.vertical) {
         VStack(alignment: .leading, spacing: Tokens.Space.s5) {
           header
-
-          // Two columns rather than one long scroll: five groups stacked
-          // vertically run well past 1080p, and a settings page you have to
-          // scroll to discover is a settings page whose options go unfound.
           HStack(alignment: .top, spacing: Tokens.Space.s5) {
-            VStack(alignment: .leading, spacing: Tokens.Space.s5) {
-              demoGroup
-              timingGroup
-            }
-            VStack(alignment: .leading, spacing: Tokens.Space.s5) {
-              appleMusicGroup
-              if AppConfig.spotifyFollowEnabled { spotifyGroup }
-              lyricsGroup
-              #if DEBUG
-              logsGroup
-              #endif
-              aboutGroup
-            }
+            stageInvitation.frame(maxWidth: .infinity, alignment: .leading)
+            demoGroup.frame(maxWidth: .infinity)
           }
+          sectionTitle("YOUR MUSIC", detail: "Choose where the recording plays.")
+          HStack(alignment: .top, spacing: Tokens.Space.s5) {
+            appleMusicGroup.frame(maxWidth: .infinity)
+            if AppConfig.spotifyFollowEnabled { spotifyGroup.frame(maxWidth: .infinity) }
+          }
+          sectionTitle("SINGING TOOLS", detail: "Change the words without leaving the performance.")
+          HStack(alignment: .top, spacing: Tokens.Space.s5) {
+            timingGroup.frame(maxWidth: .infinity)
+            lyricsGroup.frame(maxWidth: .infinity)
+          }
+          #if DEBUG
+          logsGroup
+          #endif
+          aboutGroup
         }
         .padding(.vertical, Tokens.safeY)
+        .padding(.bottom, 80)
       }
       .padding(.horizontal, Tokens.safeX)
+    }
+    .sheet(isPresented: $stagePresented) {
+      StageSettingsPanel().environmentObject(session).environmentObject(music)
     }
   }
 
   // MARK: - Header
 
   private var header: some View {
-    TVPageHeading(title: "Settings", subtitle: "Make yourself at home.")
+    HStack(alignment: .firstTextBaseline) {
+      Text("Make the room yours.")
+        .font(Tokens.editorial(68, italic: true))
+      Spacer()
+      BrandLockup(size: 28)
+    }
+    .foregroundStyle(Tokens.ink)
+  }
+
+  private var stageInvitation: some View {
+    VStack(alignment: .leading, spacing: 22) {
+      Text("01 / THE STAGE")
+        .font(Tokens.caption(19)).tracking(3.5).foregroundStyle(Tokens.ember)
+      Text("How should the room feel tonight?")
+        .font(Tokens.editorial(49))
+        .fixedSize(horizontal: false, vertical: true)
+      Text("Choose the atmosphere, how far ahead to read, and who takes each line.")
+        .font(Tokens.control(23)).foregroundStyle(Tokens.text2)
+        .fixedSize(horizontal: false, vertical: true)
+      Button("Shape the stage") { stagePresented = true }
+        .buttonStyle(RoomButtonStyle(prominent: true))
+    }
+    .padding(.vertical, 24)
+    .accessibilityElement(children: .contain)
+  }
+
+  private func sectionTitle(_ title: String, detail: String) -> some View {
+    HStack(alignment: .firstTextBaseline, spacing: 22) {
+      Text(title).font(Tokens.caption(19)).tracking(3.5).foregroundStyle(Tokens.ember)
+      Text(detail).font(Tokens.control(22)).foregroundStyle(Tokens.text2)
+    }
   }
 
   // MARK: - Demo
@@ -60,10 +96,10 @@ struct SettingsView: View {
   private var demoGroup: some View {
     TVGroup(
       title: "Demo",
-      footnote: "Explore the lyric stage with a 52-second visual demo. No account needed."
+      footnote: "A 52-second visual preview. No song audio or account needed."
     ) {
       TVActionRow(
-        title: music.isDemo ? "Back to the demo" : "Play the demo track",
+        title: music.isDemo ? "Back to the preview" : "Open the visual preview",
         subtitle: "\(DemoSong.title) · \(DemoSong.artist)",
         icon: "play.circle.fill",
         tint: Tokens.accentStatic
@@ -133,8 +169,8 @@ struct SettingsView: View {
 
   private var timingGroup: some View {
     TVGroup(
-      title: "Timing",
-      footnote: "Sync offset is remembered per song. Sing is the default: the wipe arms 120 ms early so you can start on the beat. Listen lights the word with the recording — toggle it on the stage."
+      title: "Match the words",
+      footnote: "If the words seem early or late, adjust the current song. The cue can also lead the voice slightly."
     ) {
       TVStepperRow(
         label: "Sync offset",
@@ -236,8 +272,8 @@ struct SettingsView: View {
 
   private var lyricsGroup: some View {
     TVGroup(
-      title: "Lyrics source",
-      footnote: "Lyrics are matched automatically. Word timing follows the singer when available; other songs highlight line by line."
+      title: "Words and language",
+      footnote: "Reviewed and saved timings are more precise. Other songs keep approximate word guidance where available."
     ) {
       TVInfoRow(
         label: "Catalog policy",

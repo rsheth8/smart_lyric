@@ -39,7 +39,7 @@ struct KaraokeView: View {
       }
       if music.nowPlaying != nil && controlsVisible {
         controls
-          .transition(.opacity)
+          .transition(.move(edge: .bottom).combined(with: .opacity))
           .zIndex(2)
       }
     }
@@ -94,20 +94,9 @@ struct KaraokeView: View {
       PhraseStage()
         .id(session.lyricRevision)
         .frame(width: geo.size.width, height: geo.size.height)
-        .overlay {
-          // Hidden accessibility element for VoiceOver + UITests (WP-6)
-          if session.partyMode == "Take turns" {
-            Color.clear
-              .accessibilityElement(children: .ignore)
-              .accessibilityLabel(singerHandoffLabel)
-              .accessibilityIdentifier("singerHandoff")
-          }
-        }
     }
     .allowsHitTesting(false)
   }
-
-  private var singerHandoffLabel: String { "SIDE B takes this line" }
 
   private func songIdentity(side: CGFloat) -> some View {
     VStack(alignment: .leading, spacing: 24) {
@@ -200,27 +189,27 @@ struct KaraokeView: View {
             hideTask?.cancel()
             stagePresented = true
           }
-          action("More", icon: "ellipsis", target: .more, id: "moreOptions") {
+          action("Voice & words", icon: "text.book.closed", target: .more, id: "moreOptions") {
             hideTask?.cancel()
             optionsPresented = true
           }
-          action("Hide", icon: "chevron.down", target: .hide, id: "Hide controls") { hideControls() }
+          action("Close", icon: "chevron.down", target: .hide, id: "Hide controls") { hideControls() }
           action("Cheer", icon: "hands.clap", target: .cheer, id: "stageCheer") { session.cheer() }
         }
         .focusSection()
         HStack {
           Text(transportHint)
           Spacer()
-          Text("Swipe up to return to the music")
+          Text("Press Menu to return to the full stage")
         }
         .font(Tokens.display(18, .regular))
         .foregroundStyle(Tokens.text2)
         .frame(height: 24)
         .accessibilityHidden(true)
       }
-      .padding(28)
-      .background(Tokens.surfaceSolid1.opacity(0.96), in: RoundedRectangle(cornerRadius: 12))
-      .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.1), lineWidth: 1))
+      .padding(24)
+      .background(Tokens.surfaceSolid1.opacity(0.97), in: RoundedRectangle(cornerRadius: 18))
+      .overlay(RoundedRectangle(cornerRadius: 18).stroke(Tokens.lilac.opacity(0.23), lineWidth: 1))
     }
     .padding(.horizontal, Tokens.safeX)
     .padding(.top, 48)
@@ -320,7 +309,7 @@ struct KaraokeView: View {
     menuHidCount = 0
     guard !controlsVisible else { scheduleHide(); return }
     focus = nil
-    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { controlsVisible = true }
+    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.26)) { controlsVisible = true }
     scheduleHide()
   }
   private var hasSomethingToWatch: Bool { hasLyrics || (music.nowPlaying != nil && !session.isLoading) }
@@ -328,7 +317,7 @@ struct KaraokeView: View {
   private func hideControls() {
     guard hasSomethingToWatch else { return }
     hideTask?.cancel()
-    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { controlsVisible = false }
+    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.26)) { controlsVisible = false }
   }
   private func recover(_ target: Focus) {
     focus = target
@@ -627,7 +616,7 @@ struct LyricLineView: View {
           spacing: dense ? 10 : (look == .anthem ? 22 : 16),
           lineSpacing: dense ? 6 : (look == .anthem ? 14 : 10),
           alignment: horizontalAlignment,
-          balanced: leading
+          balanced: true
         ) {
           ForEach(Array(line.words.enumerated()), id: \.offset) { index, word in
             if depth.isActive {
@@ -784,29 +773,32 @@ struct WordWipeView: View {
     )
     let baseHeat: Double = {
       switch phase {
-      case .leadin, .upcoming: return 0.38
-      case .current: return held ? 1.0 : 0.55 + 0.45 * rawWipe
+      case .leadin, .upcoming: return 0.80
+      case .current: return held ? 1.0 : 0.88 + 0.12 * rawWipe
       case .sung:
-        let flash = max(0, 1.0 - (t - word.end) / 0.20)
-        return 0.72 + 0.28 * flash
+        return 0.86
       }
     }()
-    let heat = estimated ? baseHeat * 0.75 : baseHeat
-    let filamentColor = Tokens.Glass.filament.opacity(heat)
-    let glowOpacity = phase == .current ? 0.45 * rawWipe : 0.0
+    // Estimated timing remains visible. Quality changes the strength of the
+    // accent, never whether an essential word can be read.
+    let heat = estimated ? max(0.78, baseHeat * 0.92) : baseHeat
     ZStack(alignment: .bottom) {
       glyphs
-        .foregroundStyle(filamentColor)
-        .shadow(color: Tokens.Glass.filament.opacity(glowOpacity), radius: 22)
+        .foregroundStyle(Tokens.ink.opacity(heat))
+        .overlay(alignment: .leading) {
+          if phase == .current {
+            glyphs.foregroundStyle(fill.opacity(estimated ? 0.70 : 1))
+              .mask(alignment: .leading) { wipeMask(rawWipe) }
+          }
+        }
       if held && !estimated {
         Capsule()
-          .fill(Tokens.Glass.holdHorizon.opacity(0.55))
-          .frame(height: 2)
+          .fill(fill.opacity(0.85))
+          .frame(width: PhraseFitting.wordWidth(word.text, size: typeSize), height: 3)
           .scaleEffect(x: max(0.03, CGFloat(rawWipe)), anchor: .leading)
           .offset(y: 5)
       }
     }
-    .scaleEffect(phase == .current ? 1.0 + 0.04 * rawWipe : 1.0, anchor: .center)
     .transaction { $0.animation = nil }
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(word.text)
@@ -848,7 +840,7 @@ struct WordWipeView: View {
         if held {
           Capsule()
             .fill(fill.opacity(0.55))
-            .frame(height: 2)
+            .frame(width: PhraseFitting.wordWidth(word.text, size: typeSize), height: 2)
             .scaleEffect(x: max(0.03, CGFloat(rawWipe)), anchor: .leading)
             .offset(y: 5)
         }

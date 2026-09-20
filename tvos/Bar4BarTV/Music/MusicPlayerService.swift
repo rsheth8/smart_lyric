@@ -777,6 +777,12 @@ final class MusicPlayerService: ObservableObject {
 
   private func track(from song: Song) -> NowPlayingTrack {
     currentSong = song
+    // MusicKit's backgroundColor is the dominant color Apple already computed —
+    // use it directly so the accent appears instantly, before any image download.
+    let dominant: RGB? = song.artwork?.backgroundColor.flatMap { cgColor in
+      guard let comps = cgColor.components, comps.count >= 3 else { return nil }
+      return RGB(r: Double(comps[0]), g: Double(comps[1]), b: Double(comps[2]))
+    }
     return NowPlayingTrack(
       id: song.id.rawValue,
       title: song.title,
@@ -784,6 +790,7 @@ final class MusicPlayerService: ObservableObject {
       album: song.albumTitle ?? "",
       duration: song.duration,
       artworkURL: song.artwork?.url(width: 600, height: 600),
+      dominantColor: dominant,
       recording: RecordingIdentity(appleMusicID: song.id.rawValue, isrc: song.isrc)
     )
   }
