@@ -65,9 +65,9 @@ final class AppModel {
     await startListening()
     // Heartbeat: roll into the next queued song, keep phones in sync.
     while !Task.isCancelled {
-      if let session, session.isFinished, !queue.isEmpty { playNext() }
+      if let session, session.readyToRollOn, !queue.isEmpty { playNext() }
       // The detector can pause the playhead when the room goes quiet.
-      session?.syncPlayingFlag()
+      session?.tick()
       pushState()
       try? await Task.sleep(for: .seconds(1))
     }
@@ -114,7 +114,11 @@ final class AppModel {
   func sing(_ song: Song, autoSynced: Bool = false) {
     session?.stop()
     queue.removeAll { $0.id == song.id }
-    let next = SingSession(song: song, sync: sync, autoSynced: autoSynced)
+    // Scoring only where there's a mic to score from — see SingSession.roomLevel.
+    let mic = self.mic
+    var roomLevel: (@MainActor () -> Double)?
+    if mic.isRunning { roomLevel = { mic.level } }
+    let next = SingSession(song: song, sync: sync, autoSynced: autoSynced, roomLevel: roomLevel)
     session = next
     var played = song
     played.by = nil
@@ -239,6 +243,12 @@ final class SingSession: Identifiable {
   static let leadIn = 3.0
   static var clock: Double { ProcessInfo.processInfo.systemUptime }
 
+  /// How often the room is sampled for scoring. `Score.minFrames` is 40, so a
+  /// card needs about four seconds of actual singing before it will appear.
+  static let scoreHz = 10.0
+  /// How long a finished song holds the stage so its card can be read.
+  static let cardSeconds = 8.0
+
   let id = UUID()
   let song: Song
   var status = Status.loading
@@ -246,31 +256,78 @@ final class SingSession: Identifiable {
   var source = ""
   var offset = 0.0
   var playing = false
+  /// Updated live while they sing; nil until there's enough to be worth showing.
+  var score: ScoreResult?
+  /// Mirror of `isFinished`, reconciled by the heartbeat so views can observe it.
+  var finished = false
 
   @ObservationIgnored private let sync: SyncClock
   @ObservationIgnored private let loadStart = SingSession.clock
   @ObservationIgnored private var stopped = false
+  @ObservationIgnored private let keeper = ScoreKeeper()
+  @ObservationIgnored private let voice = RoomVoice()
+  @ObservationIgnored private var scoring: Task<Void, Never>?
 
   /// `autoSynced` means the room mic put this song on stage and already owns the
   /// playhead — loading must not reset it back to a count-in.
   private let autoSynced: Bool
+  /// The room's current RMS, or nil when there's no mic. No mic, no scoring:
+  /// a card built from nothing is worse than no card.
+  @ObservationIgnored private let roomLevel: (@MainActor () -> Double)?
 
-  init(song: Song, sync: SyncClock, autoSynced: Bool = false) {
+  init(
+    song: Song,
+    sync: SyncClock,
+    autoSynced: Bool = false,
+    roomLevel: (@MainActor () -> Double)? = nil
+  ) {
     self.song = song
     self.sync = sync
     self.autoSynced = autoSynced
+    self.roomLevel = roomLevel
   }
 
   var position: Double { sync.now() }
 
-  /// The detector can pause the clock on its own when the room goes quiet, so the
-  /// pause badge is reconciled rather than only set by `toggle()`.
-  func syncPlayingFlag() {
+  /// Both of these are read off the clock, which isn't observable, so the
+  /// heartbeat reconciles them once a second rather than the view polling time.
+  /// The pause badge also has to be reconciled because the detector can pause
+  /// the clock on its own when the room goes quiet, not only `toggle()`.
+  func tick() {
+    #if DEBUG
+    // `-fakeScore 72`: the score card needs a mic, a finished song and an Apple
+    // TV before it will ever appear, which means nothing in the Simulator can
+    // see it. This puts one on screen for RemoteFlowTests to screenshot.
+    // Launch arguments arrive as strings, the same as `-room` above.
+    if status == .ready,
+       let raw = UserDefaults.standard.string(forKey: "fakeScore"),
+       let fake = Int(raw) {
+      score = ScoreResult(
+        score: fake,
+        grade: Score.gradeFor(fake),
+        coverage: Double(fake) / 100,
+        pitch: nil,
+        bestStreak: Int(Self.scoreHz * 14),
+        frames: 900,
+        scored: false
+      )
+      finished = true
+      return
+    }
+    #endif
     if playing != sync.isPlaying { playing = sync.isPlaying }
+    if finished != isFinished { finished = isFinished }
   }
   /// Where the highlight is: song position plus the singer's timing nudge.
   var cueTime: Double { position + offset }
   var isFinished: Bool { status == .ready && timeline.isFinished(at: position) }
+
+  /// Finished *and* done being looked at. A song with a score card lingers so
+  /// the room can read it before the next one takes the stage.
+  var readyToRollOn: Bool {
+    guard status == .ready else { return false }
+    return timeline.isFinished(at: position, grace: 6 + (score == nil ? 0 : Self.cardSeconds))
+  }
 
   func load() async {
     Analytics.track("song_load", ["surface": "tvos"])
@@ -288,6 +345,29 @@ final class SingSession: Identifiable {
     if !autoSynced { sync.start(at: -Self.leadIn) }
     playing = true
     status = .ready
+    startScoring()
+  }
+
+  /// Score the room while the song runs.
+  ///
+  /// The mic hears the music as well as the singer, so `RoomVoice` measures what
+  /// the track sounds like during the gaps between lines and subtracts it back
+  /// out. There is no melody reference to compare against — the TV never owns
+  /// the track's samples — so this scores whether you sang, not whether you were
+  /// in tune, and the card says so.
+  private func startScoring() {
+    guard let roomLevel else { return }
+    scoring = Task { [weak self] in
+      while !Task.isCancelled {
+        try? await Task.sleep(for: .seconds(1 / SingSession.scoreHz))
+        guard let self, !self.stopped else { return }
+        guard self.status == .ready, self.sync.isPlaying else { continue }
+        let expected = self.timeline.activeLine(at: self.cueTime) >= 0
+        let level = self.voice.voiceLevel(level: roomLevel(), expected: expected)
+        self.keeper.sample(expected: expected, level: level)
+        self.score = self.keeper.result()
+      }
+    }
   }
 
   func toggle() {
@@ -304,7 +384,12 @@ final class SingSession: Identifiable {
     if status == .ready, timeline.duration > 0 {
       Analytics.track("song_exit", ["surface": "tvos", "sung": Analytics.sungBucket(max(0, position) / timeline.duration)])
     }
+    if let score {
+      Analytics.track("song_scored", ["surface": "tvos", "grade": score.grade])
+    }
     stopped = true
+    scoring?.cancel()
+    scoring = nil
     sync.pause()
     playing = false
   }

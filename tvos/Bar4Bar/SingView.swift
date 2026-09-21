@@ -24,8 +24,10 @@ struct SingView: View {
         TimelineView(.animation) { _ in
           LyricsStage(timeline: session.timeline, t: session.cueTime, singer: session.song.by, reduceMotion: reduceMotion)
         }
-        .opacity(session.playing ? 1 : 0.35)
-        .blur(radius: session.playing || reduceMotion ? 0 : 8)
+        // Pause and the score card both push the lyrics back, so whatever is in
+        // front of them is the thing being read.
+        .opacity(backgrounded ? 0.35 : 1)
+        .blur(radius: backgrounded && !reduceMotion ? 8 : 0)
         .transition(.opacity)
       }
       if session.status == .ready && !session.playing {
@@ -41,9 +43,14 @@ struct SingView: View {
           .frame(maxHeight: .infinity, alignment: .bottom)
           .transition(.move(edge: .bottom).combined(with: .opacity))
       }
+      if showingCard, let score = session.score {
+        ScoreCard(score: score, singer: session.song.by)
+          .transition(.scale(scale: 0.92).combined(with: .opacity))
+      }
     }
     .animation(Motion.glide, value: session.status)
     .animation(Motion.snappy, value: session.playing)
+    .animation(Motion.present, value: showingCard)
     .focusable(!isFailed)
     .focusEffectDisabled()
     .onPlayPauseCommand { model.togglePlay() }
@@ -70,6 +77,9 @@ struct SingView: View {
     if case .failed = session.status { return true }
     return false
   }
+
+  private var showingCard: Bool { session.finished && session.score != nil }
+  private var backgrounded: Bool { !session.playing || showingCard }
 }
 
 struct LyricsStage: View {
@@ -266,6 +276,17 @@ struct NowPlaying: View {
             .background(Theme.accent.opacity(0.16), in: Capsule())
             .transition(.scale.combined(with: .opacity))
         }
+        if let score = session.score {
+          Label("\(score.score)", systemImage: "waveform")
+            .font(.callout.monospacedDigit().weight(.semibold))
+            .foregroundStyle(Theme.sung)
+            .contentTransition(.numericText(value: Double(score.score)))
+            .padding(.horizontal, 18)
+            .padding(.vertical, 8)
+            .background(.white.opacity(0.12), in: Capsule())
+            .accessibilityLabel("Score \(score.score)")
+            .transition(.scale.combined(with: .opacity))
+        }
         if hints {
           HStack(spacing: 30) {
             Label("Timing", systemImage: "arrow.left.and.right")
@@ -301,6 +322,7 @@ struct NowPlaying: View {
     .padding(.horizontal, 40)
     .padding(.bottom, 20)
     .animation(Motion.snappy, value: session.offset)
+    .animation(Motion.snappy, value: session.score?.score)
     .animation(Motion.glide, value: hints)
   }
 }
@@ -407,5 +429,77 @@ struct FlowLayout: Layout {
     }
     if !row.indices.isEmpty { rows.append(row) }
     return rows
+  }
+}
+
+/// What the room heard, once the song is over.
+///
+/// Deliberately says what it measured. The TV scores coverage — did a voice
+/// arrive when the words did — and cannot judge tuning, because it never owns
+/// the track's samples and so has no melody to compare anyone against. A card
+/// that implied otherwise would be inventing a number.
+struct ScoreCard: View {
+  let score: ScoreResult
+  let singer: String?
+  @State private var landed = false
+
+  var body: some View {
+    VStack(spacing: 18) {
+      Text(score.grade)
+        .font(.system(size: 54, weight: .bold, design: .rounded))
+        .foregroundStyle(Theme.accent)
+      Text("\(score.score)")
+        .font(.system(size: 132, weight: .heavy, design: .rounded))
+        .monospacedDigit()
+        .foregroundStyle(Theme.sung)
+        .contentTransition(.numericText(value: Double(score.score)))
+      HStack(spacing: 44) {
+        Stat(value: "\(Int((score.coverage * 100).rounded()))%", label: "of the words")
+        Stat(value: streak, label: "best run")
+        if let pitch = score.pitch {
+          Stat(value: "\(Int((pitch * 100).rounded()))%", label: "in tune")
+        }
+      }
+      if !score.scored {
+        Text("Scored on how much you sang — the TV hears the room, not the melody.")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+          .padding(.top, 4)
+      }
+    }
+    .multilineTextAlignment(.center)
+    .padding(.horizontal, 88)
+    .padding(.vertical, 56)
+    .glass(RoundedRectangle(cornerRadius: 44, style: .continuous))
+    .scaleEffect(landed ? 1 : 0.94)
+    .onAppear {
+      withAnimation(Motion.present) { landed = true }
+    }
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(
+      "\(singer.map { "\($0): " } ?? "")\(score.grade), \(score.score) out of 100. "
+        + "Sang \(Int((score.coverage * 100).rounded())) percent of the words."
+    )
+  }
+
+  /// Frames at SingSession.scoreHz, said in seconds because nobody counts frames.
+  private var streak: String {
+    "\(Int((Double(score.bestStreak) / SingSession.scoreHz).rounded()))s"
+  }
+
+  private struct Stat: View {
+    let value: String
+    let label: String
+
+    var body: some View {
+      VStack(spacing: 4) {
+        Text(value)
+          .font(.title2.weight(.semibold).monospacedDigit())
+          .foregroundStyle(Theme.sung)
+        Text(label)
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
+    }
   }
 }

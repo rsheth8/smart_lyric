@@ -47,6 +47,28 @@ to manual mode silently.
 Measured tracking error (`SongDetectorTests`): exact on a 1.0x digital source,
 bounded within +/-0.3s on a turntable running a few percent off.
 
+## Scoring
+
+With the mic on, the stage keeps a live score and puts a card up when the song
+ends. `ScoreKeeper` is a port of app/score.js and the grades are the same five
+strings, because the relay validates `song_scored` against the allowlist in
+app/analytics.js and a rename on one side alone gets the event 400'd.
+
+What it can measure is coverage: the timeline says a word is due, did a voice
+arrive. It cannot measure tuning — that needs the track's own samples to compare
+against, which is exactly what a DRM'd stream never hands over — so `pitch` is
+nil and the card says what it scored rather than implying otherwise.
+
+The other half is `RoomVoice`. One mic hears the music as well as the singer, so
+a plain level gate would award a Superstar to an empty room with the stereo on.
+Uncorrelated sources add in power, so the singer's own RMS is
+sqrt(room² − music²), and the music alone is measurable because the timeline
+says exactly when it expects no words — every gap between lines is a fresh look
+at the room without anyone in it.
+
+The card needs a mic, a finished song and an Apple TV before it appears, so
+Debug builds take `-fakeScore 72` to stand one up for `RemoteFlowTests`.
+
 `project.yml` is the source of truth for the Xcode project (`brew install xcodegen`).
 Debug builds accept `-room ABCDEFGH` as a launch argument to pin the phone room code.
 

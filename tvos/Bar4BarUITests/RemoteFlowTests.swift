@@ -64,6 +64,32 @@ final class RemoteFlowTests: XCTestCase {
     snap("11-back-home", after: 1.5)
   }
 
+  /// The score card needs a microphone, a finished song and an Apple TV before
+  /// it will ever appear on its own, so `-fakeScore` stands one up for a look.
+  /// What this checks is the layout and the wording — the numbers behind it are
+  /// ScoreKeeper's, and those are tested in Bar4BarKit.
+  func testScoreCard() {
+    app.launchArguments += ["-room", "BARBAR42", "-fakeScore", "72"]
+    app.launch()
+    XCTAssertTrue(waitUntil(15) { self.app.buttons["Home"].hasFocus })
+    for _ in 1...3 {
+      Thread.sleep(forTimeInterval: 1.5)
+      remote.press(.down)
+    }
+    XCTAssertTrue(waitUntil { self.focusedLabel.contains(",") }, "focus should land on a song card")
+    remote.press(.select)
+    XCTAssertTrue(labelled("Timing").waitForExistence(timeout: 20), "the stage should open with lyrics")
+
+    let card = app.descendants(matching: .any)
+      .matching(NSPredicate(format: "label CONTAINS %@", "72 out of 100")).firstMatch
+    XCTAssertTrue(card.waitForExistence(timeout: 10), "the card should land once the song has finished")
+    XCTAssertTrue(
+      card.label.contains("Sang 72 percent"),
+      "the card should say what it measured, got \(card.label)"
+    )
+    snap("12-score-card", after: 1.5)
+  }
+
   private var focusedLabel: String {
     let element = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
     return element.exists ? element.label : ""
