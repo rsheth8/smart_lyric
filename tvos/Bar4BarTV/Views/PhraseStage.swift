@@ -92,6 +92,16 @@ struct PhraseStage: View {
           let hiddenWords: Set<Int> = session.blankNthWord > 1
             ? Set(line.words.indices.filter { ($0 + 1) % session.blankNthWord == 0 })
             : []
+          let lineAnim: Animation? = (reduceMotion || session.intensity == .focus)
+            ? .none
+            : .spring(response: 0.40, dampingFraction: 0.84)
+          let lineTransition: AnyTransition = (reduceMotion || session.intensity == .focus)
+            ? .opacity
+            : .asymmetric(
+                insertion: .offset(y: 32).combined(with: .opacity),
+                removal:   .offset(y: -22).combined(with: .opacity)
+              )
+
           VStack(spacing: 16) {
             HStack(spacing: 13) {
               Text(state.kind.sectionLabel)
@@ -118,12 +128,16 @@ struct PhraseStage: View {
             .accessibilityIdentifier("currentPhrase")
           }
           .frame(width: readingWidth, height: 340)
-          .opacity(0.85 + 0.15 * state.entrance)
-          .offset(y: reduceMotion || session.intensity == .focus ? 0 : (1 - state.entrance) * 8)
+          .id(state.line)
+          .transition(lineTransition)
+          .animation(lineAnim, value: state.line)
           .position(x: geo.size.width * 0.5, y: geo.size.height * 0.43)
 
           ghostOrAid(state: state, cueTime: cueTime, currentSize: size)
             .frame(width: readingWidth, height: 150)
+            .id("ghost-\(state.line)")
+            .transition(.opacity)
+            .animation(lineAnim.map { _ in Animation.easeInOut(duration: 0.28) }, value: state.line)
             .position(x: geo.size.width * 0.5, y: geo.size.height * 0.70)
 
           if line.start > cueTime, line.start - cueTime <= (state.kind == .instrumental ? 8 : 3.5) {
