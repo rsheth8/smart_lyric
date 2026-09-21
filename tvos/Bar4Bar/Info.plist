@@ -20,6 +20,8 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Bar4Bar listens to the room to work out which song is playing and where it's up to, so the lyrics stay in time on their own.</string>
 	<key>UIUserInterfaceStyle</key>
 	<string>Dark</string>
 </dict>

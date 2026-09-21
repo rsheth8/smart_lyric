@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { fetchNeteaseLyrics } from './lib/netease.mjs';
 import { fetchGeniusLyrics } from './lib/genius.mjs';
 import { fetchMusixmatchRichsync } from './lib/musixmatch.mjs';
+import { identify as identifyAcr, acrConfigured } from './lib/acrcloud.mjs';
 import { networkInterfaces } from 'node:os';
 import { ROOM_RE, ROLES, MAX_MESSAGE_BYTES } from './app/companion.js';
 
@@ -117,6 +118,29 @@ createServer(async (req, res) => {
     if (path === '/api/event') {
       res.writeHead(204, CORS);
       res.end();
+      return;
+    }
+
+    // Same contract as api/identify.js, so the Apple TV app can point at a LAN
+    // dev server and behave identically.
+    if (path === '/api/identify') {
+      if (req.method !== 'POST') { res.writeHead(405, CORS).end(); return; }
+      const head = { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
+      if (!acrConfigured()) {
+        res.writeHead(503, head);
+        res.end(JSON.stringify({ error: 'recognition not configured' }));
+        return;
+      }
+      const chunks = [];
+      for await (const c of req) chunks.push(c);
+      try {
+        const match = await identifyAcr(Buffer.concat(chunks));
+        res.writeHead(200, head);
+        res.end(JSON.stringify({ match }));
+      } catch (err) {
+        res.writeHead(502, head);
+        res.end(JSON.stringify({ error: String(err?.message || err) }));
+      }
       return;
     }
 

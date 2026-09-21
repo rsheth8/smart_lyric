@@ -186,7 +186,7 @@ Environment variables (`.env`, see `.env.example` for full details on each):
 | Variable | Enables |
 |---|---|
 | `ACOUSTID_API_KEY` | Vinyl auto-detect via Chromaprint (near-identical digital match); also needs `fpcalc` on PATH (`brew install chromaprint`) |
-| `ACRCLOUD_HOST` / `ACRCLOUD_ACCESS_KEY` / `ACRCLOUD_ACCESS_SECRET` | Vinyl auto-detect via ambient mic recognition (recommended for real turntables) |
+| `ACRCLOUD_HOST` / `ACRCLOUD_ACCESS_KEY` / `ACRCLOUD_ACCESS_SECRET` | Vinyl auto-detect via ambient mic recognition (recommended for real turntables). Also powers `/api/identify`, which the Apple TV app uses to sync itself by listening — set these on the Vercel project too, not just locally. |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` / `SPOTIFY_REDIRECT_URI` | Connect Spotify |
 | `APPLE_MUSIC_DEVELOPER_TOKEN` | Connect Apple Music |
 | `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | Claude cleanup of AI-transcribed lyrics |

@@ -13,6 +13,7 @@
 		5396A54389741436A8AF8C60 /* RemoteFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F8CF357415421196838FA40 /* RemoteFlowTests.swift */; };
 		7B50B76F4B39F1830BC6226F /* Design.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CEAECCBFA38080CF8387DB0 /* Design.swift */; };
 		B248037ADC95D0DACFC762E5 /* SingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DD2B402EFCF53A5216BDA04 /* SingView.swift */; };
+		D1A3AA12FFEC572C1023F36F /* ContinuityMic.swift in Sources */ = {isa = PBXBuildFile; fileRef = F764618B48072285859DD2EB /* ContinuityMic.swift */; };
 		DB7E3B2F3926A8E17820D9E5 /* Bar4BarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E2582CFF3CF4C77F50F82D /* Bar4BarApp.swift */; };
 /* End PBXBuildFile section */
 
@@ -37,6 +38,7 @@
 		BB6FEDAAF5D002D1A7241F46 /* Bar4BarUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = Bar4BarUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D0E2582CFF3CF4C77F50F82D /* Bar4BarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bar4BarApp.swift; sourceTree = "<group>"; };
 		DE5F36D12FE9F9C9D28993AD /* RemoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteView.swift; sourceTree = "<group>"; };
+		F764618B48072285859DD2EB /* ContinuityMic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContinuityMic.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -55,6 +57,7 @@
 			isa = PBXGroup;
 			children = (
 				D0E2582CFF3CF4C77F50F82D /* Bar4BarApp.swift */,
+				F764618B48072285859DD2EB /* ContinuityMic.swift */,
 				3CEAECCBFA38080CF8387DB0 /* Design.swift */,
 				2B8AB244E5499E131B7F87C0 /* HomeView.swift */,
 				2E17A5A82B9B393AE7E8596C /* Info.plist */,
@@ -182,6 +185,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DB7E3B2F3926A8E17820D9E5 /* Bar4BarApp.swift in Sources */,
+				D1A3AA12FFEC572C1023F36F /* ContinuityMic.swift in Sources */,
 				7B50B76F4B39F1830BC6226F /* Design.swift in Sources */,
 				0961E8F961C7ABB2B9B4487C /* HomeView.swift in Sources */,
 				2BE8EC22D3FCF436FFECA0E9 /* RemoteView.swift in Sources */,

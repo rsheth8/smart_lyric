@@ -62,6 +62,38 @@ public enum Companion {
     URL(string: "\(base.absoluteString)/companion.html?room=\(room)")!
   }
 
+  /// The rotation: round-robin the queue by whoever added each song, the way a
+  /// karaoke host runs a room — three songs from one guest don't lock everyone
+  /// else out. Stable inside each singer's own list, and a no-op when every entry
+  /// came from the same phone (or from the TV, where `by` is nil).
+  /// Port of `fairOrder` in app/companion.js.
+  public static func fairOrder(_ queue: [Song]) -> [Song] {
+    var lanes: [String: [Song]] = [:]
+    var order: [String] = [] // first-seen order, so the rotation is deterministic
+    for song in queue {
+      let who = song.by ?? ""
+      if lanes[who] == nil {
+        lanes[who] = []
+        order.append(who)
+      }
+      lanes[who]?.append(song)
+    }
+    guard order.count > 1 else { return queue }
+
+    var out: [Song] = []
+    out.reserveCapacity(queue.count)
+    var i = 0
+    while out.count < queue.count {
+      let who = order[i % order.count]
+      if var lane = lanes[who], !lane.isEmpty {
+        out.append(lane.removeFirst())
+        lanes[who] = lane
+      }
+      i += 1
+    }
+    return out
+  }
+
   static func relayURL(room: String, base: URL = base) -> URL {
     URL(string: "\(base.absoluteString)/api/companion?room=\(room)&role=tv")!
   }

@@ -29,10 +29,18 @@ final class AppModel {
   var toast: String?
   let room: String
 
+  /// What the room mic is doing. `.idle` means manual mode: no mic, the singer
+  /// starts the track themselves and nudges with the remote.
+  var listening = ListenState.idle
+
   @ObservationIgnored private let link: RelayLink
   @ObservationIgnored private var lastState: TVState?
   @ObservationIgnored private var lastSent = Date.distantPast
   @ObservationIgnored private var toastID = 0
+  /// One playhead for the whole app: sessions read it, the detector writes it.
+  @ObservationIgnored let sync = SyncClock()
+  @ObservationIgnored private let mic = ContinuityMic()
+  @ObservationIgnored private var detector: SongDetector?
   private static let recentKey = "bar4bar.recent.v1"
 
   init() {
@@ -54,18 +62,59 @@ final class AppModel {
     Analytics.track("app_open", ["surface": "tvos"])
     link.start { [weak self] in self?.handle($0) }
     Task { chart = await Catalog.topSongs() }
+    await startListening()
     // Heartbeat: roll into the next queued song, keep phones in sync.
     while !Task.isCancelled {
       if let session, session.isFinished, !queue.isEmpty { playNext() }
+      // The detector can pause the playhead when the room goes quiet.
+      session?.syncPlayingFlag()
       pushState()
       try? await Task.sleep(for: .seconds(1))
     }
   }
 
-  func sing(_ song: Song) {
+  /// Turn on the room mic and let the app work out what's playing by itself.
+  /// Soft-fails to manual mode: no phone nearby is a normal way to use the TV.
+  func startListening() async {
+    guard detector == nil else { return }
+    let availability = await mic.start()
+    guard availability == .ready else {
+      listening = .idle
+      return
+    }
+    let next = SongDetector(
+      source: mic,
+      recognizer: RelayRecognizer(),
+      clock: sync,
+      onSong: { [weak self] in await self?.heard($0) },
+      onState: { [weak self] in self?.listening = $0 }
+    )
+    detector = next
+    next.start()
+  }
+
+  func stopListening() {
+    detector?.stop()
+    detector = nil
+    mic.stop()
+    listening = .idle
+  }
+
+  /// The mic recognised something. If it isn't what's already on stage, put it up
+  /// — this is the whole trick: start a song anywhere in the room and the TV
+  /// catches it, finds the words and lands on the beat.
+  private func heard(_ recognition: Recognition) async {
+    let song = recognition.song
+    guard session?.song.id != song.id else { return }
+    Analytics.track("song_heard", ["surface": "tvos"])
+    flash("Heard: \(song.track)")
+    sing(song, autoSynced: true)
+  }
+
+  func sing(_ song: Song, autoSynced: Bool = false) {
     session?.stop()
     queue.removeAll { $0.id == song.id }
-    let next = SingSession(song: song)
+    let next = SingSession(song: song, sync: sync, autoSynced: autoSynced)
     session = next
     var played = song
     played.by = nil
@@ -114,7 +163,8 @@ final class AppModel {
       if queue.count >= Companion.queueMax {
         flash("Queue is full")
       } else {
-        queue.append(song)
+        // Re-rotate on every add so one guest queueing five songs can't lock the room.
+        queue = Companion.fairOrder(queue + [song])
         flash("Up next: \(song.track)\(song.by.map { " · \($0)" } ?? "")")
       }
     case .unqueue(let index):
@@ -172,10 +222,12 @@ final class AppModel {
 
 /// One song on stage: its lyrics and the playhead the highlight follows.
 ///
-/// ponytail: the playhead is a free-running clock started when the lyrics are
-/// ready (the web TV's demo clock) — the singer starts the track on their own
-/// speaker during the count-in and nudges timing with the remote. MusicKit
-/// playback (exact position) replaces it once the app has a MusicKit entitlement.
+/// The playhead is a SyncClock, which covers both ways the TV can run. Nobody
+/// feeding it observations leaves it free-running at rate 1.0 — exactly the old
+/// stopwatch, where the singer starts the track themselves during the count-in
+/// and straightens it with the remote. With the room mic on, SongDetector feeds
+/// it fingerprint positions every few seconds and it locks onto the music by
+/// itself, whatever is playing it.
 @MainActor @Observable
 final class SingSession: Identifiable {
   enum Status: Equatable {
@@ -195,16 +247,27 @@ final class SingSession: Identifiable {
   var offset = 0.0
   var playing = false
 
-  @ObservationIgnored private var anchorPosition = -SingSession.leadIn
-  @ObservationIgnored private var anchorTime = 0.0
+  @ObservationIgnored private let sync: SyncClock
   @ObservationIgnored private let loadStart = SingSession.clock
   @ObservationIgnored private var stopped = false
 
-  init(song: Song) {
+  /// `autoSynced` means the room mic put this song on stage and already owns the
+  /// playhead — loading must not reset it back to a count-in.
+  private let autoSynced: Bool
+
+  init(song: Song, sync: SyncClock, autoSynced: Bool = false) {
     self.song = song
+    self.sync = sync
+    self.autoSynced = autoSynced
   }
 
-  var position: Double { playing ? anchorPosition + Self.clock - anchorTime : anchorPosition }
+  var position: Double { sync.now() }
+
+  /// The detector can pause the clock on its own when the room goes quiet, so the
+  /// pause badge is reconciled rather than only set by `toggle()`.
+  func syncPlayingFlag() {
+    if playing != sync.isPlaying { playing = sync.isPlaying }
+  }
   /// Where the highlight is: song position plus the singer's timing nudge.
   var cueTime: Double { position + offset }
   var isFinished: Bool { status == .ready && timeline.isFinished(at: position) }
@@ -220,17 +283,17 @@ final class SingSession: Identifiable {
     Analytics.track("song_ready", ["surface": "tvos", "wait": Analytics.waitBucket(seconds: Self.clock - loadStart)])
     timeline = result.timeline
     source = result.source
-    anchorPosition = -Self.leadIn
-    anchorTime = Self.clock
+    // Count in from before 0:00. Skipped when the mic put this song up: the song
+    // is already halfway through the room and the detector holds the real position.
+    if !autoSynced { sync.start(at: -Self.leadIn) }
     playing = true
     status = .ready
   }
 
   func toggle() {
     guard status == .ready else { return }
-    anchorPosition = position
-    anchorTime = Self.clock
-    playing.toggle()
+    if sync.isPlaying { sync.pause() } else { sync.resume() }
+    playing = sync.isPlaying
   }
 
   func nudge(ms: Int) {
@@ -242,6 +305,7 @@ final class SingSession: Identifiable {
       Analytics.track("song_exit", ["surface": "tvos", "sung": Analytics.sungBucket(max(0, position) / timeline.duration)])
     }
     stopped = true
+    sync.pause()
     playing = false
   }
 }

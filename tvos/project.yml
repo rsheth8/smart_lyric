@@ -24,6 +24,11 @@ targets:
       properties:
         CFBundleDisplayName: Bar4Bar
         UIUserInterfaceStyle: Dark
+        # Continuity Mic: an iPhone nearby becomes the Apple TV's microphone, so
+        # the app can hear what's playing and put the lyrics on the beat by itself.
+        NSMicrophoneUsageDescription: >-
+          Bar4Bar listens to the room to work out which song is playing and where
+          it's up to, so the lyrics stay in time on their own.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.bar4bar.tv

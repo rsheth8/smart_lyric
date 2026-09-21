@@ -69,4 +69,50 @@ final class CompanionTests: XCTestCase {
     )
     XCTAssertNil(Catalog.upgradeArtwork(""))
   }
+
+  // MARK: - the rotation
+
+  private func song(_ track: String, by: String?) -> Song {
+    Song(track: track, artist: "A", by: by)
+  }
+  private func tracks(_ songs: [Song]) -> [String] { songs.map(\.track) }
+
+  func testRotationInterleavesGuestsSoNobodyHogsTheRoom() {
+    let queue = [
+      song("a1", by: "Alex"), song("a2", by: "Alex"), song("a3", by: "Alex"),
+      song("s1", by: "Sam"), song("m1", by: "Maya"),
+    ]
+    XCTAssertEqual(tracks(Companion.fairOrder(queue)), ["a1", "s1", "m1", "a2", "a3"])
+  }
+
+  func testRotationKeepsEachGuestsOwnOrder() {
+    let queue = [song("a1", by: "Alex"), song("s1", by: "Sam"), song("a2", by: "Alex"), song("s2", by: "Sam")]
+    XCTAssertEqual(tracks(Companion.fairOrder(queue)), ["a1", "s1", "a2", "s2"])
+  }
+
+  func testRotationIsANoOpForOnePhone() {
+    let queue = [song("a1", by: "Alex"), song("a2", by: "Alex"), song("a3", by: "Alex")]
+    XCTAssertEqual(tracks(Companion.fairOrder(queue)), ["a1", "a2", "a3"])
+  }
+
+  func testRotationIsANoOpForSongsAddedOnTheTV() {
+    let queue = [song("t1", by: nil), song("t2", by: nil)]
+    XCTAssertEqual(tracks(Companion.fairOrder(queue)), ["t1", "t2"])
+  }
+
+  func testRotationHandlesEmptyAndSingleQueues() {
+    XCTAssertTrue(Companion.fairOrder([]).isEmpty)
+    XCTAssertEqual(tracks(Companion.fairOrder([song("only", by: "Alex")])), ["only"])
+  }
+
+  func testRotationLosesNoSongsWhenLanesRunOutAtDifferentTimes() {
+    let queue = [
+      song("a1", by: "Alex"), song("a2", by: "Alex"), song("a3", by: "Alex"), song("a4", by: "Alex"),
+      song("s1", by: "Sam"),
+    ]
+    let out = Companion.fairOrder(queue)
+    XCTAssertEqual(out.count, queue.count, "a short lane must not drop the long lane's tail")
+    XCTAssertEqual(Set(tracks(out)), Set(tracks(queue)))
+    XCTAssertEqual(tracks(out), ["a1", "s1", "a2", "a3", "a4"])
+  }
 }
