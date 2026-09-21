@@ -368,6 +368,79 @@ body:has(#stage[data-mode="setup"]) :is(#live-sep-hud, #sync-hud) { display: non
 #singer-up.show { animation: singer-up 3.4s ease both; }
 @keyframes singer-up { 0% { opacity: 0; } 12%, 78% { opacity: 1; } 100% { opacity: 0; } }
 #stage[data-mode="setup"] #singer-up { display: none; }
+/* Live score: a quiet chip, not a scoreboard. Only up while scoring is on and
+   the singer has actually started. */
+#score-chip {
+  /* Top-LEFT: the sync-lock chip owns the right corner and the format badge the
+     centre, so this is the only free corner while a song is on screen. */
+  position: absolute; top: var(--space-4); left: var(--space-4); z-index: 9;
+  display: flex; align-items: center; gap: 8px; pointer-events: none;
+  padding: 6px 12px; border-radius: 999px;
+  background: rgba(11,9,8,.72); border: 1px solid var(--line-1);
+  backdrop-filter: blur(10px);
+  font: 650 var(--fs-xs)/1 system-ui, sans-serif; color: var(--text-2);
+  opacity: 0; transition: opacity var(--dur) ease;
+}
+#score-chip:not([hidden]) { opacity: 1; }
+#score-chip b { color: var(--accent); font-variant-numeric: tabular-nums; font-size: var(--fs-sm); }
+#score-chip .sc-meter {
+  width: 46px; height: 4px; border-radius: 999px; overflow: hidden;
+  background: rgba(255,255,255,.14);
+}
+#score-chip .sc-meter i { display: block; height: 100%; width: 0%; background: var(--accent); transition: width .12s linear; }
+#stage[data-mode="setup"] #score-chip { display: none; }
+#stage.focus-mode #score-chip { opacity: .3; }
+
+/* The rotation, along the bottom: who is up after this one. */
+#queue-strip {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  /* Clear of the now-bar, not resting on it. */
+  bottom: calc(var(--space-5) + var(--control-h) + var(--space-4));
+  z-index: 7; display: flex; align-items: center; gap: var(--space-3);
+  max-width: min(760px, 88vw); padding: 7px 14px; border-radius: 999px;
+  background: rgba(11,9,8,.7); border: 1px solid var(--line-1); backdrop-filter: blur(10px);
+  font-size: var(--fs-xs); color: var(--text-2); pointer-events: none;
+  opacity: 0; transition: opacity var(--dur) ease;
+  overflow: hidden; white-space: nowrap;
+}
+#queue-strip:not([hidden]) { opacity: 1; }
+#queue-strip .qs-label { color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; flex: none; }
+#queue-strip .qs-item { display: inline-flex; gap: 6px; align-items: baseline; min-width: 0; }
+#queue-strip .qs-item b { color: var(--text-1); font-weight: 650; }
+#queue-strip .qs-item span { color: var(--accent); }
+#queue-strip .qs-more { color: var(--text-3); flex: none; }
+#stage[data-mode="setup"] #queue-strip,
+#stage:has(#inspector:not([hidden])) #queue-strip { display: none; }
+
+/* End of song: what the room actually wants to see. */
+#scorecard {
+  position: absolute; inset: 0; z-index: 14;
+  display: grid; place-items: center; background: var(--scrim); backdrop-filter: blur(8px);
+}
+#scorecard[hidden] { display: none; }
+.scorecard-card {
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
+  width: min(420px, 88vw); padding: var(--space-5) var(--space-5) var(--space-4);
+  text-align: center; border-radius: var(--r-lg);
+  background: var(--surface-solid-1); border: 1px solid var(--line-2); box-shadow: var(--shadow-2);
+  animation: panel-pop .3s var(--ease) both;
+}
+.sc-score { display: flex; align-items: baseline; gap: 4px; }
+.sc-score b {
+  font: 800 clamp(52px, 9vw, 96px)/1 var(--font-display), system-ui, sans-serif;
+  color: var(--accent); letter-spacing: -.03em; font-variant-numeric: tabular-nums;
+}
+.sc-score i { font-style: normal; font-size: var(--fs-md); color: var(--text-3); }
+.scorecard-card h2 { font-size: var(--fs-xl); font-weight: 700; color: var(--text-1); }
+.scorecard-card p { font-size: var(--fs-sm); color: var(--text-2); margin: 0; line-height: 1.5; }
+.sc-next { color: var(--accent) !important; font-weight: 600; }
+.sc-next[hidden] { display: none; }
+.sc-actions { display: flex; gap: var(--space-2); margin-top: var(--space-3); width: 100%; }
+/* The two secondary actions size to their own labels and Done takes the rest —
+   equal thirds wrapped "Sing again" onto three lines. */
+.sc-actions .insp-btn { flex: 0 1 auto; min-width: 0; white-space: nowrap; }
+.sc-actions .btn-primary { flex: 1 1 auto; min-width: 0; }
+
 /* Line count-in: runway fills before a phrase with a real gap; 3-2-1 in the last beats. */
 #count-in {
   position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%) translateY(8px);
@@ -642,6 +715,23 @@ body:has(#stage[data-mode="setup"]) :is(#live-sep-hud, #sync-hud) { display: non
   border-color: color-mix(in srgb, var(--accent) 35%, transparent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
+/* Karaoke sliders inside the inspector: the two controls a singer reaches for
+   mid-song (how loud they are, how quiet the record's singer is). */
+.insp-slider { display: flex; flex-direction: column; gap: 4px; }
+.insp-slider label {
+  display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2);
+  font-size: var(--fs-xs); color: var(--text-2);
+}
+.insp-slider label i { font-style: normal; color: var(--text-1); font-variant-numeric: tabular-nums; }
+.insp-slider input[type="range"] { width: 100%; accent-color: var(--accent); }
+.insp-keyrow {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  font-size: var(--fs-xs); color: var(--text-2);
+}
+.insp-keyrow i { font-style: normal; color: var(--text-1); }
+.insp-slider input:disabled,
+.insp-keyrow .timing-dial button:disabled { opacity: .4; cursor: not-allowed; }
+
 .insp-link {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
   width: 100%; padding: 9px 10px;

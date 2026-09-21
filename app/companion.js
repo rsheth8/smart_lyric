@@ -101,6 +101,30 @@ export function songFinished({ now, timeline, graceSec = 6 }) {
   return end > 0 && now > end + graceSec;
 }
 
+/**
+ * The rotation: round-robin the queue by whoever added each song, the way a
+ * karaoke host runs a room — three songs from one guest don't lock everyone
+ * else out. Stable inside each singer's own list, and a no-op when every entry
+ * came from the same phone (or from the TV, where `by` is empty).
+ */
+export function fairOrder(queue) {
+  const list = Array.isArray(queue) ? queue : [];
+  const buckets = new Map();
+  for (const song of list) {
+    const who = song?.by || '';
+    if (!buckets.has(who)) buckets.set(who, []);
+    buckets.get(who).push(song);
+  }
+  if (buckets.size < 2) return [...list];
+  const lanes = [...buckets.values()];
+  const out = [];
+  for (let i = 0; out.length < list.length; i++) {
+    const lane = lanes[i % lanes.length];
+    if (lane.length) out.push(lane.shift());
+  }
+  return out;
+}
+
 export function relayUrl(base, room, role, peer = '') {
   return `${base}/api/companion?room=${room}&role=${role}${peer ? `&peer=${peer}` : ''}`;
 }

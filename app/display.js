@@ -319,6 +319,8 @@ export class Display {
     this._resize();
     if (loadFocusMode()) this.setFocusMode(true);
     this.partyMode = false;
+    this.singerNames = [];
+    this.shiftLatency = 0;
     try {
       if (localStorage.getItem(PARTY_KEY) === 'on') this.setPartyMode(true, { persist: false });
     } catch {
@@ -344,10 +346,35 @@ export class Display {
     return this.setPartyMode(!this.partyMode);
   }
 
+  /**
+   * Name the two parts — the guests in the room when the phone remote knows
+   * them, "Singer 1 / 2" otherwise.
+   */
+  setSingerNames(names) {
+    this.singerNames = Array.isArray(names) ? names.filter(Boolean).slice(0, 2) : [];
+    return this.singerNames;
+  }
+
+  singerName(idx) {
+    return this.singerNames?.[idx] || `Singer ${idx + 1}`;
+  }
+
   // Whose turn the upcoming line is, for the break / count-in cue. '' outside party mode.
   _turnLabel(idx) {
     const line = this.partyMode ? this.lines[idx] : null;
-    return line ? `Singer ${line.singer + 1} · you're up` : '';
+    return line ? `${this.singerName(line.singer)} · you're up` : '';
+  }
+
+  /**
+   * Is a word meant to be coming out of someone's mouth right now? Scoring asks
+   * every frame — staying quiet through an instrumental break is correct, not a
+   * missed line, so only time inside a line counts against the singer.
+   */
+  expectingVoice() {
+    const line = this.lines[this.activeLine];
+    if (!line || !this.clock) return false;
+    const t = this.clock.now() + this.syncOffset - (this.shiftLatency || 0);
+    return t >= line.start && t <= line.end;
   }
 
   setSingerLead(sec, { persist = true } = {}) {
@@ -379,9 +406,24 @@ export class Display {
   }
 
   /** Singer-cue playhead (s) the highlight follows, as in _frame; null without a clock. */
+  /**
+   * The key shifter buffers a frame before it can emit one, so what the room
+   * hears is that far behind the clock. Hold the words back by the same amount
+   * rather than letting them drift ahead of the track.
+   */
+  setShiftLatency(sec) {
+    this.shiftLatency = Number.isFinite(sec) && sec > 0 ? sec : 0;
+    return this.shiftLatency;
+  }
+
   cueTime() {
     if (!this.clock) return null;
-    return this.clock.now() + this.syncOffset + (this._reduceMotion ? 0 : this.singerLead || 0);
+    return (
+      this.clock.now() +
+      this.syncOffset -
+      (this.shiftLatency || 0) +
+      (this._reduceMotion ? 0 : this.singerLead || 0)
+    );
   }
 
   setPalette(colors) {
@@ -863,7 +905,7 @@ export class Display {
     }
     // tAudio = latency-compensated playhead (true sync). t = singer-cue time —
     // highlights run slightly ahead so the eye leads the voice.
-    const tAudio = this.clock.now() + this.syncOffset;
+    const tAudio = this.clock.now() + this.syncOffset - (this.shiftLatency || 0);
     const lead = this._reduceMotion ? 0 : this.singerLead || 0;
     const t = tAudio + lead;
 

@@ -37,10 +37,13 @@ import { getMedium } from './mediums/index.js';
 import { createRouter } from './ui/router.js';
 import { initScreenFocus } from './ui/focus.js';
 import { initRemote, Intent } from './remote.js';
-import { newRoomCode, openLink, parseCommand, songFinished, QUEUE_MAX } from './companion.js';
+import { newRoomCode, openLink, parseCommand, songFinished, fairOrder, QUEUE_MAX } from './companion.js';
 // Aliased: `track` is the song-title field all over this file (e.g. loadSong's params).
 import { track as trackEvent, waitBucket, sungBucket } from './analytics.js';
 import { recordClip, CLIP_SECONDS } from './clip.js';
+import { KaraokeAudio, clampKey, keyLabel, readPercent, KEY_MIN, KEY_MAX } from './karaoke.js';
+import { ScoreKeeper, SING_LEVEL } from './score.js';
+import { detectPitch, centsToPitchClass } from './pitch.js';
 import { initSurface } from './ui/surface.js';
 import { accentFromPalette, applyAccent } from './theme.js';
 import { loadLibrary, recordPlay, clearLibrary, relativeWhen, updateArt } from './library.js';
@@ -116,7 +119,11 @@ const router = createRouter({
   stage,
   onEnter: (name) => {
     if (name === 'library') renderLibrary();
-    if (name === 'settings') refreshSyncSettings();
+    if (name === 'settings') {
+      refreshSyncSettings();
+      populateMicDevices();
+      syncKaraokeUi();
+    }
     if (name === 'sources') refreshSpotifyPanel();
   },
 });
@@ -441,6 +448,10 @@ function enterSetup() {
   // sit on top of the menu after a song change. Also drop the old timeline so
   // the RAF loop can't resurrect them while the menu is up.
   display.clearPlayback();
+  renderScoreChip(null);
+  renderQueueStrip();
+  $('scorecard').hidden = true;
+  startKaraokeTick();
   hideSuggestions();
   stopActiveMedium();
   updateTransport();
@@ -450,6 +461,7 @@ function enterSetup() {
 }
 
 function enterPlaying() {
+  resetKaraokeForSong();
   if (songLoadAt) {
     trackEvent('song_ready', { surface: funnelSurface(), wait: waitBucket(performance.now() - songLoadAt) });
     songLoadAt = 0;
@@ -573,6 +585,9 @@ function stopListenMeter() {
 function resetSongState() {
   setPracticeSlow(false, { quiet: true });
   haveAudio = false;
+  // Vocal reduction and key both hang off an audio element we own.
+  if (songKey !== 0) setSongKey(0, { quiet: true });
+  syncKaraokeUi();
   pendingAudioFile = null;
   pendingLyricsFile = null;
   session.setAudioFile(null, null);
@@ -1592,6 +1607,12 @@ function closePanel(id) {
 
 /** Close whichever dismissible popup is open. Returns true if one closed. */
 function closeAnyOpenPopup() {
+  // The score card is modal and sits on top of everything, so it peels first.
+  // Escaping it is "not now", not "next song" — hence advance: false.
+  if (!$('scorecard').hidden) {
+    closeScorecard({ advance: false });
+    return true;
+  }
   return closePanel('inspector') || closePanel('listen-panel') || closePanel('companion-panel');
 }
 
@@ -1691,6 +1712,8 @@ function onCompanionMessage(raw) {
   if (cmd.by && !companion.guests.has(cmd.by)) {
     companion.guests.add(cmd.by);
     updateCompanionStatus();
+    // Party mode calls the parts by name once we know who is in the room.
+    display.setSingerNames([...companion.guests]);
     showToast(`${cmd.by} joined`);
   }
   const playing = stage.dataset.mode === 'playing';
@@ -1703,7 +1726,11 @@ function onCompanionMessage(raw) {
         showToast('Queue is full');
       } else {
         companion.queue.push({ ...cmd.song, by: cmd.by });
+        // Round-robin by singer, so one guest queueing four songs doesn't lock
+        // the room out. A single-singer queue is left exactly as it was.
+        companion.queue = fairOrder(companion.queue);
         showToast(`Up next: ${cmd.song.track}${cmd.by ? ` · ${cmd.by}` : ''}`);
+        renderQueueStrip();
       }
       break;
     case 'unqueue':
@@ -1753,14 +1780,18 @@ function pushCompanionState(force = false) {
 }
 
 setInterval(() => {
-  if (!companion.link) return;
+  // The score card and the rotation strip are on-screen furniture: they run
+  // whether or not a phone is paired, unlike the state push below.
   if (
-    companion.queue.length &&
+    !songEnded &&
     stage.dataset.mode === 'playing' &&
     songFinished({ now: session.clock?.now?.(), timeline: session.timeline })
   ) {
-    playNextQueued();
+    songEnded = true;
+    finishSong();
   }
+  renderQueueStrip();
+  if (!companion.link) return;
   pushCompanionState();
 }, 1000);
 
@@ -1788,6 +1819,7 @@ document.addEventListener('click', (e) => {
 function toggleInspector(force) {
   const panel = $('inspector');
   const open = typeof force === 'boolean' ? force : panel.hidden;
+  if (open) syncKaraokeUi();
   panel.hidden = !open;
   $('btn-more').setAttribute('aria-expanded', String(open));
   if (open) {
@@ -2631,6 +2663,421 @@ function setPracticeSlow(on, { quiet = false } = {}) {
   return practiceSlow;
 }
 
+// ============================== karaoke ==================================
+// The singing half of the app: the user's voice out of the speakers, the
+// record's singer out of the way, the song moved into their key, and a score
+// for what came out. The audio graph itself lives in app/karaoke.js; this is
+// only the wiring — persistence, the two control surfaces (Settings and the
+// per-song inspector), and the once-a-frame sampling that feeds the score.
+//
+// Vocal reduction and key change need audio we OWN. A local file passes through
+// our graph; Spotify, Apple Music and a record on a turntable never do, so both
+// controls are disabled with a reason rather than silently doing nothing. The
+// mic and scoring work on every source.
+
+const karaoke = new KaraokeAudio({ audioEl: audio, onNotice: (msg) => showToast(msg) });
+const scorer = new ScoreKeeper();
+
+const KARAOKE_KEYS = {
+  monitor: 'bar4bar.micMonitor',
+  device: 'bar4bar.micDevice',
+  level: 'bar4bar.micLevel',
+  reverb: 'bar4bar.reverb',
+  vocals: 'bar4bar.vocalLevel',
+  scoring: 'bar4bar.scoring',
+};
+const pctPref = (key, fallback) => readPercent(localStorage.getItem(KARAOKE_KEYS[key]), fallback);
+
+let micOn = false;
+let micDeviceId = localStorage.getItem(KARAOKE_KEYS.device) || null;
+let micLevelPct = pctPref('level', 70);
+let reverbPct = pctPref('reverb', 25);
+let vocalPct = pctPref('vocals', 100);
+let scoringOn = localStorage.getItem(KARAOKE_KEYS.scoring) === 'on';
+// Key is deliberately NOT remembered: it belongs to a song, not to a singer.
+let songKey = 0;
+let karaokeTimer = null;
+let songEnded = false;
+
+/** Vocal reduction and key change only exist where the audio is ours. */
+const ownAudio = () => haveAudio;
+
+function saveKaraokePref(key, value) {
+  try {
+    localStorage.setItem(KARAOKE_KEYS[key], String(value));
+  } catch {
+    /* private mode — the controls still work for this session */
+  }
+}
+
+async function setMicOn(on, { quiet = false } = {}) {
+  if (on === micOn) return micOn;
+  try {
+    if (on) {
+      await karaoke.startMonitor({ deviceId: micDeviceId });
+      karaoke.setMicLevel(micLevelPct / 100);
+      karaoke.setReverb(reverbPct / 100);
+      trackEvent('mic_on', { surface: funnelSurface() });
+    } else {
+      karaoke.stopMonitor();
+      // Scoring still needs to hear the room, so only a scoring-off user gets
+      // the microphone handed back to the OS.
+      if (!scoringOn) karaoke.releaseMic();
+    }
+    micOn = on;
+  } catch (err) {
+    micOn = false;
+    if (!quiet) {
+      showToast(
+        err?.name === 'NotAllowedError'
+          ? 'Microphone permission denied — allow it in System Settings → Privacy'
+          : `Could not open the microphone: ${err?.message || err}`
+      );
+    }
+  }
+  syncKaraokeUi();
+  startKaraokeTick();
+  return micOn;
+}
+
+async function setVocalPct(pct, { quiet = false } = {}) {
+  vocalPct = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)));
+  saveKaraokePref('vocals', vocalPct);
+  if (!ownAudio()) {
+    if (!quiet && vocalPct < 100) showToast('Turning the vocal down needs a local audio file');
+  } else {
+    await karaoke.setVocalLevel(vocalPct / 100);
+  }
+  syncKaraokeUi();
+  return vocalPct;
+}
+
+async function setSongKey(semitones, { quiet = false } = {}) {
+  const next = clampKey(semitones);
+  if (!ownAudio()) {
+    if (!quiet && next !== 0) showToast('Key change needs a local audio file');
+    return songKey;
+  }
+  songKey = await karaoke.setKey(next);
+  // The shifter buffers a frame before it can emit one; tell the display about
+  // that delay rather than letting the words drift ahead of the track.
+  display.setShiftLatency?.(karaoke.latencySec);
+  if (!quiet) showToast(songKey === 0 ? 'Original key' : `Key ${keyLabel(songKey)}`);
+  syncKaraokeUi();
+  return songKey;
+}
+
+async function setScoring(on) {
+  scoringOn = !!on;
+  saveKaraokePref('scoring', scoringOn ? 'on' : 'off');
+  if (scoringOn) {
+    try {
+      // Opening without monitoring: a score needs to hear the singer, it does
+      // not need to put them through the speakers.
+      await karaoke.openMic({ deviceId: micDeviceId });
+    } catch {
+      scoringOn = false;
+      saveKaraokePref('scoring', 'off');
+      showToast('Scoring needs the microphone');
+    }
+  } else if (!micOn) {
+    karaoke.releaseMic();
+  }
+  syncKaraokeUi();
+  startKaraokeTick();
+  return scoringOn;
+}
+
+async function populateMicDevices() {
+  const sel = $('mic-device');
+  if (!sel) return;
+  const devices = await listInputDevices();
+  sel.replaceChildren(
+    ...[{ deviceId: '', label: 'Default input' }, ...devices].map((d) =>
+      Object.assign(document.createElement('option'), {
+        value: d.deviceId,
+        textContent: d.label || 'Microphone',
+      })
+    )
+  );
+  sel.value = micDeviceId || '';
+}
+
+/** Every karaoke control reads its state from here — one place, one truth. */
+function syncKaraokeUi() {
+  const own = ownAudio();
+  const set = (id, fn) => {
+    const el = $(id);
+    if (el) fn(el);
+  };
+
+  set('mic-monitor', (el) => (el.checked = micOn));
+  set('mic-device-row', (el) => (el.hidden = !micOn && !scoringOn));
+  set('mic-level', (el) => (el.value = String(micLevelPct)));
+  set('insp-mic-level', (el) => (el.value = String(micLevelPct)));
+  set('mic-level-readout', (el) => (el.textContent = `${micLevelPct}%`));
+  set('insp-mic-readout', (el) => (el.textContent = `${micLevelPct}%`));
+  set('mic-reverb', (el) => (el.value = String(reverbPct)));
+  set('reverb-readout', (el) => (el.textContent = `${reverbPct}%`));
+  set('scoring', (el) => (el.checked = scoringOn));
+  set('mic-monitor-state', (el) => {
+    el.textContent = micOn
+      ? 'Live — you are coming through the speakers.'
+      : 'Your microphone, mixed in over the track.';
+  });
+
+  set('vocal-level', (el) => {
+    el.value = String(vocalPct);
+    el.disabled = !own;
+  });
+  set('insp-vocal', (el) => {
+    el.value = String(vocalPct);
+    el.disabled = !own;
+  });
+  set('vocal-level-readout', (el) => (el.textContent = `${vocalPct}%`));
+  set('insp-vocal-readout', (el) => (el.textContent = `${vocalPct}%`));
+  set('vocal-level-hint', (el) => {
+    el.textContent = own
+      ? 'Turn the original singer down so the room hears you instead. A vocal mixed dead centre disappears cleanly; a mono track has nothing to separate.'
+      : 'Needs a local audio file — a stream or a record never passes through Bar4Bar.';
+  });
+
+  set('key-readout', (el) => (el.textContent = keyLabel(songKey)));
+  set('insp-key-readout', (el) => (el.textContent = keyLabel(songKey)));
+  set('key-hint', (el) => {
+    el.textContent = own
+      ? "Move the whole track into your range. The tempo doesn't change, and it resets with each new song."
+      : 'Needs a local audio file — a stream or a record never passes through Bar4Bar.';
+  });
+  for (const btn of document.querySelectorAll('[data-key]')) {
+    const dir = Number(btn.dataset.key);
+    btn.disabled = !own || (dir > 0 ? songKey >= KEY_MAX : songKey <= KEY_MIN);
+  }
+  set('key-reset', (el) => (el.disabled = !own || songKey === 0));
+
+  set('btn-mic', (el) => {
+    el.textContent = micOn ? 'Mic on' : 'Mic off';
+    el.setAttribute('aria-pressed', micOn ? 'true' : 'false');
+  });
+  set('insp-karaoke-hint', (el) => {
+    el.textContent = own
+      ? "Your mic over the track, the record's singer out of the way."
+      : 'Mic works on any source. Vocals and key need a local audio file.';
+  });
+}
+
+// ---------------------------- live score ----------------------------------
+// 20 Hz: fast enough to catch a short phrase, cheap enough that pitch detection
+// on two streams never shows up in a frame budget.
+const KARAOKE_TICK_MS = 50;
+
+function karaokeWants() {
+  return stage.dataset.mode === 'playing' && (micOn || scoringOn || karaoke.engaged);
+}
+
+function startKaraokeTick() {
+  clearInterval(karaokeTimer);
+  karaokeTimer = null;
+  if (!karaokeWants()) {
+    renderScoreChip(null);
+    return;
+  }
+  karaokeTimer = setInterval(karaokeTick, KARAOKE_TICK_MS);
+}
+
+function karaokeTick() {
+  if (stage.dataset.mode !== 'playing') {
+    startKaraokeTick();
+    return;
+  }
+  const micLevel = karaoke.watch();
+  if (!scoringOn || !karaoke.micOpen) return;
+
+  const expected = display.expectingVoice();
+  let cents = null;
+  if (expected && micLevel >= SING_LEVEL) {
+    const rate = karaoke.ctx?.sampleRate || 48000;
+    const mine = detectPitch(karaoke.micFrame(), rate);
+    // The melody reference is the track as recorded — the tap sits BEFORE the
+    // vocal reduction, so turning the original singer down doesn't take the
+    // thing we're scoring against with it.
+    const ref = mine ? detectPitch(karaoke.trackFrame(), rate) : null;
+    if (mine && ref) cents = centsToPitchClass(mine, ref);
+  }
+  scorer.sample({ expected, level: micLevel, cents });
+  renderScoreChip(scorer.result());
+}
+
+function renderScoreChip(result) {
+  const el = $('score-chip');
+  if (!el) return;
+  if (!result || !scoringOn) {
+    el.hidden = true;
+    return;
+  }
+  if (el.dataset.score !== String(result.score)) {
+    el.dataset.score = String(result.score);
+    el.replaceChildren(
+      Object.assign(document.createElement('b'), { textContent: String(result.score) }),
+      Object.assign(document.createElement('span'), {
+        className: 'sc-meter',
+        innerHTML: '<i></i>',
+      })
+    );
+  }
+  const fill = el.querySelector('.sc-meter i');
+  if (fill) fill.style.width = `${result.score}%`;
+  el.hidden = false;
+}
+
+// ---------------------------- the rotation ---------------------------------
+
+function renderQueueStrip() {
+  const el = $('queue-strip');
+  if (!el) return;
+  const queue = companion.queue;
+  if (!queue.length || stage.dataset.mode !== 'playing') {
+    el.hidden = true;
+    return;
+  }
+  const next = queue.slice(0, 2);
+  el.replaceChildren(
+    Object.assign(document.createElement('span'), { className: 'qs-label', textContent: 'Up next' }),
+    ...next.map((song) => {
+      const item = document.createElement('span');
+      item.className = 'qs-item';
+      item.append(Object.assign(document.createElement('b'), { textContent: song.track }));
+      if (song.by) item.append(Object.assign(document.createElement('span'), { textContent: song.by }));
+      return item;
+    }),
+    ...(queue.length > next.length
+      ? [
+          Object.assign(document.createElement('span'), {
+            className: 'qs-more',
+            textContent: `+${queue.length - next.length}`,
+          }),
+        ]
+      : [])
+  );
+  el.hidden = false;
+}
+
+// ---------------------------- the score card -------------------------------
+
+/**
+ * End of song. A card when there's something to show, otherwise straight on to
+ * whoever is next — nobody wants "0/100" for a song they listened to.
+ */
+function finishSong() {
+  const result = scoringOn ? scorer.result() : null;
+  if (!result) {
+    if (companion.queue.length) playNextQueued();
+    return;
+  }
+  trackEvent('song_scored', { surface: funnelSurface(), grade: result.grade });
+  const next = companion.queue[0];
+  $('sc-number').textContent = String(result.score);
+  $('sc-grade').textContent = result.grade;
+  $('sc-detail').textContent = [
+    `You sang ${Math.round(result.coverage * 100)}% of the words`,
+    result.pitch != null ? `and landed ${Math.round(result.pitch * 100)}% of them on the note` : null,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .concat('.');
+  const nextEl = $('sc-next');
+  nextEl.hidden = !next;
+  if (next) nextEl.textContent = `Up next: ${next.track}${next.by ? ` · ${next.by}` : ''}`;
+  $('sc-again').hidden = !session.meta?.track;
+  $('scorecard').hidden = false;
+  $('sc-done').focus({ preventScroll: true });
+}
+
+function closeScorecard({ advance = true } = {}) {
+  $('scorecard').hidden = true;
+  if (advance && companion.queue.length) playNextQueued();
+  else if (advance) enterSetup();
+}
+
+/** Reset every per-song karaoke bit. Called on the way into a new song. */
+function resetKaraokeForSong() {
+  // A remembered "mic on" is honoured here rather than at launch: by now the
+  // user has clicked something, so getUserMedia and the AudioContext are allowed.
+  if (!micOn && localStorage.getItem(KARAOKE_KEYS.monitor) === 'on') setMicOn(true, { quiet: true });
+  else if (scoringOn && !karaoke.micOpen) setScoring(true);
+  scorer.reset();
+  songEnded = false;
+  karaoke.resetTrack();
+  renderScoreChip(null);
+  $('scorecard').hidden = true;
+  if (songKey !== 0) setSongKey(0, { quiet: true });
+  // A new medium may own its audio where the last one didn't (or the reverse).
+  setVocalPct(vocalPct, { quiet: true });
+  startKaraokeTick();
+}
+
+// ------------------------- karaoke controls (DOM) --------------------------
+// Settings and the inspector drive the same setters, so the two surfaces can
+// never disagree — whichever one you touch, syncKaraokeUi repaints both.
+
+$('mic-monitor')?.addEventListener('change', (e) => {
+  saveKaraokePref('monitor', e.target.checked ? 'on' : 'off');
+  setMicOn(e.target.checked);
+});
+$('btn-mic')?.addEventListener('click', () => {
+  saveKaraokePref('monitor', micOn ? 'off' : 'on');
+  setMicOn(!micOn);
+});
+$('mic-device')?.addEventListener('change', async (e) => {
+  micDeviceId = e.target.value || null;
+  saveKaraokePref('device', micDeviceId || '');
+  // Re-open on the new device: a running stream is pinned to the old one.
+  const was = micOn;
+  karaoke.releaseMic();
+  micOn = false;
+  if (scoringOn) await setScoring(true);
+  if (was) await setMicOn(true);
+});
+
+for (const id of ['mic-level', 'insp-mic-level']) {
+  $(id)?.addEventListener('input', (e) => {
+    micLevelPct = Number(e.target.value);
+    saveKaraokePref('level', micLevelPct);
+    karaoke.setMicLevel(micLevelPct / 100);
+    syncKaraokeUi();
+  });
+}
+
+$('mic-reverb')?.addEventListener('input', (e) => {
+  reverbPct = Number(e.target.value);
+  saveKaraokePref('reverb', reverbPct);
+  karaoke.setReverb(reverbPct / 100);
+  syncKaraokeUi();
+});
+
+for (const id of ['vocal-level', 'insp-vocal']) {
+  $(id)?.addEventListener('input', (e) => setVocalPct(e.target.value, { quiet: true }));
+  $(id)?.addEventListener('change', (e) => setVocalPct(e.target.value));
+}
+
+document.addEventListener('click', (e) => {
+  const keyBtn = e.target.closest?.('[data-key]');
+  if (keyBtn && !keyBtn.disabled) setSongKey(songKey + Number(keyBtn.dataset.key));
+});
+$('key-reset')?.addEventListener('click', () => setSongKey(0));
+$('scoring')?.addEventListener('change', (e) => setScoring(e.target.checked));
+
+$('sc-done')?.addEventListener('click', () => closeScorecard());
+$('sc-again')?.addEventListener('click', () => {
+  const meta = session.meta;
+  $('scorecard').hidden = true;
+  if (meta?.track) loadSong({ artist: meta.artist, track: meta.track });
+});
+$('sc-clip')?.addEventListener('click', () => {
+  $('scorecard').hidden = true;
+  $('btn-clip')?.click();
+});
+
 function syncSingerLeadUi() {
   const ms = Math.round((display.singerLead || 0) * 1000);
   const slider = $('singer-lead');
@@ -2945,6 +3392,13 @@ addEventListener('keydown', (e) => {
   } else if (e.key.toLowerCase() === 's') {
     if (!haveAudio) showToast('Practice slowdown needs a local audio file');
     else setPracticeSlow(!practiceSlow);
+  } else if (e.key.toLowerCase() === 'm') {
+    saveKaraokePref('monitor', micOn ? 'off' : 'on');
+    setMicOn(!micOn);
+  } else if (e.key === ',' || e.key === '.') {
+    setSongKey(songKey + (e.key === '.' ? 1 : -1));
+  } else if (e.key === '-' || e.key === '=') {
+    setVocalPct(vocalPct + (e.key === '=' ? 10 : -10));
   } else if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
     showKeys();
   }
@@ -3230,6 +3684,11 @@ async function bootSetup() {
   syncFocusUi();
   syncSurfaceUi();
   syncInspectorUi();
+  syncKaraokeUi();
+  // Don't grab the microphone on launch — a remembered "on" is re-armed the
+  // first time a song plays (below), where the click that started it counts as
+  // the user gesture browsers want before audio and capture start.
+  populateMicDevices();
   renderContinueShelf();
   setPracticeSlow(false, { quiet: true });
   await Promise.all([loadChartRecs(), refreshSpotifyPanel()]);
@@ -3248,4 +3707,4 @@ if (document.body.dataset.surface === 'tv') {
 } else {
   $('in-track').focus({ preventScroll: true });
 }
-window.__sl = { display, demoClock, enterPlaying, stage, session, router, surface };
+window.__sl = { display, demoClock, enterPlaying, stage, session, router, surface, karaoke, scorer, companion };

@@ -16,6 +16,8 @@ export const EVENTS = {
   remote_paired: {},
   party_on: {},
   clip_made: { surface: SURFACE },
+  mic_on: { surface: SURFACE },
+  song_scored: { surface: SURFACE, grade: ['Superstar', 'Headliner', 'Encore', 'Warmed up', 'Keep going'] },
 };
 
 export function waitBucket(ms) {

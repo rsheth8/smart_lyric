@@ -11,6 +11,7 @@ import {
   PEER_RE,
   NAME_MAX,
   songFinished,
+  fairOrder,
 } from '../app/companion.js';
 
 describe('companion — room codes', () => {
@@ -142,5 +143,53 @@ describe('songFinished', () => {
     const long = { ...timeline, duration: 180 };
     assert.equal(songFinished({ now: 120, timeline: long }), false);
     assert.equal(songFinished({ now: 187, timeline: long }), true);
+  });
+});
+
+describe('fairOrder — the rotation', () => {
+  it('round-robins the queue between singers', () => {
+    const q = [
+      { track: 'a', by: 'Alex' },
+      { track: 'b', by: 'Alex' },
+      { track: 'c', by: 'Alex' },
+      { track: 'd', by: 'Sam' },
+      { track: 'e', by: 'Jo' },
+    ];
+    assert.deepEqual(
+      fairOrder(q).map((s) => s.track),
+      ['a', 'd', 'e', 'b', 'c']
+    );
+  });
+
+  it("keeps each singer's own songs in the order they queued them", () => {
+    const q = [
+      { track: 'a1', by: 'Alex' },
+      { track: 's1', by: 'Sam' },
+      { track: 'a2', by: 'Alex' },
+      { track: 's2', by: 'Sam' },
+    ];
+    const out = fairOrder(q).map((s) => s.track);
+    assert.ok(out.indexOf('a1') < out.indexOf('a2'));
+    assert.ok(out.indexOf('s1') < out.indexOf('s2'));
+  });
+
+  it('is a no-op for one singer, or a queue built on the TV', () => {
+    const solo = [{ track: 'a', by: 'Alex' }, { track: 'b', by: 'Alex' }];
+    assert.deepEqual(fairOrder(solo).map((s) => s.track), ['a', 'b']);
+    const tv = [{ track: 'a' }, { track: 'b' }, { track: 'c' }];
+    assert.deepEqual(fairOrder(tv).map((s) => s.track), ['a', 'b', 'c']);
+  });
+
+  it('never drops or duplicates a song', () => {
+    const q = Array.from({ length: 17 }, (_, i) => ({ track: `t${i}`, by: ['A', 'B', 'C'][i % 3] }));
+    const out = fairOrder(q);
+    assert.equal(out.length, q.length);
+    assert.equal(new Set(out.map((s) => s.track)).size, q.length);
+  });
+
+  it('tolerates junk', () => {
+    assert.deepEqual(fairOrder(null), []);
+    assert.deepEqual(fairOrder([]), []);
+    assert.deepEqual(fairOrder([null, { track: 'a' }]).length, 2);
   });
 });

@@ -323,6 +323,67 @@
               </div>
             </section>
 
+            <!-- ---- Karaoke ---- -->
+            <section class="set-section">
+              <h2>Karaoke</h2>
+              <div class="set-group">
+                <label class="set-row">
+                  <span class="set-copy">
+                    <b>Sing through the speakers</b>
+                    <small id="mic-monitor-state">Your microphone, mixed in over the track.</small>
+                  </span>
+                  <span class="switch"><input type="checkbox" id="mic-monitor" /><span class="track"></span></span>
+                </label>
+                <div class="set-row static" id="mic-device-row" hidden>
+                  <span class="set-copy"><b>Microphone</b></span>
+                  <select id="mic-device" aria-label="Microphone"></select>
+                </div>
+                <div class="set-row static">
+                  <span class="set-copy">
+                    <b>Your voice <small id="mic-level-readout">70%</small></b>
+                    <small>How loud you come through over the track.</small>
+                  </span>
+                  <input id="mic-level" type="range" min="0" max="100" step="5" value="70"
+                    aria-label="Microphone level" />
+                </div>
+                <div class="set-row static">
+                  <span class="set-copy">
+                    <b>Reverb <small id="reverb-readout">25%</small></b>
+                    <small>A little room on the voice, the way a karaoke box sounds.</small>
+                  </span>
+                  <input id="mic-reverb" type="range" min="0" max="100" step="5" value="25" aria-label="Reverb" />
+                </div>
+                <div class="set-row static" id="vocal-level-row">
+                  <span class="set-copy">
+                    <b>Track vocals <small id="vocal-level-readout">100%</small></b>
+                    <small id="vocal-level-hint">Turn the original singer down so the room hears you instead.</small>
+                  </span>
+                  <input id="vocal-level" type="range" min="0" max="100" step="5" value="100"
+                    aria-label="Original vocal level" />
+                </div>
+                <div class="set-row static" id="key-row">
+                  <span class="set-copy">
+                    <b>Key <small id="key-readout">Original</small></b>
+                    <small id="key-hint">Move the whole track into your range. The tempo doesn't change.</small>
+                  </span>
+                  <div class="timing-dial" role="group" aria-label="Key">
+                    <button type="button" data-key="-1" title="A semitone down">&minus;</button>
+                    <button type="button" id="key-reset" class="timing-reset">Reset</button>
+                    <button type="button" data-key="1" title="A semitone up">+</button>
+                  </div>
+                </div>
+                <label class="set-row">
+                  <span class="set-copy">
+                    <b>Score my singing</b>
+                    <small>A score card when the song ends. Needs the microphone.</small>
+                  </span>
+                  <span class="switch"><input type="checkbox" id="scoring" /><span class="track"></span></span>
+                </label>
+              </div>
+              <p class="set-note">Use headphones, or keep the mic away from the speakers &mdash; otherwise it howls.
+                Bar4Bar pulls the mic down on its own if that starts.</p>
+            </section>
+
             <!-- ---- Timing ---- -->
             <section class="set-section">
               <h2>Timing</h2>
@@ -447,6 +508,28 @@
       </div>
     </div>
 
+    <!-- Live score while a song plays, the rotation along the bottom, and the
+         card that lands when it ends. All hang off #stage, like the other
+         playback overlays, so leaving the song clears them. -->
+    <div id="score-chip" hidden aria-live="off"></div>
+
+    <div id="queue-strip" hidden aria-label="Up next"></div>
+
+    <div id="scorecard" hidden role="dialog" aria-modal="true" aria-labelledby="sc-grade">
+      <div class="scorecard-card">
+        <span class="hero-kicker">How that went</span>
+        <div class="sc-score"><b id="sc-number">0</b><i>/100</i></div>
+        <h2 id="sc-grade">Keep going</h2>
+        <p id="sc-detail"></p>
+        <p class="sc-next" id="sc-next" hidden></p>
+        <div class="sc-actions">
+          <button id="sc-again" class="insp-btn" type="button">Sing again</button>
+          <button id="sc-clip" class="insp-btn" type="button">Clip</button>
+          <button id="sc-done" class="btn-primary" type="button">Done</button>
+        </div>
+      </div>
+    </div>
+
     <div id="busy" class="busy" hidden aria-live="assertive">
       <div class="busy-card">
         <div class="busy-vinyl" aria-hidden="true"><i></i></div>
@@ -473,6 +556,9 @@
         <div><dt>P</dt><dd>Reading mode</dd></div>
         <div><dt>S</dt><dd>Practice 0.8×</dd></div>
         <div><dt>T</dt><dd>Translate / romanize</dd></div>
+        <div><dt>M</dt><dd>Mic on / off</dd></div>
+        <div><dt>, .</dt><dd>Key down / up</dd></div>
+        <div><dt>- =</dt><dd>Track vocals down / up</dd></div>
         <div><dt>F</dt><dd>Fullscreen</dd></div>
         <div><dt>Esc</dt><dd>Exit mode / back</dd></div>
       </dl>
@@ -524,6 +610,33 @@
             <button id="btn-practice" class="insp-btn" type="button" title="Practice at 0.8× (local files · S)" aria-pressed="false" hidden>0.8×</button>
             <button id="btn-aid" class="insp-btn" type="button" title="Pronunciation / English (T)">Language</button>
             <button id="btn-clip" class="insp-btn" type="button" title="Record a 15-second vertical clip with your voice to share">Clip</button>
+          </div>
+        </div>
+
+        <div class="insp-divider"></div>
+
+        <div class="insp-section">
+          <b>Karaoke</b>
+          <p class="insp-hint" id="insp-karaoke-hint">Your mic over the track, the record's singer out of the way.</p>
+          <div class="insp-actions">
+            <button id="btn-mic" class="insp-btn" type="button" aria-pressed="false" title="Sing through the speakers">Mic off</button>
+          </div>
+          <div class="insp-slider">
+            <label for="insp-vocal">Track vocals <i id="insp-vocal-readout">100%</i></label>
+            <input id="insp-vocal" type="range" min="0" max="100" step="5" value="100"
+              aria-label="Original vocal level" />
+          </div>
+          <div class="insp-slider">
+            <label for="insp-mic-level">Your voice <i id="insp-mic-readout">70%</i></label>
+            <input id="insp-mic-level" type="range" min="0" max="100" step="5" value="70"
+              aria-label="Microphone level" />
+          </div>
+          <div class="insp-keyrow">
+            <span>Key <i id="insp-key-readout">Original</i></span>
+            <div class="timing-dial" role="group" aria-label="Key">
+              <button type="button" data-key="-1" title="A semitone down">&minus;</button>
+              <button type="button" data-key="1" title="A semitone up">+</button>
+            </div>
           </div>
         </div>
 

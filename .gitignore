@@ -17,3 +17,8 @@ public/
 tvos/**/.build
 tvos/**/.swiftpm
 xcuserdata/
+
+# Agent tooling scratch (ruflo, proven-config) — machine-local, never shared
+.claude-flow/
+.claude/proven-config.json
+.claude/.proven-config-version
