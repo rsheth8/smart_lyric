@@ -64,6 +64,29 @@ struct PhraseStage: View {
         let readingWidth = min(1380, max(620, geo.size.width - 400))
         let size = runtime.typeSize(for: line, width: readingWidth)
         ZStack {
+          // Ambient accent bloom: radial glow behind the active phrase,
+          // pulsing through a sine bell over the line's duration.
+          let lineEnd = line.words.last?.end ?? line.start
+          let lineProgress = line.start < lineEnd
+            ? max(0, min(1, (cueTime - line.start) / (lineEnd - line.start)))
+            : 0.0
+          let bloomPulse = reduceMotion ? 0.0 : sin(lineProgress * .pi)
+          let bloomOpacity = 0.07 + 0.11 * bloomPulse
+          RadialGradient(
+            gradient: Gradient(colors: [
+              session.accent.accent.opacity(bloomOpacity),
+              session.accent.accent.opacity(bloomOpacity * 0.3),
+              .clear
+            ]),
+            center: .center,
+            startRadius: 0,
+            endRadius: geo.size.height * 0.46
+          )
+          .frame(width: geo.size.width, height: geo.size.height * 0.9)
+          .position(x: geo.size.width * 0.5, y: geo.size.height * 0.43)
+          .blendMode(.screen)
+          .allowsHitTesting(false)
+
           // The reading plane is fixed. Preview length and timing revisions
           // cannot move the active phrase around the television.
           let hiddenWords: Set<Int> = session.blankNthWord > 1

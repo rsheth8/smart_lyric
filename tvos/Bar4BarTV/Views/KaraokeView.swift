@@ -786,6 +786,10 @@ struct WordWipeView: View {
       }
     }()
     let heat = estimated ? baseHeat * 0.90 : baseHeat
+    // Bell-curve scale: peaks at mid-wipe (sin peak), snaps back cleanly at word boundaries.
+    let wordScale: CGFloat = phase == .current
+        ? 1.0 + 0.07 * CGFloat(sin(rawWipe * .pi))
+        : 1.0
     ZStack(alignment: .bottom) {
       glyphs
         .foregroundStyle(Tokens.ink.opacity(heat))
@@ -803,6 +807,7 @@ struct WordWipeView: View {
           .offset(y: 5)
       }
     }
+    .scaleEffect(wordScale)
     .transaction { $0.animation = nil }
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(word.text)
