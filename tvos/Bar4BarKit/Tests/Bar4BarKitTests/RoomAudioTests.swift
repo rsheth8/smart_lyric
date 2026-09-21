@@ -135,4 +135,23 @@ final class RoomAudioTests: XCTestCase {
     XCTAssertNil(buffer.chunk())
     XCTAssertTrue(buffer.ordered().isEmpty)
   }
+  /// tvOS capture vends the device's own rate. The WAV has to say so, or a
+  /// 48kHz room reaches the fingerprinter 9% slow and matches nothing.
+  func testTheChunkIsLabelledWithTheRateTheAudioArrivedAt() {
+    let buffer = RoomBuffer(seconds: 1)
+    buffer.append([Float](repeating: 0.5, count: 100))
+    buffer.adopt(sampleRate: 48000)
+    XCTAssertNil(buffer.chunk(), "a rate change drops audio recorded at the old rate")
+    buffer.append([Float](repeating: 0.5, count: 100))
+    let wav = try! XCTUnwrap(buffer.chunk()).wav
+    XCTAssertEqual(u32(wav, 24), 48000)
+    XCTAssertEqual(u32(wav, 28), 96000, "byte rate follows the sample rate")
+  }
+
+  func testAdoptingTheSameRateKeepsWhatWasHeard() {
+    let buffer = RoomBuffer(seconds: 1, sampleRate: 100)
+    buffer.append([Float](repeating: 0.5, count: 10))
+    buffer.adopt(sampleRate: 100)
+    XCTAssertEqual(buffer.ordered().count, 10)
+  }
 }

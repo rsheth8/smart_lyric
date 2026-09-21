@@ -40,6 +40,7 @@ struct RemoteView: View {
             .font(.callout).foregroundStyle(.secondary)
             .transition(.opacity)
         }
+        VoiceControls().padding(.top, 20)
       }
       .frame(maxWidth: 900, alignment: .leading)
       .animation(Motion.snappy, value: model.guests)
@@ -48,6 +49,44 @@ struct RemoteView: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background { Backdrop(url: model.recent.first?.artwork ?? model.chart.first?.artwork) }
+  }
+}
+
+/// Hear yourself through the TV. The phone that is the remote is also the mic,
+/// so this lives with the pairing. Shown with no mic too — disabled, with the
+/// reason — because a control that only appears on the right hardware looks,
+/// everywhere else, like it was never built.
+struct VoiceControls: View {
+  @Environment(AppModel.self) private var model
+
+  var body: some View {
+    let ready = model.micAvailability == .ready
+    VStack(alignment: .leading, spacing: 18) {
+      HStack(spacing: 24) {
+        Button { model.toggleMonitor() } label: {
+          Label("Hear yourself: \(model.monitoring ? "On" : "Off")",
+                systemImage: model.monitoring ? "speaker.wave.2.fill" : "mic")
+        }
+        Button { model.cycleReverb() } label: {
+          Label("Reverb: \(model.reverbName)", systemImage: "sparkles")
+        }
+      }
+      .disabled(!ready)
+      Text(note)
+        .font(.callout)
+        .foregroundStyle(.secondary)
+        .contentTransition(.opacity)
+    }
+    .animation(Motion.snappy, value: model.monitoring)
+    .animation(Motion.snappy, value: model.monitorNote)
+  }
+
+  private var note: String {
+    switch model.micAvailability {
+    case .ready: model.monitorNote ?? "Plays the mic through the TV’s speakers. Start with the volume low."
+    case .needsPermission: "Microphone access is off — turn it on in Settings to hear yourself."
+    case .noDevice: "Needs an iPhone nearby to be the mic."
+    }
   }
 }
 

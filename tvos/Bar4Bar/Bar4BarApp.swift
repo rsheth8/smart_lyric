@@ -51,6 +51,27 @@ final class AppModel {
     }
   }
 
+  /// Hearing yourself through the TV. Off at every launch on purpose: a TV that
+  /// wakes up already feeding its own mic back into its speakers is a howl
+  /// before anyone has touched the remote.
+  var monitoring = false
+  /// What the room should know about the monitor: a latency warning, or why it
+  /// switched itself off.
+  var monitorNote: String?
+  var reverb = UserDefaults.standard.object(forKey: AppModel.reverbKey) as? Double ?? Monitor.defaultReverb {
+    didSet {
+      UserDefaults.standard.set(reverb, forKey: Self.reverbKey)
+      mic.voice.setReverb(reverb)
+    }
+  }
+  /// tvOS has no slider, so reverb is three presses of one button.
+  static let reverbSteps: [(name: String, amount: Double)] = [
+    ("Dry", 0), ("Light", Monitor.defaultReverb), ("Big", 0.5),
+  ]
+  var reverbName: String {
+    Self.reverbSteps.min { abs($0.amount - reverb) < abs($1.amount - reverb) }!.name
+  }
+
   @ObservationIgnored private let link: RelayLink
   @ObservationIgnored private var lastState: TVState?
   @ObservationIgnored private var lastSent = Date.distantPast
@@ -59,7 +80,9 @@ final class AppModel {
   @ObservationIgnored let sync = SyncClock()
   @ObservationIgnored private let mic = ContinuityMic()
   @ObservationIgnored private var detector: SongDetector?
+  @ObservationIgnored private var howlWatch: Task<Void, Never>?
   private static let recentKey = "bar4bar.recent.v1"
+  private static let reverbKey = "bar4bar.reverb.v1"
 
   init() {
     var room = Companion.newRoomCode()
@@ -80,7 +103,15 @@ final class AppModel {
     Analytics.track("app_open", ["surface": "tvos"])
     link.start { [weak self] in self?.handle($0) }
     Task { chart = await Catalog.topSongs() }
-    await startListening()
+    #if DEBUG
+    // `-noMic YES`: UI tests. The microphone prompt takes the remote's focus
+    // mid-test whenever the Simulator's privacy state resets, and a mic that gets
+    // allowed spends ACRCloud's 100 free recognitions listening to a Mac.
+    let micOff = UserDefaults.standard.bool(forKey: "noMic")
+    #else
+    let micOff = false
+    #endif
+    if !micOff { await startListening() }
     // Heartbeat: roll into the next queued song, keep phones in sync.
     while !Task.isCancelled {
       if let session, session.readyToRollOn, !queue.isEmpty { playNext() }
@@ -113,10 +144,52 @@ final class AppModel {
   }
 
   func stopListening() {
+    stopMonitor()
     detector?.stop()
     detector = nil
     mic.stop()
     listening = .idle
+  }
+
+  func toggleMonitor() {
+    guard !monitoring else { return stopMonitor() }
+    guard let latency = mic.startMonitor(reverb: reverb) else {
+      monitorNote = "The TV’s speakers wouldn’t open for the mic."
+      return
+    }
+    monitoring = true
+    let verdict = Monitor.verdict(latency)
+    monitorNote = Monitor.advice(verdict)
+    Analytics.track("monitor_on", ["surface": "tvos", "latency": verdict.rawValue])
+    // Watch for the howl at the same rate the score samples the room.
+    howlWatch = Task { [weak self] in
+      let howl = FeedbackGuard()
+      while !Task.isCancelled {
+        try? await Task.sleep(for: .seconds(0.1))
+        guard let self, self.monitoring else { return }
+        if howl.update(self.mic.level, now: ProcessInfo.processInfo.systemUptime) {
+          return self.stopMonitor(note: "Switched off — it started to feed back. Turn the TV down or move the phone away, then try again.")
+        }
+        // An HDMI route change stops the engine without telling anyone.
+        if !self.mic.voice.isRunning {
+          return self.stopMonitor(note: "The TV’s audio changed, so the mic stopped. Turn it back on.")
+        }
+      }
+    }
+  }
+
+  func cycleReverb() {
+    let names = Self.reverbSteps.map(\.name)
+    let next = ((names.firstIndex(of: reverbName) ?? 0) + 1) % names.count
+    reverb = Self.reverbSteps[next].amount
+  }
+
+  private func stopMonitor(note: String? = nil) {
+    howlWatch?.cancel()
+    howlWatch = nil
+    mic.voice.stop()
+    monitoring = false
+    monitorNote = note
   }
 
   /// The mic recognised something. If it isn't what's already on stage, put it up

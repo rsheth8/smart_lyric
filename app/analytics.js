@@ -20,6 +20,9 @@ export const EVENTS = {
   // The TV worked out what was playing by listening to the room (tvOS auto-sync).
   song_heard: { surface: SURFACE },
   song_scored: { surface: SURFACE, grade: ['Superstar', 'Headliner', 'Encore', 'Warmed up', 'Keep going'] },
+  // Hearing yourself through the TV; latency is Monitor.Latency in tvos/, so we
+  // learn how many real TVs are too slow for it.
+  monitor_on: { surface: SURFACE, latency: ['comfortable', 'noticeable', 'tooSlow'] },
 };
 
 export function waitBucket(ms) {

@@ -60,6 +60,7 @@ public enum RoomAudio {
 /// loud enough to be music. Feed it capture callbacks; ask it for a chunk.
 public final class RoomBuffer {
   private var buffer: [Float]
+  private let seconds: Double
   private var writeIndex = 0
   private var filled = false
   private let wallNow: () -> Double
@@ -69,6 +70,8 @@ public final class RoomBuffer {
   public private(set) var onsetAt: Double?
   /// Smoothed input level, 0...1 — for a listening indicator on screen.
   public private(set) var level = 0.0
+  /// The rate the samples really arrive at, which is what the WAV must say.
+  public private(set) var sampleRate: Double
 
   public init(
     seconds: Double = RoomAudio.bufferSeconds,
@@ -77,8 +80,22 @@ public final class RoomBuffer {
     now: @escaping () -> Double = { ProcessInfo.processInfo.systemUptime }
   ) {
     self.buffer = [Float](repeating: 0, count: Int(seconds * sampleRate))
+    self.seconds = seconds
+    self.sampleRate = sampleRate
     self.threshold = threshold
     self.wallNow = now
+  }
+
+  /// Capture on tvOS can't be asked for a format — `audioSettings` is
+  /// unavailable there — so it vends whatever the device runs at, usually
+  /// 48kHz. A 48kHz recording labelled 44.1kHz plays 9% slow, which is a
+  /// fingerprint that matches nothing and an offset that drifts. Call this with
+  /// the rate each capture buffer declares; it is free when nothing changed.
+  public func adopt(sampleRate rate: Double) {
+    guard rate.isFinite, rate > 0, rate != sampleRate else { return }
+    sampleRate = rate
+    buffer = [Float](repeating: 0, count: Int(seconds * rate))
+    reset()
   }
 
   public func append(_ samples: [Float]) {
@@ -101,7 +118,7 @@ public final class RoomBuffer {
   /// — there is no point spending an API call on silence.
   public func chunk() -> AudioChunk? {
     guard let onsetAt else { return nil }
-    return AudioChunk(wav: RoomAudio.encodeWAV(ordered()), onsetAt: onsetAt)
+    return AudioChunk(wav: RoomAudio.encodeWAV(ordered(), sampleRate: sampleRate), onsetAt: onsetAt)
   }
 
   /// Oldest sample first, which is what a fingerprint needs.

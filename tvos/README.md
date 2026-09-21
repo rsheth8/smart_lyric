@@ -69,7 +69,33 @@ at the room without anyone in it.
 The card needs a mic, a finished song and an Apple TV before it appears, so
 Debug builds take `-fakeScore 72` to stand one up for `RemoteFlowTests`.
 
+## Hearing yourself
+
+Phone Remote → **Hear yourself** plays the mic back through the TV, with
+**Reverb** cycling Dry / Light / Big. It is fed from the same capture as the
+fingerprint, not a second input on the mic, and it is off at every launch.
+
+Two hazards, both policy in `Bar4BarKit/Monitor.swift` and unit-tested:
+
+- **Feedback.** The mic hears the speakers it feeds. `FeedbackGuard` (a port of
+  the web's) switches the monitor off after 0.9s of sustained level above 0.55.
+- **Latency.** Past ~25ms a singer hears a slapback echo, and HDMI into a
+  television is a slow path. The app reports what AVAudioSession admits to plus
+  one capture buffer; it can't see the phone-to-TV hop or the television's own
+  processing, so a clean verdict is a floor. It warns rather than refuses.
+
+Capture on tvOS can't be asked for a format (`audioSettings` is unavailable),
+so it arrives at the device's own rate. `RoomBuffer.adopt(sampleRate:)` makes
+the fingerprint WAV and the monitor both say the true rate.
+
+**Unverified:** none of this has made a sound yet. It needs an Apple TV 4K
+(2nd gen+) with an iPhone as the Continuity Mic. `monitor_on` analytics carry
+the latency verdict, so the first real sessions tell us how many TVs are too slow.
+
 `project.yml` is the source of truth for the Xcode project (`brew install xcodegen`).
-Debug builds accept `-room ABCDEFGH` as a launch argument to pin the phone room code.
+Debug builds accept `-room ABCDEFGH` as a launch argument to pin the phone room code,
+and `-noMic YES` to skip the room mic — the UI tests use it, because the
+microphone prompt steals the remote's focus whenever the Simulator's privacy
+state resets.
 
 Siri Remote while singing: play/pause, left/right nudges timing by 0.1s, Menu goes back.

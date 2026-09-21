@@ -8,7 +8,7 @@ final class RemoteFlowTests: XCTestCase {
   private let remote = XCUIRemote.shared
 
   func testCouchFlow() {
-    app.launchArguments += ["-room", "BARBAR42"]
+    app.launchArguments += ["-room", "BARBAR42", "-noMic", "YES"]
     app.launch()
     XCTAssertTrue(waitUntil(15) { self.app.buttons["Home"].hasFocus }, "launch focus starts on the tab bar")
     snap("01-home", after: 3)
@@ -18,6 +18,8 @@ final class RemoteFlowTests: XCTestCase {
     snap("02-search", after: 2)
     remote.press(.right)
     XCTAssertTrue(labelled("Your phone is the remote").waitForExistence(timeout: 5))
+    // No mic in the Simulator, so it's disabled — but it has to be there.
+    XCTAssertTrue(app.buttons["Hear yourself: Off"].exists, "the voice monitor should be on the pairing screen")
     snap("03-phone-remote", after: 2)
     remote.press(.left)
     remote.press(.left)
@@ -69,7 +71,7 @@ final class RemoteFlowTests: XCTestCase {
   /// What this checks is the layout and the wording — the numbers behind it are
   /// ScoreKeeper's, and those are tested in Bar4BarKit.
   func testScoreCard() {
-    app.launchArguments += ["-room", "BARBAR42", "-fakeScore", "72"]
+    app.launchArguments += ["-room", "BARBAR42", "-noMic", "YES", "-fakeScore", "72"]
     app.launch()
     XCTAssertTrue(waitUntil(15) { self.app.buttons["Home"].hasFocus })
     for _ in 1...3 {
