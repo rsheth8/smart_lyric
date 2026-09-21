@@ -48,6 +48,7 @@ struct HomeView: View {
     VStack(alignment: .leading, spacing: 0) {
       SpotlightHeader(spotlight: shown)
         .frame(height: 290, alignment: .bottomLeading)
+        .overlay(alignment: .topTrailing) { ListeningChip() }
         .padding(.bottom, 36)
       ScrollViewReader { rows in
         ScrollView {
@@ -259,6 +260,55 @@ struct SearchView: View {
         results = found
         searching = false
       }
+    }
+  }
+}
+
+/// What the room mic is doing, on screen.
+///
+/// The listening mode soft-fails to manual so quietly — no phone nearby is a
+/// normal way to use the TV — that without this chip there is no way to tell
+/// whether the app is hearing the room, waiting for a phone, or never had a
+/// microphone in the first place. On the Simulator it always reads "No mic",
+/// which is correct: there is no microphone to have.
+struct ListeningChip: View {
+  @Environment(AppModel.self) private var model
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var pulse = false
+
+  var body: some View {
+    HStack(spacing: 10) {
+      Circle()
+        .fill(tint)
+        .frame(width: 10, height: 10)
+        .opacity(active && pulse && !reduceMotion ? 0.35 : 1)
+      Text(model.listeningLabel)
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(active ? Theme.sung : .secondary)
+    }
+    .padding(.horizontal, 20)
+    .padding(.vertical, 10)
+    .glass(Capsule())
+    .animation(Motion.snappy, value: model.listeningLabel)
+    .task(id: active) {
+      guard active, !reduceMotion else { return }
+      // Breathe only while it is actually doing something.
+      while !Task.isCancelled {
+        withAnimation(.easeInOut(duration: 0.9)) { pulse.toggle() }
+        try? await Task.sleep(for: .seconds(0.9))
+      }
+    }
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(model.listeningLabel)
+  }
+
+  private var active: Bool { model.listening != .idle }
+
+  private var tint: Color {
+    switch model.listening {
+    case .locked: Theme.accent
+    case .listening: Theme.sung
+    case .idle: .secondary
     }
   }
 }

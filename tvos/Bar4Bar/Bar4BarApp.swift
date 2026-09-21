@@ -32,6 +32,24 @@ final class AppModel {
   /// What the room mic is doing. `.idle` means manual mode: no mic, the singer
   /// starts the track themselves and nudges with the remote.
   var listening = ListenState.idle
+  /// Why the mic isn't running, when it isn't. Without this the app soft-fails
+  /// to manual mode so quietly that it looks like nothing was ever built.
+  var micAvailability = ContinuityMic.Availability.noDevice
+
+  /// One line for the listening chip: what the room mic is doing, or why it
+  /// isn't doing it.
+  var listeningLabel: String {
+    switch listening {
+    case .locked: "In time with the room"
+    case .listening: "Listening for music…"
+    case .idle:
+      switch micAvailability {
+      case .ready: "Mic idle"
+      case .needsPermission: "Microphone access is off"
+      case .noDevice: "No mic — manual mode"
+      }
+    }
+  }
 
   @ObservationIgnored private let link: RelayLink
   @ObservationIgnored private var lastState: TVState?
@@ -78,6 +96,7 @@ final class AppModel {
   func startListening() async {
     guard detector == nil else { return }
     let availability = await mic.start()
+    micAvailability = availability
     guard availability == .ready else {
       listening = .idle
       return
