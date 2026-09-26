@@ -12,7 +12,8 @@ let package = Package(
     .library(name: "Bar4BarCore", targets: ["Bar4BarCore"]),
   ],
   targets: [
-    .target(name: "Bar4BarCore"),
+    .target(name: "Bar4BarCore",
+            resources: [.copy("Resources/WordTimer.mlpackage")]),
     .testTarget(
       name: "Bar4BarCoreTests",
       dependencies: ["Bar4BarCore"],

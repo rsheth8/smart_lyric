@@ -147,10 +147,10 @@ struct KaraokeView: View {
     .onMoveCommand { direction in
       switch direction {
       case .left:
-        if music.canTransport { replayCurrentLine() }
+        if music.canTransport { if !replayCurrentLine() { showControls() } }
         else { showControls() }
       case .right:
-        if music.canTransport { skipToNextChorus() }
+        if music.canTransport { if !skipToNextChorus() { showControls() } }
         else { showControls() }
       default: showControls()
       }
@@ -274,6 +274,7 @@ struct KaraokeView: View {
 
   private var transportHint: String {
     switch focus {
+    case .home: return "Return to home screen"
     case .previous: return "Previous song"
     case .back: return "Back 15 seconds"
     case .play: return music.isPlaying ? "Pause" : "Play"
@@ -282,6 +283,7 @@ struct KaraokeView: View {
     case .timing: return "Match the words to what you hear"
     case .view: return "Choose your show, preview and singer roles"
     case .more: return "Language, sing mode and playback options"
+    case .hide: return "Hide controls · full stage view"
     case .cheer: return "Give the room a cheer"
     default: return music.canTransport ? "" : "Control playback in your music app"
     }
@@ -340,20 +342,22 @@ struct KaraokeView: View {
     }
   }
 
-  private func replayCurrentLine() {
+  @discardableResult
+  private func replayCurrentLine() -> Bool {
     let lines = session.timeline.lines
     let cue = music.liveTime + session.totalAlignment + session.singerLead
     let activeLi = DisplayMath.resolveActiveLine(lines, t: cue)
-    if let start = StageDirection.currentLineStart(lines: lines, t: cue, activeLi: activeLi) {
-      music.seek(to: max(0, start - session.totalAlignment - session.singerLead))
-    }
+    guard let start = StageDirection.currentLineStart(lines: lines, t: cue, activeLi: activeLi) else { return false }
+    music.seek(to: max(0, start - session.totalAlignment - session.singerLead))
+    return true
   }
 
-  private func skipToNextChorus() {
+  @discardableResult
+  private func skipToNextChorus() -> Bool {
     let cue = music.liveTime + session.totalAlignment + session.singerLead
-    if let start = StageDirection.nextChorusStart(sections: session.sections, t: cue) {
-      music.seek(to: max(0, start - session.totalAlignment - session.singerLead))
-    }
+    guard let start = StageDirection.nextChorusStart(sections: session.sections, t: cue) else { return false }
+    music.seek(to: max(0, start - session.totalAlignment - session.singerLead))
+    return true
   }
 
   private var concertVisualizer: some View {

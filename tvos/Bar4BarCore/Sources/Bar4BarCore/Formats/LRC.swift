@@ -42,7 +42,7 @@ public enum LRC {
         }
       } else {
         estimated = true
-        words = Estimate.wordsAcrossSpan(tokens: tokens, start: line.start, end: end)
+        words = WordTimingPredictor.shared.wordsAcrossSpan(tokens: tokens, start: line.start, end: end)
       }
       return LyricLine(start: line.start, end: end, words: words)
     }

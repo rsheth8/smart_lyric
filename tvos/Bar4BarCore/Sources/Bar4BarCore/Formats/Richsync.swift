@@ -39,7 +39,8 @@ public enum Richsync {
       if words.isEmpty {
         estimated = true
         let text = (e.x ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        words = Estimate.wordsAcrossSpan(tokens: Estimate.tokenizeLine(text), start: start, end: end)
+        words = WordTimingPredictor.shared.wordsAcrossSpan(
+            tokens: Estimate.tokenizeLine(text), start: start, end: end)
       } else {
         for k in 0..<words.count {
           words[k].end = k + 1 < words.count ? words[k + 1].start : end
